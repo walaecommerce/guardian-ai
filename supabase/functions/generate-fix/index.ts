@@ -11,7 +11,14 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, imageType, generativePrompt } = await req.json();
+    const { 
+      imageBase64, 
+      imageType, 
+      generativePrompt,
+      mainImageBase64, // Reference image for secondary images
+      previousCritique // Feedback from failed verification
+    } = await req.json();
+    
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -20,11 +27,36 @@ serve(async (req) => {
 
     const isMain = imageType === 'MAIN';
     
-    const prompt = generativePrompt || (isMain 
-      ? "Transform this product image to be Amazon MAIN image compliant: Place the product on a pure white RGB(255,255,255) background. Remove ALL text overlays, badges, watermarks. Keep the product centered and occupying 85% of the frame. Preserve exact product identity including labels, branding, shape. High resolution, sharp focus."
-      : "Make this image Amazon compliant while PRESERVING the lifestyle context and scene. Only remove prohibited elements like 'Best Seller' or 'Amazon's Choice' badges. Keep any infographic text if present. Maintain the natural background and setting.");
+    // Build prompt with context
+    let prompt = generativePrompt || (isMain 
+      ? "Transform this product image to be Amazon MAIN image compliant: Place the product on a pure white RGB(255,255,255) background. Remove ALL text overlays, badges, watermarks. Keep the product centered and occupying 85% of the frame. Preserve exact product identity including labels, branding, shape, colors. High resolution, sharp focus."
+      : "Make this image Amazon compliant while PRESERVING the lifestyle context and scene. Only remove prohibited elements like 'Best Seller' or 'Amazon's Choice' badges. Keep any infographic text if present. Maintain the natural background and setting. Preserve the exact product identity.");
 
-    console.log(`Generating ${imageType} fix...`);
+    // Add previous critique for retry attempts
+    if (previousCritique) {
+      prompt += `\n\nIMPORTANT - PREVIOUS ATTEMPT FAILED. Fix these issues:\n${previousCritique}`;
+    }
+
+    // Add cross-reference instruction for secondary images
+    if (!isMain && mainImageBase64) {
+      prompt += "\n\nCRITICAL: The product in this image MUST match the main product image exactly - same product, same labels, same colors.";
+    }
+
+    console.log(`Generating ${imageType} fix... ${previousCritique ? '(retry with critique)' : ''}`);
+
+    // Build content array with images
+    const content: any[] = [
+      { type: "text", text: prompt },
+      { type: "image_url", image_url: { url: imageBase64 } }
+    ];
+
+    // Add main image reference for secondary images
+    if (!isMain && mainImageBase64) {
+      content.push(
+        { type: "text", text: "Reference: This is the MAIN product image. Your output must show this same product:" },
+        { type: "image_url", image_url: { url: mainImageBase64 } }
+      );
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -35,13 +67,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-image-preview",
         messages: [
-          { 
-            role: "user", 
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: imageBase64 } }
-            ]
-          }
+          { role: "user", content }
         ],
         modalities: ["image", "text"]
       }),
