@@ -1,12 +1,7 @@
 import { ScrapedProduct } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 
 const ICON_FILTERS = ['icon', 'logo', 'button', 'zoom', 'magnify', 'spinner', 'play', 'star', 'pixel', 'sprite', 'transparent', 'badge', 'arrow', 'close'];
-
-const PROXIES = [
-  (url: string) => `https://r.jina.ai/${url}`,
-  (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-];
 
 export function extractAsin(url: string): string | null {
   const patterns = [
@@ -35,24 +30,6 @@ export function cleanImageUrl(url: string): string {
 function isIconOrSprite(url: string): boolean {
   const lower = url.toLowerCase();
   return ICON_FILTERS.some(filter => lower.includes(filter));
-}
-
-async function fetchWithProxy(url: string): Promise<string | null> {
-  for (const getProxyUrl of PROXIES) {
-    try {
-      const proxyUrl = getProxyUrl(url);
-      const response = await fetch(proxyUrl, { 
-        headers: { 'Accept': 'text/html,application/xhtml+xml' },
-        signal: AbortSignal.timeout(10000)
-      });
-      if (response.ok) {
-        return await response.text();
-      }
-    } catch (e) {
-      console.log('Proxy failed, trying next...');
-    }
-  }
-  return null;
 }
 
 function extractTitle(html: string): string {
@@ -97,7 +74,6 @@ function extractImages(html: string): string[] {
     if (!isIconOrSprite(url)) {
       const cleaned = cleanImageUrl(url);
       const id = getImageId(cleaned);
-      // Dedupe by image ID
       const existing = Array.from(imageSet).find(u => getImageId(u) === id);
       if (!existing) {
         imageSet.add(cleaned);
@@ -109,10 +85,9 @@ function extractImages(html: string): string[] {
 }
 
 export async function downloadImage(url: string): Promise<File | null> {
+  // Use weserv.nl which is reliable for image proxying
   const imageProxies = [
-    (u: string) => `https://wsrv.nl/?url=${encodeURIComponent(u)}`,
-    (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-    (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    (u: string) => `https://wsrv.nl/?url=${encodeURIComponent(u)}&n=-1`,
   ];
 
   for (const getProxy of imageProxies) {
@@ -131,27 +106,40 @@ export async function downloadImage(url: string): Promise<File | null> {
   return null;
 }
 
+// Try to scrape via backend edge function (uses Firecrawl if available)
+async function scrapeViaBackend(url: string): Promise<{ html?: string; markdown?: string } | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('scrape-amazon', {
+      body: { url }
+    });
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.log('Backend scraping not available');
+    return null;
+  }
+}
+
 export async function scrapeAmazonProduct(url: string): Promise<ScrapedProduct | null> {
   const asin = extractAsin(url);
   if (!asin) {
     throw new Error('Could not extract ASIN from URL');
   }
 
-  const html = await fetchWithProxy(url);
-  if (!html) {
-    throw new Error('Failed to fetch product page');
+  // Try backend scraping first (more reliable)
+  const backendResult = await scrapeViaBackend(url);
+  
+  if (backendResult?.html) {
+    const title = extractTitle(backendResult.html);
+    const images = extractImages(backendResult.html);
+    
+    if (images.length > 0) {
+      return { asin, title, images };
+    }
   }
 
-  const title = extractTitle(html);
-  const images = extractImages(html);
-
-  if (images.length === 0) {
-    throw new Error('No product images found');
-  }
-
-  return {
-    asin,
-    title,
-    images,
-  };
+  // If backend fails, throw helpful error
+  throw new Error(
+    'Amazon blocks direct scraping. Please use manual upload instead, or right-click product images on Amazon and save them to upload here.'
+  );
 }
