@@ -15,8 +15,8 @@ serve(async (req) => {
       imageBase64, 
       imageType, 
       generativePrompt,
-      mainImageBase64, // Reference image for secondary images
-      previousCritique // Feedback from failed verification
+      mainImageBase64,
+      previousCritique
     } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -27,22 +27,116 @@ serve(async (req) => {
 
     const isMain = imageType === 'MAIN';
     
-    // Build prompt with context
-    let prompt = generativePrompt || (isMain 
-      ? "Transform this product image to be Amazon MAIN image compliant: Place the product on a pure white RGB(255,255,255) background. Remove ALL text overlays, badges, watermarks. Keep the product centered and occupying 85% of the frame. Preserve exact product identity including labels, branding, shape, colors. High resolution, sharp focus."
-      : "Make this image Amazon compliant while PRESERVING the lifestyle context and scene. Only remove prohibited elements like 'Best Seller' or 'Amazon's Choice' badges. Keep any infographic text if present. Maintain the natural background and setting. Preserve the exact product identity.");
+    // Build comprehensive prompt based on image type
+    let prompt: string;
+    
+    if (isMain) {
+      prompt = generativePrompt || `Transform this product image into an Amazon MAIN image that is 100% compliant:
+
+## CRITICAL REQUIREMENTS - MUST FOLLOW EXACTLY:
+
+### 1. BACKGROUND TRANSFORMATION
+- Replace ENTIRE background with PURE WHITE: RGB(255,255,255)
+- This means EVERY pixel that is not the product must be #FFFFFF
+- Remove ALL shadows, gradients, or off-white tones
+- Create clean, crisp edges between product and background
+- NO gray areas, NO subtle shadows, NO gradient falloffs
+
+### 2. PRODUCT PRESERVATION (HIGHEST PRIORITY)
+- The product must remain EXACTLY as it appears in the original
+- Preserve ALL product labels, text, and branding PRECISELY
+- Maintain exact colors, shapes, and proportions
+- Keep all product details sharp and unchanged
+- DO NOT alter, enhance, or "improve" the product itself
+
+### 3. PROHIBITED ELEMENTS - REMOVE COMPLETELY
+- "Best Seller" badges or ribbons
+- "Amazon's Choice" labels
+- Star ratings or review counts
+- "Prime" logos (unless on actual packaging)
+- "Deal" or "Sale" tags
+- ANY promotional overlays
+- Watermarks or third-party logos
+
+### 4. FRAMING & COMPOSITION
+- Product should occupy 85% of the frame
+- Center the product perfectly
+- Square 1:1 aspect ratio
+- No cropping of product edges
+- Professional studio lighting appearance
+
+### 5. QUALITY STANDARDS
+- High resolution output
+- Sharp focus throughout
+- No compression artifacts
+- Professional appearance`;
+    } else {
+      prompt = generativePrompt || `Edit this SECONDARY Amazon product image while PRESERVING its context:
+
+## CRITICAL REQUIREMENTS:
+
+### 1. CONTEXT PRESERVATION (HIGHEST PRIORITY)
+- KEEP the lifestyle background/scene EXACTLY as is
+- DO NOT replace background with white
+- Maintain the infographic layout if present
+- Preserve all product demonstration context
+
+### 2. PRODUCT IDENTITY
+- The product shown must remain IDENTICAL
+- Same labels, same colors, same branding
+- No alterations to the product itself
+- Keep product positioning unchanged
+
+### 3. REMOVE ONLY PROHIBITED ELEMENTS:
+- "Best Seller" badges (gold/orange ribbon style)
+- "Amazon's Choice" labels (dark orange/black)
+- "#1 Best Seller" or ranking overlays
+- Star ratings added as overlays (not on packaging)
+- "Prime" logos added as overlays
+- Promotional text like "30% OFF" 
+- "Deal of the Day" tags
+
+### 4. PRESERVE ALLOWED ELEMENTS:
+- Product feature callouts ("Waterproof", "BPA Free")
+- Dimension/size annotations
+- Ingredient lists or material info
+- Comparison charts
+- Before/after demonstrations
+- How-to-use illustrations
+
+### 5. QUALITY
+- Maintain original image quality
+- Clean removal of prohibited elements
+- Seamless editing with no visible artifacts`;
+    }
 
     // Add previous critique for retry attempts
     if (previousCritique) {
-      prompt += `\n\nIMPORTANT - PREVIOUS ATTEMPT FAILED. Fix these issues:\n${previousCritique}`;
+      prompt += `
+
+## ⚠️ PREVIOUS ATTEMPT FAILED VERIFICATION - FIX THESE ISSUES:
+${previousCritique}
+
+This is a retry. The previous generated image had problems. You MUST address each issue listed above.
+Pay special attention to:
+1. Any background color issues mentioned
+2. Any product identity/mismatch issues
+3. Any remaining badges or prohibited elements
+4. Quality or composition problems noted`;
     }
 
     // Add cross-reference instruction for secondary images
     if (!isMain && mainImageBase64) {
-      prompt += "\n\nCRITICAL: The product in this image MUST match the main product image exactly - same product, same labels, same colors.";
+      prompt += `
+
+## 🔗 CROSS-REFERENCE REQUIREMENT:
+I am also providing the MAIN product image as reference.
+The product in your output MUST be visually consistent with this reference.
+Same product, same labels, same branding, same colors.
+This ensures listing coherence across all images.`;
     }
 
-    console.log(`Generating ${imageType} fix... ${previousCritique ? '(retry with critique)' : ''}`);
+    console.log(`[Guardian] Generating ${imageType} fix...${previousCritique ? ' (retry with critique)' : ''}`);
 
     // Build content array with images
     const content: any[] = [
@@ -53,7 +147,7 @@ serve(async (req) => {
     // Add main image reference for secondary images
     if (!isMain && mainImageBase64) {
       content.push(
-        { type: "text", text: "Reference: This is the MAIN product image. Your output must show this same product:" },
+        { type: "text", text: "MAIN PRODUCT REFERENCE IMAGE (your output must show this exact product):" },
         { type: "image_url", image_url: { url: mainImageBase64 } }
       );
     }
@@ -69,19 +163,23 @@ serve(async (req) => {
         messages: [
           { role: "user", content }
         ],
-        modalities: ["image", "text"]
+        modalities: ["image", "text"],
+        imageConfig: {
+          aspectRatio: "1:1"
+        }
       }),
     });
 
     if (!response.ok) {
       if (response.status === 429) {
+        console.error("[Guardian] Rate limit exceeded");
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please wait and try again." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
+      console.error("[Guardian] AI Gateway error:", response.status, errorText);
       throw new Error(`AI Gateway error: ${response.status}`);
     }
 
@@ -89,16 +187,17 @@ serve(async (req) => {
     const generatedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     
     if (!generatedImage) {
+      console.error("[Guardian] No image in response");
       throw new Error("No image generated");
     }
 
-    console.log("Image fix generated successfully");
+    console.log("[Guardian] Image fix generated successfully");
 
     return new Response(JSON.stringify({ fixedImage: generatedImage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Generation error:", error);
+    console.error("[Guardian] Generation error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,

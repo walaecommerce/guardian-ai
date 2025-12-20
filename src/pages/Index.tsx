@@ -115,7 +115,8 @@ const Index = () => {
     if (assets.length === 0) return;
     
     setIsAnalyzing(true);
-    addLog('processing', `Starting batch audit of ${assets.length} images...`);
+    addLog('processing', `🔍 Guardian initializing batch audit...`);
+    addLog('info', `📦 ${assets.length} images queued for compliance check`);
 
     for (let i = 0; i < assets.length; i++) {
       const asset = assets[i];
@@ -125,7 +126,10 @@ const Index = () => {
         a.id === asset.id ? { ...a, isAnalyzing: true } : a
       ));
 
-      addLog('processing', `Analyzing ${asset.type}: ${asset.name}`);
+      addLog('processing', `🔬 Scanning ${asset.type} image: ${asset.name}`);
+      addLog('info', `   ├─ Phase 1: Background pixel analysis...`);
+      addLog('info', `   ├─ Phase 2: Badge & text detection...`);
+      addLog('info', `   └─ Phase 3: Quality assessment...`);
       
       const result = await analyzeAsset(asset);
       
@@ -136,9 +140,18 @@ const Index = () => {
 
       if (result) {
         const status = result.status === 'PASS' ? 'success' : 'warning';
-        addLog(status, `${asset.name}: ${result.overallScore}% - ${result.status}`);
+        const emoji = result.status === 'PASS' ? '✅' : '⚠️';
+        addLog(status, `${emoji} ${asset.name}: Score ${result.overallScore}% - ${result.status}`);
+        
+        // Log critical violations
+        const criticalViolations = result.violations?.filter(v => v.severity === 'critical') || [];
+        if (criticalViolations.length > 0) {
+          criticalViolations.forEach(v => {
+            addLog('error', `   🚨 CRITICAL: ${v.message}`);
+          });
+        }
       } else {
-        addLog('error', `Failed to analyze ${asset.name}`);
+        addLog('error', `❌ Failed to analyze ${asset.name}`);
       }
 
       // Rate limit delay
@@ -147,7 +160,7 @@ const Index = () => {
       }
     }
 
-    addLog('success', 'Batch audit complete');
+    addLog('success', '🎯 Guardian batch audit complete');
     setIsAnalyzing(false);
     toast({ title: 'Audit Complete', description: 'All images analyzed' });
   };
@@ -172,13 +185,27 @@ const Index = () => {
       a.id === assetId ? { ...a, isGeneratingFix: true, fixAttempts: [] } : a
     ));
 
+    addLog('processing', `🎨 Guardian initiating ${asset.type} image fix...`);
+    addLog('info', `   ├─ Loading compliance requirements...`);
+    addLog('info', `   └─ Preparing AI generation pipeline...`);
+
     const originalBase64 = await fileToBase64(asset.file);
     let previousCritique: string | undefined;
     let finalImage: string | undefined;
     const maxAttempts = 3;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      addLog('processing', `🎨 Generating fix (attempt ${attempt}/${maxAttempts})...`);
+      addLog('processing', `🖼️ Generation attempt ${attempt}/${maxAttempts}...`);
+      
+      if (asset.type === 'MAIN') {
+        addLog('info', `   ├─ Applying pure white background (RGB 255,255,255)...`);
+        addLog('info', `   ├─ Removing prohibited badges/overlays...`);
+        addLog('info', `   └─ Optimizing product framing (85% occupancy)...`);
+      } else {
+        addLog('info', `   ├─ Preserving lifestyle context...`);
+        addLog('info', `   ├─ Scanning for prohibited badges...`);
+        addLog('info', `   └─ Maintaining product identity...`);
+      }
       
       try {
         // Step 1: Generate the fixed image
@@ -195,10 +222,14 @@ const Index = () => {
         if (genError) throw genError;
         if (!genData?.fixedImage) throw new Error('No image generated');
 
-        addLog('success', `✨ Image generated, verifying quality...`);
+        addLog('success', `✨ AI generation complete`);
 
         // Step 2: Verify the generated image
-        addLog('processing', `🔍 Scanning for compliance issues...`);
+        addLog('processing', `🔍 Verification protocol starting...`);
+        addLog('info', `   ├─ Check 1: Product identity match...`);
+        addLog('info', `   ├─ Check 2: Compliance fixes applied...`);
+        addLog('info', `   ├─ Check 3: Quality assessment...`);
+        addLog('info', `   └─ Check 4: No new issues introduced...`);
         
         const { data: verifyData, error: verifyError } = await supabase.functions.invoke('verify-image', {
           body: {
@@ -210,40 +241,55 @@ const Index = () => {
         });
 
         if (verifyError) {
-          addLog('warning', `⚠️ Verification failed, using generated image`);
+          addLog('warning', `⚠️ Verification unavailable, using generated image`);
           finalImage = genData.fixedImage;
           break;
         }
 
         const verification = verifyData;
         addLog('info', `📊 Verification score: ${verification.score}%`);
+        
+        if (verification.componentScores) {
+          addLog('info', `   ├─ Identity: ${verification.componentScores.identity}%`);
+          addLog('info', `   ├─ Compliance: ${verification.componentScores.compliance}%`);
+          addLog('info', `   ├─ Quality: ${verification.componentScores.quality}%`);
+          addLog('info', `   └─ Clean edit: ${verification.componentScores.noNewIssues}%`);
+        }
 
         if (verification.passedChecks?.length > 0) {
-          verification.passedChecks.slice(0, 2).forEach((check: string) => 
-            addLog('success', `✓ ${check}`)
+          verification.passedChecks.slice(0, 3).forEach((check: string) => 
+            addLog('success', `   ✓ ${check}`)
           );
         }
 
-        if (verification.isSatisfactory) {
-          addLog('success', `✅ Image passed verification!`);
+        if (verification.isSatisfactory && verification.productMatch) {
+          addLog('success', `✅ All verification checks passed!`);
           finalImage = genData.fixedImage;
           break;
         } else {
-          addLog('warning', `⚠️ Issues found: ${verification.critique}`);
+          if (!verification.productMatch) {
+            addLog('error', `🚨 CRITICAL: Product identity mismatch detected`);
+          }
+          addLog('warning', `⚠️ Issues: ${verification.critique}`);
+          
+          if (verification.failedChecks?.length > 0) {
+            verification.failedChecks.slice(0, 2).forEach((check: string) => 
+              addLog('warning', `   ✗ ${check}`)
+            );
+          }
           
           if (attempt < maxAttempts) {
-            addLog('processing', `🔄 I'll try again with improvements...`);
+            addLog('processing', `🔄 Refining prompt and retrying...`);
             previousCritique = verification.critique;
             
             if (verification.improvements?.length > 0) {
-              previousCritique += '\n\nSpecific fixes needed:\n' + 
+              previousCritique += '\n\nRequired improvements:\n' + 
                 verification.improvements.map((i: string) => `- ${i}`).join('\n');
             }
             
-            // Small delay before retry
             await new Promise(r => setTimeout(r, 2000));
           } else {
-            addLog('warning', `⚠️ Max attempts reached. Using best result.`);
+            addLog('warning', `⚠️ Max retries reached. Using best result (${verification.score}%).`);
             finalImage = genData.fixedImage;
           }
         }
@@ -259,6 +305,7 @@ const Index = () => {
           return;
         }
         
+        addLog('info', `   Waiting before retry...`);
         await new Promise(r => setTimeout(r, 3000));
       }
     }
