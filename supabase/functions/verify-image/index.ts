@@ -26,39 +26,97 @@ serve(async (req) => {
 
     const isMain = imageType === 'MAIN';
     
-    const systemPrompt = `You are an Amazon compliance verification expert. Your job is to verify that an AI-generated image meets Amazon's requirements.
+    const systemPrompt = `You are Guardian's verification module. Your job is to critically evaluate AI-generated product images for Amazon compliance.
 
-VERIFICATION CRITERIA:
+## VERIFICATION PROTOCOL
+
+You will receive:
+1. ORIGINAL IMAGE - The source product image with violations
+2. GENERATED IMAGE - The AI-corrected version to verify
+${!isMain ? '3. MAIN PRODUCT REFERENCE - To verify product consistency' : ''}
+
+## VERIFICATION CHECKLIST
+
+### CHECK 1: PRODUCT IDENTITY (CRITICAL - Weight: 40%)
+Compare the product between original and generated:
+- Is it visually the SAME product?
+- Are brand labels preserved and readable?
+- Are product colors accurate?
+- Are shapes and proportions correct?
+- Would a customer recognize this as the same item?
+
+FAIL CONDITIONS:
+- Product looks different from original
+- Labels are missing, changed, or illegible
+- Colors are significantly altered
+- Shape/proportions are distorted
+- Brand identity is compromised
+
+### CHECK 2: COMPLIANCE FIXES (Weight: 30%)
 ${isMain ? `
-MAIN IMAGE REQUIREMENTS:
-- Background MUST be pure white RGB(255,255,255)
-- NO text overlays, watermarks, or badges
-- Product should occupy 85%+ of frame
-- Product identity MUST match the original exactly (same product, labels, colors)
+For MAIN images, verify:
+- Background is PURE WHITE RGB(255,255,255)
+  * Sample corners and edges mentally
+  * No gray tones, no gradients, no shadows
+  * Clean crisp edge between product and background
+- All prohibited badges REMOVED
+- Product occupies ~85% of frame
+- Product is well-centered
 ` : `
-SECONDARY IMAGE REQUIREMENTS:
-- Lifestyle background preserved (NOT replaced with white)
-- Only prohibited badges removed (Best Seller, Amazon's Choice)
-- Product identity MUST match the original AND the main product image
-- Infographic text and context preserved
+For SECONDARY images, verify:
+- Original context/background is PRESERVED (NOT white)
+- ONLY prohibited badges removed
+- Infographic elements preserved
+- Product demonstration context intact
 `}
 
-CRITICAL CHECKS:
-1. Is the product in the generated image the SAME product as the original?
-2. Are product labels, branding, and colors preserved exactly?
-3. Have compliance issues been fixed without introducing new ones?
-${!isMain ? '4. Does the product match the main product reference (if provided)?' : ''}
+### CHECK 3: QUALITY ASSESSMENT (Weight: 20%)
+Evaluate:
+- Resolution maintained or improved
+- No blur or soft focus introduced
+- No compression artifacts
+- No unnatural edges or halos
+- Professional appearance
 
-Return JSON:
+### CHECK 4: NEW ISSUES INTRODUCED (Weight: 10%)
+Check for AI generation artifacts:
+- Distorted text on packaging
+- Warped product shapes
+- Unnatural lighting
+- Floating/disconnected elements
+- Visible editing seams
+
+## SCORING FORMULA
+Final Score = (Identity × 0.40) + (Compliance × 0.30) + (Quality × 0.20) + (NoNewIssues × 0.10)
+
+Score each component 0-100, then calculate weighted average.
+
+## OUTPUT FORMAT
+Return ONLY valid JSON:
 {
-  "score": <0-100>,
-  "isSatisfactory": boolean (true if score >= 85),
-  "productMatch": boolean (true if same product as original),
-  "critique": "Specific issues found that need fixing",
-  "improvements": ["List of specific improvements to make"],
-  "passedChecks": ["List of checks that passed"],
-  "failedChecks": ["List of checks that failed"]
-}`;
+  "score": <0-100 weighted final score>,
+  "isSatisfactory": <true if score >= 80 AND productMatch is true>,
+  "productMatch": <boolean - is this visually the SAME product?>,
+  "componentScores": {
+    "identity": <0-100>,
+    "compliance": <0-100>,
+    "quality": <0-100>,
+    "noNewIssues": <0-100>
+  },
+  "critique": "Concise description of the most important issues that need fixing",
+  "improvements": [
+    "Specific actionable improvement 1",
+    "Specific actionable improvement 2"
+  ],
+  "passedChecks": [
+    "What the generated image got RIGHT"
+  ],
+  "failedChecks": [
+    "What still needs to be fixed"
+  ]
+}
+
+CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for retry than pass a flawed image.`;
 
     const messages: any[] = [
       { role: "system", content: systemPrompt },
@@ -66,24 +124,32 @@ Return JSON:
 
     // Build content array with images
     const content: any[] = [
-      { type: "text", text: "Verify this AI-generated image against the original:" },
-      { type: "text", text: "ORIGINAL IMAGE:" },
+      { type: "text", text: `Verify this ${imageType} AI-generated image against Amazon compliance requirements.` },
+      { type: "text", text: "=== ORIGINAL IMAGE (source with violations) ===" },
       { type: "image_url", image_url: { url: originalImageBase64 } },
-      { type: "text", text: "GENERATED IMAGE:" },
+      { type: "text", text: "=== GENERATED IMAGE (AI-corrected, needs verification) ===" },
       { type: "image_url", image_url: { url: generatedImageBase64 } },
     ];
 
     // Add main image reference for secondary images
     if (!isMain && mainImageBase64) {
       content.push(
-        { type: "text", text: "MAIN PRODUCT REFERENCE (generated image must show this same product):" },
+        { type: "text", text: "=== MAIN PRODUCT REFERENCE (generated image must match this product) ===" },
         { type: "image_url", image_url: { url: mainImageBase64 } }
       );
     }
 
+    content.push({ 
+      type: "text", 
+      text: "Execute full verification protocol and return detailed JSON assessment." 
+    });
+
     messages.push({ role: "user", content });
 
-    console.log(`Verifying ${imageType} image...`);
+    console.log(`[Guardian] Verifying ${imageType} image...`);
+    console.log(`[Guardian] Check 1: Product identity verification...`);
+    console.log(`[Guardian] Check 2: Compliance fixes verification...`);
+    console.log(`[Guardian] Check 3: Quality assessment...`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -99,13 +165,14 @@ Return JSON:
 
     if (!response.ok) {
       if (response.status === 429) {
+        console.error("[Guardian] Rate limit exceeded");
         return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
+      console.error("[Guardian] AI Gateway error:", response.status, errorText);
       throw new Error(`AI Gateway error: ${response.status}`);
     }
 
@@ -114,17 +181,23 @@ Return JSON:
     
     const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+      console.error("[Guardian] Failed to parse JSON from response");
       throw new Error("Could not parse verification result");
     }
     
     const verification = JSON.parse(jsonMatch[0]);
-    console.log(`Verification complete. Score: ${verification.score}, Satisfactory: ${verification.isSatisfactory}`);
+    
+    console.log(`[Guardian] Verification complete. Score: ${verification.score}%, Satisfactory: ${verification.isSatisfactory}`);
+    console.log(`[Guardian] Product match: ${verification.productMatch}`);
+    if (verification.failedChecks?.length > 0) {
+      console.log(`[Guardian] Failed checks: ${verification.failedChecks.join(', ')}`);
+    }
 
     return new Response(JSON.stringify(verification), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Verification error:", error);
+    console.error("[Guardian] Verification error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
