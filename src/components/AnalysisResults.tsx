@@ -4,9 +4,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ImageAsset, AnalysisResult } from '@/types';
 import { useEffect, useState } from 'react';
+import { ExportButton } from '@/components/ExportButton';
 
 interface AnalysisResultsProps {
   assets: ImageAsset[];
+  listingTitle: string;
   onRequestFix: (assetId: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
 }
@@ -245,7 +247,7 @@ function AssetResultCard({
   );
 }
 
-export function AnalysisResults({ assets, onRequestFix, onViewDetails }: AnalysisResultsProps) {
+export function AnalysisResults({ assets, listingTitle, onRequestFix, onViewDetails }: AnalysisResultsProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult || a.isAnalyzing);
 
   if (analyzedAssets.length === 0) {
@@ -277,7 +279,10 @@ export function AnalysisResults({ assets, onRequestFix, onViewDetails }: Analysi
       {/* Summary Header */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Analysis Summary</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Analysis Summary</CardTitle>
+            <ExportButton assets={assets} listingTitle={listingTitle} />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
