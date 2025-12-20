@@ -72,8 +72,19 @@ export interface AnalysisResult {
 export interface VerificationResult {
   score: number;
   isSatisfactory: boolean;
+  productMatch: boolean;
   critique: string;
   improvements: string[];
+  passedChecks: string[];
+  failedChecks: string[];
+}
+
+// Fix Generation Types
+export interface FixAttempt {
+  attempt: number;
+  generatedImage: string;
+  verification?: VerificationResult;
+  status: 'generating' | 'verifying' | 'passed' | 'failed' | 'error';
 }
 
 // Scraping Types

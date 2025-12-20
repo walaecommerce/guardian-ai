@@ -156,36 +156,119 @@ const Index = () => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
 
+    // Get main image for cross-reference (for secondary images)
+    const mainAsset = assets.find(a => a.type === 'MAIN' && a.id !== assetId);
+    let mainImageBase64: string | undefined;
+    
+    if (asset.type === 'SECONDARY' && mainAsset) {
+      mainImageBase64 = await fileToBase64(mainAsset.fixedImage ? 
+        await fetch(mainAsset.fixedImage).then(r => r.blob()).then(b => new File([b], 'main.jpg')) : 
+        mainAsset.file
+      );
+      addLog('info', `🔗 Cross-referencing with MAIN product image`);
+    }
+
     setAssets(prev => prev.map(a => 
-      a.id === assetId ? { ...a, isGeneratingFix: true } : a
+      a.id === assetId ? { ...a, isGeneratingFix: true, fixAttempts: [] } : a
     ));
-    addLog('processing', `Generating fix for ${asset.name}...`);
 
-    try {
-      const base64 = await fileToBase64(asset.file);
+    const originalBase64 = await fileToBase64(asset.file);
+    let previousCritique: string | undefined;
+    let finalImage: string | undefined;
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      addLog('processing', `🎨 Generating fix (attempt ${attempt}/${maxAttempts})...`);
       
-      const { data, error } = await supabase.functions.invoke('generate-fix', {
-        body: { 
-          imageBase64: base64, 
-          imageType: asset.type,
-          generativePrompt: asset.analysisResult?.generativePrompt 
+      try {
+        // Step 1: Generate the fixed image
+        const { data: genData, error: genError } = await supabase.functions.invoke('generate-fix', {
+          body: { 
+            imageBase64: originalBase64, 
+            imageType: asset.type,
+            generativePrompt: asset.analysisResult?.generativePrompt,
+            mainImageBase64,
+            previousCritique
+          }
+        });
+
+        if (genError) throw genError;
+        if (!genData?.fixedImage) throw new Error('No image generated');
+
+        addLog('success', `✨ Image generated, verifying quality...`);
+
+        // Step 2: Verify the generated image
+        addLog('processing', `🔍 Scanning for compliance issues...`);
+        
+        const { data: verifyData, error: verifyError } = await supabase.functions.invoke('verify-image', {
+          body: {
+            originalImageBase64: originalBase64,
+            generatedImageBase64: genData.fixedImage,
+            imageType: asset.type,
+            mainImageBase64
+          }
+        });
+
+        if (verifyError) {
+          addLog('warning', `⚠️ Verification failed, using generated image`);
+          finalImage = genData.fixedImage;
+          break;
         }
-      });
 
-      if (error) throw error;
+        const verification = verifyData;
+        addLog('info', `📊 Verification score: ${verification.score}%`);
 
+        if (verification.passedChecks?.length > 0) {
+          verification.passedChecks.slice(0, 2).forEach((check: string) => 
+            addLog('success', `✓ ${check}`)
+          );
+        }
+
+        if (verification.isSatisfactory) {
+          addLog('success', `✅ Image passed verification!`);
+          finalImage = genData.fixedImage;
+          break;
+        } else {
+          addLog('warning', `⚠️ Issues found: ${verification.critique}`);
+          
+          if (attempt < maxAttempts) {
+            addLog('processing', `🔄 I'll try again with improvements...`);
+            previousCritique = verification.critique;
+            
+            if (verification.improvements?.length > 0) {
+              previousCritique += '\n\nSpecific fixes needed:\n' + 
+                verification.improvements.map((i: string) => `- ${i}`).join('\n');
+            }
+            
+            // Small delay before retry
+            await new Promise(r => setTimeout(r, 2000));
+          } else {
+            addLog('warning', `⚠️ Max attempts reached. Using best result.`);
+            finalImage = genData.fixedImage;
+          }
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Generation failed';
+        addLog('error', `❌ Attempt ${attempt} failed: ${msg}`);
+        
+        if (attempt === maxAttempts) {
+          setAssets(prev => prev.map(a => 
+            a.id === assetId ? { ...a, isGeneratingFix: false } : a
+          ));
+          toast({ title: 'Generation Failed', description: msg, variant: 'destructive' });
+          return;
+        }
+        
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+
+    if (finalImage) {
       setAssets(prev => prev.map(a => 
-        a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: data.fixedImage } : a
+        a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: finalImage } : a
       ));
-      addLog('success', `Fix generated for ${asset.name}`);
+      addLog('success', `🎉 Fix complete for ${asset.name}`);
       toast({ title: 'Fix Generated', description: 'AI-corrected image is ready' });
-    } catch (error) {
-      setAssets(prev => prev.map(a => 
-        a.id === assetId ? { ...a, isGeneratingFix: false } : a
-      ));
-      const msg = error instanceof Error ? error.message : 'Generation failed';
-      addLog('error', msg);
-      toast({ title: 'Generation Failed', description: msg, variant: 'destructive' });
     }
   };
 
