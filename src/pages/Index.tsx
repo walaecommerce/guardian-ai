@@ -2,12 +2,14 @@ import { useState, useCallback } from 'react';
 import { Header } from '@/components/Header';
 import { ImageUploader } from '@/components/ImageUploader';
 import { AnalysisResults } from '@/components/AnalysisResults';
+import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
 import { ImageAsset, LogEntry, AnalysisResult } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId } from '@/services/amazonScraper';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Index = () => {
   const [assets, setAssets] = useState<ImageAsset[]>([]);
@@ -356,11 +358,27 @@ const Index = () => {
 
           {/* Right Panel - Results */}
           <div className="lg:col-span-8">
-            <AnalysisResults
-              assets={assets}
-              onRequestFix={handleRequestFix}
-              onViewDetails={handleViewDetails}
-            />
+            <Tabs defaultValue="results" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="results">Analysis Results</TabsTrigger>
+                <TabsTrigger value="comparison">Before / After</TabsTrigger>
+              </TabsList>
+              <TabsContent value="results">
+                <AnalysisResults
+                  assets={assets}
+                  listingTitle={listingTitle}
+                  onRequestFix={handleRequestFix}
+                  onViewDetails={handleViewDetails}
+                />
+              </TabsContent>
+              <TabsContent value="comparison">
+                <BatchComparisonView
+                  assets={assets}
+                  onViewDetails={handleViewDetails}
+                  onDownload={handleDownload}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </main>
