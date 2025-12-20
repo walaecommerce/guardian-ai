@@ -2,95 +2,113 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* Amazon Listing Guardian - Design System
+   All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Amazon-branded color palette */
+    --background: 0 0% 98%;
+    --foreground: 213 27% 17%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 213 27% 17%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 213 27% 17%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Amazon Orange as primary */
+    --primary: 33 100% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Amazon Dark Blue as secondary */
+    --secondary: 213 27% 23%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 213 15% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 33 100% 95%;
+    --accent-foreground: 33 100% 40%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Status colors */
+    --destructive: 0 73% 62%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --success: 145 63% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 45 100% 51%;
+    --warning-foreground: 0 0% 0%;
+
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 33 100% 50%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Sidebar */
+    --sidebar-background: 213 27% 17%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 33 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 213 27% 23%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 213 27% 25%;
+    --sidebar-ring: 33 100% 50%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Activity log terminal */
+    --terminal: 213 27% 12%;
+    --terminal-foreground: 120 100% 80%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 213 27% 10%;
+    --foreground: 0 0% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 213 27% 14%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 213 27% 14%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 33 100% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 213 27% 23%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 213 20% 18%;
+    --muted-foreground: 210 15% 60%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 33 100% 20%;
+    --accent-foreground: 33 100% 70%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --success: 145 55% 35%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 45 90% 45%;
+    --warning-foreground: 0 0% 0%;
+
+    --border: 213 27% 20%;
+    --input: 213 27% 20%;
+    --ring: 33 100% 50%;
+
+    --sidebar-background: 213 27% 8%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 33 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 213 27% 15%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 213 27% 15%;
+    --sidebar-ring: 33 100% 50%;
+
+    --terminal: 213 27% 6%;
+    --terminal-foreground: 120 100% 75%;
   }
 }
 
@@ -100,6 +118,131 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer components {
+  /* Score gauge animations */
+  .score-gauge {
+    @apply relative inline-flex items-center justify-center;
+  }
+
+  .score-gauge-circle {
+    transform: rotate(-90deg);
+    transform-origin: center;
+  }
+
+  /* Terminal/Activity log styling */
+  .terminal-log {
+    @apply font-mono text-sm bg-terminal text-terminal-foreground p-4 rounded-lg overflow-auto;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--terminal-foreground) / 0.3) transparent;
+  }
+
+  .terminal-log::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .terminal-log::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .terminal-log::-webkit-scrollbar-thumb {
+    background: hsl(var(--terminal-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  /* Image comparison slider */
+  .comparison-slider {
+    @apply relative w-full overflow-hidden rounded-lg;
+  }
+
+  /* Shimmer loading effect */
+  .shimmer {
+    @apply relative overflow-hidden;
+  }
+
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--muted) / 0.4),
+      transparent
+    );
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* Card hover effects */
+  .asset-card {
+    @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+  }
+
+  /* Score color utilities */
+  .score-pass {
+    @apply text-success;
+  }
+
+  .score-warning {
+    @apply text-warning;
+  }
+
+  .score-fail {
+    @apply text-destructive;
+  }
+}
+
+@layer utilities {
+  /* Staggered fade-in animation */
+  .animate-stagger-fade-in > * {
+    animation: fadeIn 0.3s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-stagger-fade-in > *:nth-child(1) { animation-delay: 0ms; }
+  .animate-stagger-fade-in > *:nth-child(2) { animation-delay: 100ms; }
+  .animate-stagger-fade-in > *:nth-child(3) { animation-delay: 200ms; }
+  .animate-stagger-fade-in > *:nth-child(4) { animation-delay: 300ms; }
+  .animate-stagger-fade-in > *:nth-child(5) { animation-delay: 400ms; }
+  .animate-stagger-fade-in > *:nth-child(6) { animation-delay: 500ms; }
+  .animate-stagger-fade-in > *:nth-child(7) { animation-delay: 600ms; }
+  .animate-stagger-fade-in > *:nth-child(8) { animation-delay: 700ms; }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Counter animation utility */
+  .animate-count-up {
+    animation: countUp 1s ease-out forwards;
+  }
+
+  /* Pulse glow for processing */
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% {
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+    }
+    50% {
+      box-shadow: 0 0 20px 4px hsl(var(--primary) / 0.2);
+    }
   }
 }
