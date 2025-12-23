@@ -17,26 +17,24 @@ serve(async (req) => {
       generativePrompt,
       mainImageBase64,
       previousCritique,
-      previousGeneratedImage, // Previous failed attempt for comparison
+      previousGeneratedImage,
       productTitle,
       productAsin,
-      customPrompt // User-provided custom prompt override
+      customPrompt
     } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not configured");
     }
 
     const isMain = imageType === 'MAIN';
     
     // Build comprehensive prompt based on image type
-    // Use custom prompt if provided, otherwise use generative prompt or default
     let prompt: string;
     
     if (customPrompt) {
-      // User provided a custom prompt - use it directly
       prompt = customPrompt;
       console.log("[Guardian] Using custom prompt from user");
     } else if (isMain) {
@@ -175,58 +173,38 @@ Preserve ALL visible branding, model numbers, and product-specific features.`;
       prompt += `
 
 ## 🔗 CROSS-REFERENCE REQUIREMENT:
-I am also providing the MAIN product image as reference.
-The product in your output MUST be visually consistent with this reference.
+The product in your output MUST be visually consistent with the main product image.
 Same product, same labels, same branding, same colors.
 This ensures listing coherence across all images.`;
     }
 
-    console.log(`[Guardian] Generating ${imageType} fix...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
+    console.log(`[Guardian] Generating ${imageType} fix using OpenAI gpt-image-1...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
 
-    // Build content array with images
-    const content: any[] = [
-      { type: "text", text: prompt },
-      { type: "text", text: "=== ORIGINAL IMAGE (fix this while preserving product identity) ===" },
-      { type: "image_url", image_url: { url: imageBase64 } }
-    ];
+    // Build the prompt with image context for OpenAI
+    let fullPrompt = prompt;
+    
+    // Note: OpenAI's image generation API takes the source image directly
+    // We'll edit the provided image based on the prompt
 
-    // Add previous generated image for comparison if provided
-    if (previousGeneratedImage) {
-      content.push(
-        { type: "text", text: "=== MY PREVIOUS ATTEMPT (analyze where I went wrong and fix it) ===" },
-        { type: "image_url", image_url: { url: previousGeneratedImage } }
-      );
-    }
-
-    // Add main image reference for secondary images
-    if (!isMain && mainImageBase64) {
-      content.push(
-        { type: "text", text: "MAIN PRODUCT REFERENCE IMAGE (your output must show this exact product):" },
-        { type: "image_url", image_url: { url: mainImageBase64 } }
-      );
-    }
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          { role: "user", content }
-        ],
-        modalities: ["image", "text"],
-        imageConfig: {
-          aspectRatio: "1:1"
-        }
+        model: "gpt-image-1",
+        image: imageBase64,
+        prompt: fullPrompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "high"
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[Guardian] AI Gateway error:", response.status, errorText);
+      console.error("[Guardian] OpenAI API error:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ 
@@ -238,9 +216,9 @@ This ensures listing coherence across all images.`;
         });
       }
       
-      if (response.status === 402) {
+      if (response.status === 402 || response.status === 401) {
         return new Response(JSON.stringify({ 
-          error: "Not enough AI credits. Please add credits to your Lovable workspace in Settings → Workspace → Usage.",
+          error: "OpenAI API key issue. Please check your API key has sufficient credits.",
           errorType: "payment_required"
         }), {
           status: 402,
@@ -248,20 +226,28 @@ This ensures listing coherence across all images.`;
         });
       }
       
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    const generatedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     
-    if (!generatedImage) {
-      console.error("[Guardian] No image in response");
+    // OpenAI returns b64_json by default for gpt-image-1
+    const generatedImageB64 = data.data?.[0]?.b64_json;
+    const generatedImageUrl = data.data?.[0]?.url;
+    
+    let fixedImage: string;
+    if (generatedImageB64) {
+      fixedImage = `data:image/png;base64,${generatedImageB64}`;
+    } else if (generatedImageUrl) {
+      fixedImage = generatedImageUrl;
+    } else {
+      console.error("[Guardian] No image in response:", data);
       throw new Error("No image generated");
     }
 
-    console.log("[Guardian] Image fix generated successfully");
+    console.log("[Guardian] Image fix generated successfully with OpenAI");
 
-    return new Response(JSON.stringify({ fixedImage: generatedImage }), {
+    return new Response(JSON.stringify({ fixedImage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
