@@ -17,9 +17,10 @@ serve(async (req) => {
       generativePrompt,
       mainImageBase64,
       previousCritique,
-      previousGeneratedImage, // NEW: Previous failed attempt for comparison
+      previousGeneratedImage, // Previous failed attempt for comparison
       productTitle,
-      productAsin
+      productAsin,
+      customPrompt // User-provided custom prompt override
     } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -31,9 +32,14 @@ serve(async (req) => {
     const isMain = imageType === 'MAIN';
     
     // Build comprehensive prompt based on image type
+    // Use custom prompt if provided, otherwise use generative prompt or default
     let prompt: string;
     
-    if (isMain) {
+    if (customPrompt) {
+      // User provided a custom prompt - use it directly
+      prompt = customPrompt;
+      console.log("[Guardian] Using custom prompt from user");
+    } else if (isMain) {
       prompt = generativePrompt || `Transform this product image into an Amazon MAIN image that is 100% compliant:
 
 ## CRITICAL REQUIREMENTS - MUST FOLLOW EXACTLY:

@@ -106,7 +106,11 @@ export interface FixProgressState {
   attempts: FixAttempt[]; // History of all attempts
   thinkingSteps: string[]; // Live AI reasoning
   lastCritique?: string;
+  customPrompt?: string; // User's custom prompt override
 }
+
+// Mode for optimize modal
+export type OptimizeMode = 'fix' | 'enhance';
 
 // Scraping Types
 export type ImageCategory = 'MAIN' | 'INFOGRAPHIC' | 'LIFESTYLE' | 'PRODUCT_IN_USE' | 'SIZE_CHART' | 'COMPARISON' | 'PACKAGING' | 'DETAIL' | 'UNKNOWN';
