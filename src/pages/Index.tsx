@@ -5,6 +5,7 @@ import { AnalysisResults } from '@/components/AnalysisResults';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
+import { ReportHistory } from '@/components/ReportHistory';
 import { ProgressStep } from '@/components/FixProgressSteps';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin } from '@/services/amazonScraper';
@@ -12,6 +13,8 @@ import { classifyImage } from '@/services/imageClassifier';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 
 const Index = () => {
   const [assets, setAssets] = useState<ImageAsset[]>([]);
@@ -192,7 +195,52 @@ const Index = () => {
 
     addLog('success', '🎯 Guardian batch audit complete');
     setIsAnalyzing(false);
-    toast({ title: 'Audit Complete', description: 'All images analyzed' });
+    toast({ title: 'Audit Complete', description: 'All images analyzed. Click "Save Report" to save for later.' });
+  };
+
+  const handleSaveReport = async () => {
+    const analyzedAssets = assets.filter(a => a.analysisResult);
+    if (analyzedAssets.length === 0) {
+      toast({ title: 'No Analysis', description: 'Run an audit first before saving', variant: 'destructive' });
+      return;
+    }
+
+    const passedCount = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS').length;
+    const failedCount = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL').length;
+    const fixedCount = assets.filter(a => a.fixedImage).length;
+    const scores = analyzedAssets.map(a => a.analysisResult?.overallScore || 0);
+    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+
+    const reportData = JSON.parse(JSON.stringify({
+      images: analyzedAssets.map(a => ({
+        name: a.name,
+        type: a.type,
+        score: a.analysisResult?.overallScore,
+        status: a.analysisResult?.status,
+        violations: a.analysisResult?.violations,
+        hasFixedImage: !!a.fixedImage
+      }))
+    }));
+
+    const { error } = await supabase.from('compliance_reports').insert([{
+      amazon_url: amazonUrl || null,
+      product_asin: productAsin || extractAsin(amazonUrl) || null,
+      listing_title: listingTitle || null,
+      total_images: analyzedAssets.length,
+      passed_count: passedCount,
+      failed_count: failedCount,
+      average_score: avgScore,
+      report_data: reportData,
+      fixed_images_count: fixedCount
+    }]);
+
+    if (error) {
+      addLog('error', `Failed to save report: ${error.message}`);
+      toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
+    } else {
+      addLog('success', '💾 Compliance report saved to history');
+      toast({ title: 'Report Saved', description: 'You can view it in Report History' });
+    }
   };
 
   const handleRequestFix = async (assetId: string, showProgressInModal = false) => {
@@ -415,15 +463,24 @@ const Index = () => {
               isAnalyzing={isAnalyzing}
             />
             <ActivityLog logs={logs} />
+            <ReportHistory />
           </div>
 
           {/* Right Panel - Results */}
           <div className="lg:col-span-8">
             <Tabs defaultValue="results" className="w-full">
-              <TabsList className="mb-4">
-                <TabsTrigger value="results">Analysis Results</TabsTrigger>
-                <TabsTrigger value="comparison">Before / After</TabsTrigger>
-              </TabsList>
+              <div className="flex items-center justify-between mb-4">
+                <TabsList>
+                  <TabsTrigger value="results">Analysis Results</TabsTrigger>
+                  <TabsTrigger value="comparison">Before / After</TabsTrigger>
+                </TabsList>
+                {assets.some(a => a.analysisResult) && (
+                  <Button onClick={handleSaveReport} variant="outline" size="sm">
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Report
+                  </Button>
+                )}
+              </div>
               <TabsContent value="results">
                 <AnalysisResults
                   assets={assets}
