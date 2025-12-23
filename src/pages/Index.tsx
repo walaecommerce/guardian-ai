@@ -338,7 +338,7 @@ const Index = () => {
     }
   };
 
-  const handleRequestFix = async (assetId: string, previousGeneratedImage?: string) => {
+  const handleRequestFix = async (assetId: string, previousGeneratedImage?: string, customPrompt?: string) => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
 
@@ -405,12 +405,13 @@ const Index = () => {
           body: { 
             imageBase64: originalBase64, 
             imageType: asset.type,
-            generativePrompt: asset.analysisResult?.generativePrompt,
+            generativePrompt: customPrompt || asset.analysisResult?.generativePrompt,
             mainImageBase64,
             previousCritique,
             previousGeneratedImage: lastGeneratedImage,
             productTitle: listingTitle || undefined,
-            productAsin: productAsin || extractAsin(amazonUrl) || undefined
+            productAsin: productAsin || extractAsin(amazonUrl) || undefined,
+            customPrompt: customPrompt // Pass custom prompt if provided
           }
         });
 
@@ -692,7 +693,7 @@ const Index = () => {
         asset={selectedAsset}
         isOpen={showFixModal}
         onClose={() => { setShowFixModal(false); setFixProgress(null); }}
-        onRetryFix={(id) => handleRequestFix(id)}
+        onRetryFix={(id, prevImage, customPrompt) => handleRequestFix(id, prevImage, customPrompt)}
         onDownload={handleDownload}
         fixProgress={fixProgress || undefined}
       />

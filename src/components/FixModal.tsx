@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, Download, CheckCircle, XCircle, ArrowRight, Loader2, RefreshCw, SlidersHorizontal, Columns2, Sparkles, Eye } from 'lucide-react';
+import { X, Download, CheckCircle, XCircle, ArrowRight, Loader2, RefreshCw, SlidersHorizontal, Sparkles, Eye, PenLine, Wand2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { ImageAsset, FixProgressState, FixAttempt } from '@/types';
+import { Textarea } from '@/components/ui/textarea';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ImageAsset, FixProgressState, FixAttempt, OptimizeMode } from '@/types';
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
 import { FixActivityLog } from '@/components/FixActivityLog';
 import { FixAttemptHistory } from '@/components/FixAttemptHistory';
@@ -15,14 +17,47 @@ interface FixModalProps {
   asset: ImageAsset | null;
   isOpen: boolean;
   onClose: () => void;
-  onRetryFix: (assetId: string, previousGeneratedImage?: string) => void;
+  onRetryFix: (assetId: string, previousGeneratedImage?: string, customPrompt?: string) => void;
   onDownload: (imageUrl: string, filename: string) => void;
   fixProgress?: FixProgressState;
+  mode?: OptimizeMode;
 }
 
-export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixProgress }: FixModalProps) {
+export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixProgress, mode = 'fix' }: FixModalProps) {
   const [selectedAttemptIndex, setSelectedAttemptIndex] = useState<number | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'live' | 'compare'>('live');
+  const [showPromptEditor, setShowPromptEditor] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [isPromptExpanded, setIsPromptExpanded] = useState(false);
+
+  // Default prompts based on image type
+  const getDefaultPrompt = (type: string) => {
+    if (type === 'MAIN') {
+      return `Transform this product image into an Amazon MAIN image that is 100% compliant:
+
+## CRITICAL REQUIREMENTS:
+1. Replace ENTIRE background with PURE WHITE: RGB(255,255,255)
+2. Preserve ALL product labels, text, and branding PRECISELY
+3. Remove "Best Seller" badges, "Amazon's Choice" labels, star ratings
+4. Product should occupy 85% of the frame, centered
+5. High resolution, sharp focus throughout`;
+    }
+    return `Edit this SECONDARY Amazon product image while PRESERVING its context:
+
+## CRITICAL REQUIREMENTS:
+1. KEEP the lifestyle background/scene EXACTLY as is
+2. The product shown must remain IDENTICAL
+3. Remove only prohibited elements (badges, ratings, promotional overlays)
+4. Preserve feature callouts, dimension annotations, comparison charts
+5. Maintain original image quality`;
+  };
+
+  // Reset state when asset changes
+  useEffect(() => {
+    if (asset) {
+      setCustomPrompt(asset.analysisResult?.generativePrompt || getDefaultPrompt(asset.type));
+    }
+  }, [asset?.id]);
 
   // Reset selected attempt when progress changes
   useEffect(() => {
@@ -36,6 +71,8 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
   const result = asset.analysisResult;
   const hasFixedImage = !!asset.fixedImage;
   const isGenerating = asset.isGeneratingFix;
+  const isPassed = result?.status === 'PASS';
+  const isEnhanceMode = mode === 'enhance' || isPassed;
 
   const handleDownload = () => {
     if (asset.fixedImage) {
@@ -43,10 +80,14 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
     }
   };
 
-  const handleSmartRegenerate = () => {
+  const handleSmartRegenerate = (withCustomPrompt = false) => {
     // Pass the last generated image for error-aware regeneration
     const lastImage = fixProgress?.attempts[fixProgress.attempts.length - 1]?.generatedImage || asset.fixedImage;
-    onRetryFix(asset.id, lastImage);
+    onRetryFix(asset.id, lastImage, withCustomPrompt ? customPrompt : undefined);
+  };
+
+  const handleGenerateWithPrompt = () => {
+    onRetryFix(asset.id, undefined, customPrompt);
   };
 
   const selectedAttempt = selectedAttemptIndex !== undefined && fixProgress?.attempts[selectedAttemptIndex];
@@ -241,27 +282,90 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
               <AnalysisDetails result={result} />
             )}
 
+            {/* Prompt Editor Section */}
+            <Collapsible open={isPromptExpanded} onOpenChange={setIsPromptExpanded}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full justify-between">
+                  <span className="flex items-center gap-2">
+                    <PenLine className="w-4 h-4" />
+                    Edit AI Generation Prompt
+                  </span>
+                  {isPromptExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2">
+                <div className="space-y-2">
+                  <Textarea
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    placeholder="Enter custom generation instructions..."
+                    className="min-h-[120px] text-xs font-mono"
+                    disabled={isGenerating}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setCustomPrompt(getDefaultPrompt(asset.type))}
+                      disabled={isGenerating}
+                    >
+                      Reset to Default
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleSmartRegenerate(true)}
+                      disabled={isGenerating}
+                      className="ml-auto"
+                    >
+                      <Wand2 className="w-3 h-3 mr-1" />
+                      Generate with Custom Prompt
+                    </Button>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
             {/* Actions */}
             <div className="flex gap-3 pt-4 border-t border-border">
-              {!hasFixedImage && result?.status === 'FAIL' && (
+              {/* Show Generate Fix for failed images without a fix */}
+              {!hasFixedImage && result?.status === 'FAIL' && !isGenerating && (
                 <Button
                   onClick={() => onRetryFix(asset.id)}
                   disabled={isGenerating}
                   className="flex-1"
                 >
-                  {isGenerating ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4 mr-2" />
-                  )}
+                  <Sparkles className="w-4 h-4 mr-2" />
                   Generate Fix
                 </Button>
               )}
-              {(hasFixedImage || fixProgress?.attempts.length) && (
+
+              {/* Show Enhance/Optimize for PASSED images or as alternative */}
+              {isPassed && !hasFixedImage && !isGenerating && (
+                <Button
+                  variant="secondary"
+                  onClick={handleGenerateWithPrompt}
+                  disabled={isGenerating}
+                  className="flex-1"
+                >
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Enhance Image
+                </Button>
+              )}
+
+              {/* Loading state */}
+              {isGenerating && (
+                <Button disabled className="flex-1">
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </Button>
+              )}
+
+              {/* Post-fix actions */}
+              {(hasFixedImage || (fixProgress?.attempts.length && fixProgress.attempts.length > 0)) && !isGenerating && (
                 <>
                   <Button
                     variant="outline"
-                    onClick={handleSmartRegenerate}
+                    onClick={() => handleSmartRegenerate(false)}
                     disabled={isGenerating}
                     className="flex-1"
                   >
