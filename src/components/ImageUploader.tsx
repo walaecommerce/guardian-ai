@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
-import { Upload, Link, X, Image as ImageIcon, Loader2, Shield } from 'lucide-react';
+import { Upload, Link, X, Image as ImageIcon, Loader2, Shield, Crop } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ImageAsset, AssetType } from '@/types';
+import { ImageCropper } from '@/components/ImageCropper';
 
 interface ImageUploaderProps {
   assets: ImageAsset[];
@@ -33,6 +34,8 @@ export function ImageUploader({
   isAnalyzing,
 }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [assetToCrop, setAssetToCrop] = useState<ImageAsset | null>(null);
 
   const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -91,6 +94,26 @@ export function ImageUploader({
       return a;
     });
     onAssetsChange(updated);
+  };
+
+  const openCropper = (asset: ImageAsset) => {
+    setAssetToCrop(asset);
+    setCropperOpen(true);
+  };
+
+  const handleCropComplete = (croppedBlob: Blob) => {
+    if (!assetToCrop) return;
+    
+    const croppedFile = new File([croppedBlob], `cropped_${assetToCrop.name}`, { type: 'image/jpeg' });
+    const croppedPreview = URL.createObjectURL(croppedBlob);
+    
+    const updated = assets.map(a => 
+      a.id === assetToCrop.id 
+        ? { ...a, file: croppedFile, preview: croppedPreview, name: `cropped_${a.name}` }
+        : a
+    );
+    onAssetsChange(updated);
+    setAssetToCrop(null);
   };
 
   return (
@@ -244,6 +267,15 @@ export function ImageUploader({
                       </div>
                     )}
 
+                    {/* Crop Button */}
+                    <button
+                      onClick={() => openCropper(asset)}
+                      className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Crop image"
+                    >
+                      <Crop className="w-3 h-3" />
+                    </button>
+
                     {/* Score Badge */}
                     {asset.analysisResult && (
                       <div className={`
@@ -300,6 +332,17 @@ export function ImageUploader({
           </>
         )}
       </Button>
+
+      {/* Image Cropper Modal */}
+      {assetToCrop && (
+        <ImageCropper
+          imageSrc={assetToCrop.preview}
+          isOpen={cropperOpen}
+          onClose={() => { setCropperOpen(false); setAssetToCrop(null); }}
+          onCropComplete={handleCropComplete}
+          aspectRatio={1}
+        />
+      )}
     </div>
   );
 }
