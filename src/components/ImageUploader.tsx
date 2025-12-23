@@ -175,58 +175,92 @@ export function ImageUploader({
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-3">
-              {assets.map((asset) => (
-                <div
-                  key={asset.id}
-                  className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-muted"
-                >
-                  <img
-                    src={asset.preview}
-                    alt={asset.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  
-                  {/* Type Badge */}
-                  <Badge
-                    variant={asset.type === 'MAIN' ? 'default' : 'secondary'}
-                    className="absolute top-2 left-2 cursor-pointer text-xs"
-                    onClick={() => toggleAssetType(asset.id)}
+              {assets.map((asset) => {
+                // Extract category from asset name (format: CATEGORY_filename)
+                const categoryMatch = asset.name.match(/^(MAIN|INFOGRAPHIC|LIFESTYLE|PRODUCT_IN_USE|SIZE_CHART|COMPARISON|PACKAGING|DETAIL|UNKNOWN)_/);
+                const imageCategory = categoryMatch ? categoryMatch[1] : null;
+                
+                const getCategoryColor = (category: string | null) => {
+                  switch (category) {
+                    case 'MAIN': return 'bg-primary text-primary-foreground';
+                    case 'INFOGRAPHIC': return 'bg-blue-500 text-white';
+                    case 'LIFESTYLE': return 'bg-green-500 text-white';
+                    case 'PRODUCT_IN_USE': return 'bg-purple-500 text-white';
+                    case 'SIZE_CHART': return 'bg-orange-500 text-white';
+                    case 'COMPARISON': return 'bg-yellow-500 text-black';
+                    case 'PACKAGING': return 'bg-pink-500 text-white';
+                    case 'DETAIL': return 'bg-cyan-500 text-white';
+                    default: return 'bg-muted text-muted-foreground';
+                  }
+                };
+
+                const formatCategory = (category: string | null) => {
+                  if (!category) return null;
+                  return category.replace(/_/g, ' ').split(' ').map(w => 
+                    w.charAt(0) + w.slice(1).toLowerCase()
+                  ).join(' ');
+                };
+
+                return (
+                  <div
+                    key={asset.id}
+                    className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-muted"
                   >
-                    {asset.type}
-                  </Badge>
+                    <img
+                      src={asset.preview}
+                      alt={asset.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    
+                    {/* Type Badge (MAIN/SECONDARY) */}
+                    <Badge
+                      variant={asset.type === 'MAIN' ? 'default' : 'secondary'}
+                      className="absolute top-2 left-2 cursor-pointer text-xs"
+                      onClick={() => toggleAssetType(asset.id)}
+                    >
+                      {asset.type}
+                    </Badge>
 
-                  {/* Remove Button */}
-                  <button
-                    onClick={() => removeAsset(asset.id)}
-                    className="absolute top-2 right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                    {/* AI Category Badge */}
+                    {imageCategory && (
+                      <div className={`absolute top-2 right-8 px-1.5 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(imageCategory)}`}>
+                        {formatCategory(imageCategory)}
+                      </div>
+                    )}
 
-                  {/* Analysis Status */}
-                  {asset.isAnalyzing && (
-                    <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
-                  )}
+                    {/* Remove Button */}
+                    <button
+                      onClick={() => removeAsset(asset.id)}
+                      className="absolute top-2 right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
 
-                  {/* Score Badge */}
-                  {asset.analysisResult && (
-                    <div className={`
-                      absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-bold
-                      ${asset.analysisResult.overallScore >= 85 
-                        ? 'bg-success text-success-foreground'
-                        : asset.analysisResult.overallScore >= 70
-                        ? 'bg-warning text-warning-foreground'
-                        : 'bg-destructive text-destructive-foreground'
-                      }
-                    `}>
-                      {asset.analysisResult.overallScore}%
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {/* Analysis Status */}
+                    {asset.isAnalyzing && (
+                      <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      </div>
+                    )}
+
+                    {/* Score Badge */}
+                    {asset.analysisResult && (
+                      <div className={`
+                        absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-bold
+                        ${asset.analysisResult.overallScore >= 85 
+                          ? 'bg-success text-success-foreground'
+                          : asset.analysisResult.overallScore >= 70
+                          ? 'bg-warning text-warning-foreground'
+                          : 'bg-destructive text-destructive-foreground'
+                        }
+                      `}>
+                        {asset.analysisResult.overallScore}%
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
