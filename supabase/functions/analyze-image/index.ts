@@ -12,10 +12,10 @@ serve(async (req) => {
 
   try {
     const { imageBase64, imageType, listingTitle } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not configured");
     }
 
     const isMain = imageType === 'MAIN';
@@ -147,19 +147,19 @@ ${listingTitle ? `Listing Title: "${listingTitle}"` : 'No listing title provided
 
 Execute full analysis protocol and return comprehensive JSON assessment.`;
 
-    console.log(`[Guardian] Analyzing ${imageType} image...`);
+    console.log(`[Guardian] Analyzing ${imageType} image using OpenAI...`);
     console.log(`[Guardian] Phase 1: Scanning background pixels...`);
     console.log(`[Guardian] Phase 2: Detecting badges and text overlays...`);
     console.log(`[Guardian] Phase 3: Measuring product occupancy...`);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { 
@@ -170,20 +170,28 @@ Execute full analysis protocol and return comprehensive JSON assessment.`;
             ]
           }
         ],
+        max_tokens: 2000
       }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[Guardian] OpenAI API error:", response.status, errorText);
+      
       if (response.status === 429) {
-        console.error("[Guardian] Rate limit exceeded");
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please wait and try again." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errorText = await response.text();
-      console.error("[Guardian] AI Gateway error:", response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      if (response.status === 402 || response.status === 401) {
+        return new Response(JSON.stringify({ error: "OpenAI API key issue. Please check your API key." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
