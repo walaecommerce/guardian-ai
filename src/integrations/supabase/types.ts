@@ -14,7 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      compliance_reports: {
+        Row: {
+          amazon_url: string | null
+          average_score: number | null
+          created_at: string
+          failed_count: number
+          fixed_images_count: number
+          id: string
+          listing_title: string | null
+          passed_count: number
+          product_asin: string | null
+          report_data: Json
+          total_images: number
+        }
+        Insert: {
+          amazon_url?: string | null
+          average_score?: number | null
+          created_at?: string
+          failed_count?: number
+          fixed_images_count?: number
+          id?: string
+          listing_title?: string | null
+          passed_count?: number
+          product_asin?: string | null
+          report_data?: Json
+          total_images?: number
+        }
+        Update: {
+          amazon_url?: string | null
+          average_score?: number | null
+          created_at?: string
+          failed_count?: number
+          fixed_images_count?: number
+          id?: string
+          listing_title?: string | null
+          passed_count?: number
+          product_asin?: string | null
+          report_data?: Json
+          total_images?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
