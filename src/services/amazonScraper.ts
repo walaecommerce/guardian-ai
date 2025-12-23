@@ -111,72 +111,117 @@ function extractGalleryImages(html: string, targetAsin: string): string[] {
     console.log(`[Scraper] Warning: imageBlockState ASIN (${blockAsin}) doesn't match target (${targetAsin})`);
   }
   
-  // Pattern 1: colorImages.initial (most reliable - main gallery)
-  const colorImagesMatch = html.match(/'colorImages'\s*:\s*\{[^}]*"initial"\s*:\s*\[([\s\S]*?)\]\s*\}/);
-  if (colorImagesMatch) {
-    console.log('[Scraper] Found colorImages.initial');
-    const imagesJson = colorImagesMatch[1];
-    
-    // Extract hiRes first (highest quality)
-    const hiResMatches = imagesJson.match(/"hiRes"\s*:\s*"(https:[^"]+)"/gi);
-    if (hiResMatches) {
-      hiResMatches.forEach(match => {
-        const urlMatch = match.match(/"(https:[^"]+)"/);
-        if (urlMatch) {
-          const cleanUrl = urlMatch[1].replace(/\\u002F/g, '/').replace(/\\\//g, '/');
-          if (!galleryImages.includes(cleanUrl)) {
-            galleryImages.push(cleanUrl);
-          }
-        }
-      });
-    }
-    
-    // Fallback to large if no hiRes
-    if (galleryImages.length === 0) {
-      const largeMatches = imagesJson.match(/"large"\s*:\s*"(https:[^"]+)"/gi);
-      if (largeMatches) {
-        largeMatches.forEach(match => {
-          const urlMatch = match.match(/"(https:[^"]+)"/);
+  // Pattern 1: colorImages with various quote styles (rawHtml may use different quotes)
+  const colorImagesPatterns = [
+    /'colorImages'\s*:\s*\{[^}]*['"]initial['"]\s*:\s*\[([\s\S]*?)\]\s*\}/,
+    /"colorImages"\s*:\s*\{[^}]*"initial"\s*:\s*\[([\s\S]*?)\]\s*\}/,
+    /colorImages['"]\s*:\s*\{[\s\S]*?['"]initial['"]\s*:\s*\[([\s\S]*?)\]/,
+  ];
+  
+  for (const pattern of colorImagesPatterns) {
+    const colorImagesMatch = html.match(pattern);
+    if (colorImagesMatch) {
+      console.log('[Scraper] Found colorImages.initial');
+      const imagesJson = colorImagesMatch[1];
+      
+      // Extract hiRes first (highest quality)
+      const hiResMatches = imagesJson.match(/['"]hiRes['"]\s*:\s*['"]?(https:[^'"}\s,]+)['"]?/gi);
+      if (hiResMatches) {
+        hiResMatches.forEach(match => {
+          const urlMatch = match.match(/['"]?(https:[^'"}\s,]+)['"]?/);
           if (urlMatch) {
             const cleanUrl = urlMatch[1].replace(/\\u002F/g, '/').replace(/\\\//g, '/');
-            if (!galleryImages.includes(cleanUrl)) {
+            if (cleanUrl.includes('media-amazon.com/images/I/') && !galleryImages.includes(cleanUrl)) {
               galleryImages.push(cleanUrl);
             }
           }
         });
       }
+      
+      // Fallback to large if no hiRes
+      if (galleryImages.length === 0) {
+        const largeMatches = imagesJson.match(/['"]large['"]\s*:\s*['"]?(https:[^'"}\s,]+)['"]?/gi);
+        if (largeMatches) {
+          largeMatches.forEach(match => {
+            const urlMatch = match.match(/['"]?(https:[^'"}\s,]+)['"]?/);
+            if (urlMatch) {
+              const cleanUrl = urlMatch[1].replace(/\\u002F/g, '/').replace(/\\\//g, '/');
+              if (cleanUrl.includes('media-amazon.com/images/I/') && !galleryImages.includes(cleanUrl)) {
+                galleryImages.push(cleanUrl);
+              }
+            }
+          });
+        }
+      }
+      
+      if (galleryImages.length > 0) break;
     }
   }
   
   // Pattern 2: imageGalleryData array (alternative structure)
   if (galleryImages.length === 0) {
-    const galleryDataMatch = html.match(/'imageGalleryData'\s*:\s*\[([\s\S]*?)\]/);
-    if (galleryDataMatch) {
-      console.log('[Scraper] Found imageGalleryData');
-      const hiResMatches = galleryDataMatch[1].match(/"hiRes"\s*:\s*"(https:[^"]+)"/gi);
-      if (hiResMatches) {
-        hiResMatches.forEach(match => {
-          const urlMatch = match.match(/"(https:[^"]+)"/);
-          if (urlMatch) {
-            const cleanUrl = urlMatch[1].replace(/\\u002F/g, '/').replace(/\\\//g, '/');
-            if (!galleryImages.includes(cleanUrl)) {
-              galleryImages.push(cleanUrl);
+    const galleryDataPatterns = [
+      /'imageGalleryData'\s*:\s*\[([\s\S]*?)\]/,
+      /"imageGalleryData"\s*:\s*\[([\s\S]*?)\]/,
+      /imageGalleryData['"]\s*:\s*\[([\s\S]*?)\]/,
+    ];
+    
+    for (const pattern of galleryDataPatterns) {
+      const galleryDataMatch = html.match(pattern);
+      if (galleryDataMatch) {
+        console.log('[Scraper] Found imageGalleryData');
+        const hiResMatches = galleryDataMatch[1].match(/['"]hiRes['"]\s*:\s*['"]?(https:[^'"}\s,]+)['"]?/gi);
+        if (hiResMatches) {
+          hiResMatches.forEach(match => {
+            const urlMatch = match.match(/['"]?(https:[^'"}\s,]+)['"]?/);
+            if (urlMatch) {
+              const cleanUrl = urlMatch[1].replace(/\\u002F/g, '/').replace(/\\\//g, '/');
+              if (cleanUrl.includes('media-amazon.com/images/I/') && !galleryImages.includes(cleanUrl)) {
+                galleryImages.push(cleanUrl);
+              }
             }
-          }
-        });
+          });
+        }
+        if (galleryImages.length > 0) break;
       }
     }
   }
   
-  // Pattern 3: Landing image (always the MAIN image)
-  const landingImageMatch = html.match(/id=["']landingImage["'][^>]*(?:data-old-hires|src)=["'](https:[^"']+)["']/i);
-  if (landingImageMatch) {
-    const mainImage = cleanImageUrl(landingImageMatch[1]);
-    console.log(`[Scraper] Found landing image: ${mainImage.substring(0, 80)}...`);
-    // Ensure main image is first
-    if (!galleryImages.some(img => getImageId(img) === getImageId(mainImage))) {
-      galleryImages.unshift(mainImage);
+  // Pattern 3: Landing image with data-old-hires or src (always the MAIN image)
+  const landingImagePatterns = [
+    /id=["']landingImage["'][^>]*data-old-hires=["'](https:[^"']+)["']/i,
+    /id=["']landingImage["'][^>]*src=["'](https:[^"']+)["']/i,
+    /id=["']imgBlkFront["'][^>]*src=["'](https:[^"']+)["']/i,
+  ];
+  
+  for (const pattern of landingImagePatterns) {
+    const landingImageMatch = html.match(pattern);
+    if (landingImageMatch) {
+      const mainImage = cleanImageUrl(landingImageMatch[1]);
+      console.log(`[Scraper] Found landing image: ${mainImage.substring(0, 80)}...`);
+      // Ensure main image is first
+      if (!galleryImages.some(img => getImageId(img) === getImageId(mainImage))) {
+        galleryImages.unshift(mainImage);
+      }
+      break;
     }
+  }
+  
+  // Pattern 4: Extract from image block dynamicImageUrl data attributes
+  const dynamicImageMatches = html.match(/data-a-dynamic-image=["']\{([^}]+)\}["']/gi);
+  if (dynamicImageMatches && galleryImages.length === 0) {
+    console.log('[Scraper] Found dynamic image data');
+    dynamicImageMatches.forEach(match => {
+      const urls = match.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[a-zA-Z0-9\-+%._]+/gi);
+      if (urls) {
+        urls.forEach(url => {
+          const cleaned = cleanImageUrl(url);
+          if (!galleryImages.some(img => getImageId(img) === getImageId(cleaned)) && !isIconOrSprite(cleaned)) {
+            galleryImages.push(cleaned);
+          }
+        });
+      }
+    });
   }
   
   return galleryImages;
@@ -267,41 +312,57 @@ function extractImages(html: string, asin: string): string[] {
     return Array.from(imageSet);
   }
   
-  // FALLBACK: Only if gallery extraction failed, try to find the main product image
+  // FALLBACK: Only if gallery extraction failed, find images from the main image block section only
   console.log('[Scraper] Gallery extraction failed, using fallback');
   
-  // Look for the main product image specifically
-  const mainImagePatterns = [
-    /id=["']imgBlkFront["'][^>]*src=["'](https:[^"']+)["']/i,
-    /id=["']main-image["'][^>]*src=["'](https:[^"']+)["']/i,
-    /class=["'][^"]*a-dynamic-image[^"]*["'][^>]*src=["'](https:[^"']+)["']/i,
-  ];
+  // Try to find the imageBlock section and extract only images from there
+  const imageBlockMatch = html.match(/id=["']imageBlock["'][^>]*>([\s\S]*?)(?=<div[^>]*id=["'](?:centerCol|rightCol|feature-bullets))/i) ||
+                          html.match(/id=["']altImages["'][^>]*>([\s\S]*?)(?=<\/ul>)/i);
   
-  for (const pattern of mainImagePatterns) {
-    const match = html.match(pattern);
-    if (match) {
-      const cleaned = cleanImageUrl(match[1]);
-      const id = getImageId(cleaned);
-      if (!isIconOrSprite(cleaned)) {
-        seenIds.add(id);
-        imageSet.add(cleaned);
-        console.log(`[Scraper] Found main image via fallback pattern`);
-        break;
+  if (imageBlockMatch) {
+    const imageBlockContent = imageBlockMatch[1];
+    // Extract only /images/I/ URLs (main product images)
+    const productImageMatches = imageBlockContent.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[a-zA-Z0-9\-+%._]+\.(jpg|jpeg|png)/gi);
+    if (productImageMatches) {
+      console.log(`[Scraper] Found ${productImageMatches.length} images in imageBlock section`);
+      productImageMatches.forEach(url => {
+        const cleaned = cleanImageUrl(url);
+        const id = getImageId(cleaned);
+        if (!seenIds.has(id) && !isIconOrSprite(cleaned)) {
+          seenIds.add(id);
+          imageSet.add(cleaned);
+        }
+      });
+    }
+  }
+  
+  // If still no images, try specific main image patterns
+  if (imageSet.size === 0) {
+    const mainImagePatterns = [
+      /id=["']landingImage["'][^>]*src=["'](https:[^"']+)["']/i,
+      /id=["']imgBlkFront["'][^>]*src=["'](https:[^"']+)["']/i,
+      /class=["'][^"]*imgTagWrapper[^"]*["'][^>]*>[\s\S]*?<img[^>]*src=["'](https:[^"']+)["']/i,
+    ];
+    
+    for (const pattern of mainImagePatterns) {
+      const match = html.match(pattern);
+      if (match && match[1].includes('media-amazon.com/images/I/')) {
+        const cleaned = cleanImageUrl(match[1]);
+        const id = getImageId(cleaned);
+        if (!isIconOrSprite(cleaned)) {
+          seenIds.add(id);
+          imageSet.add(cleaned);
+          console.log(`[Scraper] Found main image via fallback pattern: ${cleaned.substring(0, 60)}...`);
+          break;
+        }
       }
     }
   }
   
-  // PRIORITY 2: A+ content images (optional, only if enabled and from this product)
-  const aplusImages = extractAPlusImages(html, asin);
-  console.log(`[Scraper] Found ${aplusImages.length} A+ images`);
+  // DO NOT add A+ images when gallery extraction fails - they are likely from other products
+  // Only add A+ images if we successfully got gallery images first (which would have returned above)
   
-  aplusImages.forEach(url => {
-    const id = getImageId(url);
-    if (!seenIds.has(id) && !isImageFromOtherProduct(html, url, asin)) {
-      seenIds.add(id);
-      imageSet.add(url);
-    }
-  });
+  console.log(`[Scraper] Final fallback image count: ${imageSet.size}`);
   
   console.log(`[Scraper] Final image count: ${imageSet.size}`);
   return Array.from(imageSet);
