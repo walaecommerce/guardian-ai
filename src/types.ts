@@ -88,10 +88,18 @@ export interface FixAttempt {
 }
 
 // Scraping Types
+export type ImageCategory = 'MAIN' | 'INFOGRAPHIC' | 'LIFESTYLE' | 'PRODUCT_IN_USE' | 'SIZE_CHART' | 'COMPARISON' | 'PACKAGING' | 'DETAIL' | 'UNKNOWN';
+
+export interface ScrapedImage {
+  url: string;
+  category: ImageCategory;
+  index: number;
+}
+
 export interface ScrapedProduct {
   asin: string;
   title: string;
-  images: string[];
+  images: ScrapedImage[];
   bullets?: string[];
 }
 

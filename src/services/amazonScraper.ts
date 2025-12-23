@@ -1,4 +1,4 @@
-import { ScrapedProduct } from '@/types';
+import { ScrapedProduct, ScrapedImage, ImageCategory } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
 // Filters for icons and small UI elements that are NOT product images
@@ -224,6 +224,43 @@ function extractGalleryImages(html: string, targetAsin: string): string[] {
     });
   }
   
+  // Pattern 5: Extract from altImages thumbnail list (reliable fallback)
+  if (galleryImages.length <= 1) {
+    const altImagesMatch = html.match(/id=["']altImages["'][^>]*>([\s\S]*?)(?=<\/ul>|<\/div>\s*<div[^>]*id=["'](?!altImages))/i);
+    if (altImagesMatch) {
+      console.log('[Scraper] Found altImages thumbnail section');
+      const thumbContent = altImagesMatch[1];
+      // Extract all image URLs from thumbnails
+      const thumbUrls = thumbContent.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[a-zA-Z0-9\-+%._]+\.(jpg|jpeg|png)/gi);
+      if (thumbUrls) {
+        thumbUrls.forEach(url => {
+          const cleaned = cleanImageUrl(url);
+          if (!galleryImages.some(img => getImageId(img) === getImageId(cleaned)) && !isIconOrSprite(cleaned)) {
+            galleryImages.push(cleaned);
+          }
+        });
+        console.log(`[Scraper] Added ${thumbUrls.length} thumbnails from altImages`);
+      }
+    }
+  }
+  
+  // Pattern 6: Look for thumb images with specific class
+  if (galleryImages.length <= 1) {
+    const thumbMatches = html.match(/class=["'][^"]*imageThumbnail[^"]*["'][^>]*>[\s\S]*?<img[^>]*src=["'](https:[^"']+)["']/gi);
+    if (thumbMatches) {
+      console.log('[Scraper] Found imageThumbnail elements');
+      thumbMatches.forEach(match => {
+        const urlMatch = match.match(/src=["'](https:[^"']+)["']/i);
+        if (urlMatch && urlMatch[1].includes('media-amazon.com/images/I/')) {
+          const cleaned = cleanImageUrl(urlMatch[1]);
+          if (!galleryImages.some(img => getImageId(img) === getImageId(cleaned)) && !isIconOrSprite(cleaned)) {
+            galleryImages.push(cleaned);
+          }
+        }
+      });
+    }
+  }
+  
   return galleryImages;
 }
 
@@ -286,9 +323,43 @@ function extractAPlusImages(html: string, asin: string): string[] {
   return aplusImages;
 }
 
-function extractImages(html: string, asin: string): string[] {
+// Detect image category based on URL and position
+function detectImageCategory(url: string, index: number): ImageCategory {
+  const lower = url.toLowerCase();
+  
+  // First image is always MAIN
+  if (index === 0) return 'MAIN';
+  
+  // Check URL patterns for category hints
+  if (lower.includes('infographic') || lower.includes('info_') || lower.includes('_info')) {
+    return 'INFOGRAPHIC';
+  }
+  if (lower.includes('lifestyle') || lower.includes('life_') || lower.includes('_life')) {
+    return 'LIFESTYLE';
+  }
+  if (lower.includes('inuse') || lower.includes('in-use') || lower.includes('action')) {
+    return 'PRODUCT_IN_USE';
+  }
+  if (lower.includes('size') || lower.includes('chart') || lower.includes('dimension')) {
+    return 'SIZE_CHART';
+  }
+  if (lower.includes('compare') || lower.includes('vs') || lower.includes('versus')) {
+    return 'COMPARISON';
+  }
+  if (lower.includes('package') || lower.includes('box') || lower.includes('unbox')) {
+    return 'PACKAGING';
+  }
+  if (lower.includes('detail') || lower.includes('close') || lower.includes('zoom')) {
+    return 'DETAIL';
+  }
+  
+  return 'UNKNOWN';
+}
+
+function extractImages(html: string, asin: string): ScrapedImage[] {
   const imageSet = new Set<string>();
   const seenIds = new Set<string>();
+  const resultImages: ScrapedImage[] = [];
   
   console.log(`[Scraper] Starting image extraction for ASIN: ${asin}`);
   
@@ -297,19 +368,24 @@ function extractImages(html: string, asin: string): string[] {
   const galleryImages = extractGalleryImages(html, asin);
   console.log(`[Scraper] Found ${galleryImages.length} gallery images from JSON`);
   
-  galleryImages.forEach(url => {
+  galleryImages.forEach((url, index) => {
     const cleaned = cleanImageUrl(url);
     const id = getImageId(cleaned);
     if (!seenIds.has(id) && !isIconOrSprite(cleaned)) {
       seenIds.add(id);
       imageSet.add(cleaned);
+      resultImages.push({
+        url: cleaned,
+        category: detectImageCategory(cleaned, index),
+        index,
+      });
     }
   });
   
   // If we found gallery images, we're done - these are the authoritative product images
-  if (imageSet.size > 0) {
-    console.log(`[Scraper] Using ${imageSet.size} gallery images (no fallback needed)`);
-    return Array.from(imageSet);
+  if (resultImages.length > 0) {
+    console.log(`[Scraper] Using ${resultImages.length} gallery images (no fallback needed)`);
+    return resultImages;
   }
   
   // FALLBACK: Only if gallery extraction failed, find images from the main image block section only
@@ -325,19 +401,24 @@ function extractImages(html: string, asin: string): string[] {
     const productImageMatches = imageBlockContent.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[a-zA-Z0-9\-+%._]+\.(jpg|jpeg|png)/gi);
     if (productImageMatches) {
       console.log(`[Scraper] Found ${productImageMatches.length} images in imageBlock section`);
-      productImageMatches.forEach(url => {
+      productImageMatches.forEach((url, index) => {
         const cleaned = cleanImageUrl(url);
         const id = getImageId(cleaned);
         if (!seenIds.has(id) && !isIconOrSprite(cleaned)) {
           seenIds.add(id);
           imageSet.add(cleaned);
+          resultImages.push({
+            url: cleaned,
+            category: detectImageCategory(cleaned, index),
+            index,
+          });
         }
       });
     }
   }
   
   // If still no images, try specific main image patterns
-  if (imageSet.size === 0) {
+  if (resultImages.length === 0) {
     const mainImagePatterns = [
       /id=["']landingImage["'][^>]*src=["'](https:[^"']+)["']/i,
       /id=["']imgBlkFront["'][^>]*src=["'](https:[^"']+)["']/i,
@@ -351,7 +432,11 @@ function extractImages(html: string, asin: string): string[] {
         const id = getImageId(cleaned);
         if (!isIconOrSprite(cleaned)) {
           seenIds.add(id);
-          imageSet.add(cleaned);
+          resultImages.push({
+            url: cleaned,
+            category: 'MAIN',
+            index: 0,
+          });
           console.log(`[Scraper] Found main image via fallback pattern: ${cleaned.substring(0, 60)}...`);
           break;
         }
@@ -359,13 +444,8 @@ function extractImages(html: string, asin: string): string[] {
     }
   }
   
-  // DO NOT add A+ images when gallery extraction fails - they are likely from other products
-  // Only add A+ images if we successfully got gallery images first (which would have returned above)
-  
-  console.log(`[Scraper] Final fallback image count: ${imageSet.size}`);
-  
-  console.log(`[Scraper] Final image count: ${imageSet.size}`);
-  return Array.from(imageSet);
+  console.log(`[Scraper] Final image count: ${resultImages.length}`);
+  return resultImages;
 }
 
 export async function downloadImage(url: string): Promise<File | null> {

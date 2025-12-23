@@ -64,22 +64,22 @@ const Index = () => {
       const seenIds = new Set(assets.map(a => getImageId(a.preview)));
 
       for (let i = 0; i < Math.min(product.images.length, 20); i++) {
-        const url = product.images[i];
-        const imageId = getImageId(url);
+        const imageData = product.images[i];
+        const imageId = getImageId(imageData.url);
         
         if (seenIds.has(imageId)) continue;
         seenIds.add(imageId);
 
-        addLog('processing', `Downloading image ${i + 1}...`);
-        const file = await downloadImage(url);
+        addLog('processing', `Downloading image ${i + 1} (${imageData.category})...`);
+        const file = await downloadImage(imageData.url);
         
         if (file) {
           newAssets.push({
             id: Math.random().toString(36).substring(2, 9),
             file,
             preview: URL.createObjectURL(file),
-            type: assets.length === 0 && newAssets.length === 0 ? 'MAIN' : 'SECONDARY',
-            name: file.name,
+            type: imageData.category === 'MAIN' ? 'MAIN' : 'SECONDARY',
+            name: `${imageData.category}_${file.name}`,
           });
         }
       }
