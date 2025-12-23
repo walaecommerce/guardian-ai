@@ -5,8 +5,9 @@ import { AnalysisResults } from '@/components/AnalysisResults';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
-import { ImageAsset, LogEntry, AnalysisResult } from '@/types';
+import { ImageAsset, LogEntry, AnalysisResult, ImageCategory } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin } from '@/services/amazonScraper';
+import { classifyImage } from '@/services/imageClassifier';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -63,6 +64,8 @@ const Index = () => {
       const newAssets: ImageAsset[] = [];
       const seenIds = new Set(assets.map(a => getImageId(a.preview)));
 
+      addLog('processing', '🤖 AI classification enabled - analyzing image types...');
+
       for (let i = 0; i < Math.min(product.images.length, 20); i++) {
         const imageData = product.images[i];
         const imageId = getImageId(imageData.url);
@@ -70,24 +73,43 @@ const Index = () => {
         if (seenIds.has(imageId)) continue;
         seenIds.add(imageId);
 
-        addLog('processing', `Downloading image ${i + 1} (${imageData.category})...`);
+        addLog('processing', `Downloading image ${i + 1}...`);
         const file = await downloadImage(imageData.url);
         
         if (file) {
+          // Convert to base64 for AI classification
+          const base64 = await fileToBase64(file);
+          
+          addLog('processing', `🔍 Classifying image ${i + 1} with AI vision...`);
+          const classification = await classifyImage(base64, product.title, product.asin);
+          
+          const aiCategory = classification.category as ImageCategory;
+          const confidence = classification.confidence;
+          
+          addLog('info', `   └─ Detected: ${aiCategory} (${confidence}% confidence)`);
+          if (classification.reasoning) {
+            addLog('info', `      ${classification.reasoning}`);
+          }
+
           newAssets.push({
             id: Math.random().toString(36).substring(2, 9),
             file,
             preview: URL.createObjectURL(file),
-            type: imageData.category === 'MAIN' ? 'MAIN' : 'SECONDARY',
-            name: `${imageData.category}_${file.name}`,
+            type: aiCategory === 'MAIN' ? 'MAIN' : 'SECONDARY',
+            name: `${aiCategory}_${file.name}`,
           });
+
+          // Small delay between classifications to avoid rate limiting
+          if (i < product.images.length - 1) {
+            await new Promise(r => setTimeout(r, 300));
+          }
         }
       }
 
       if (newAssets.length > 0) {
         setAssets(prev => [...prev, ...newAssets]);
-        addLog('success', `Imported ${newAssets.length} images`);
-        toast({ title: 'Import Complete', description: `Added ${newAssets.length} images` });
+        addLog('success', `✅ Imported ${newAssets.length} images with AI classification`);
+        toast({ title: 'Import Complete', description: `Added ${newAssets.length} images with AI-detected categories` });
       } else {
         throw new Error('No images could be downloaded');
       }
