@@ -17,6 +17,7 @@ serve(async (req) => {
       generativePrompt,
       mainImageBase64,
       previousCritique,
+      previousGeneratedImage, // NEW: Previous failed attempt for comparison
       productTitle,
       productAsin
     } = await req.json();
@@ -127,6 +128,31 @@ Pay special attention to:
 4. Quality or composition problems noted`;
     }
 
+    // Add error-aware regeneration when previous generated image is provided
+    if (previousGeneratedImage) {
+      prompt += `
+
+## 🔄 REGENERATION MODE - ANALYZE YOUR PREVIOUS MISTAKE:
+I am providing THREE images:
+1. ORIGINAL - The source image that needs fixing
+2. MY PREVIOUS ATTEMPT - What I generated before (which had issues)
+3. The reference context if applicable
+
+CRITICAL COMPARISON TASK:
+- Look CAREFULLY at your previous attempt
+- Compare it pixel-by-pixel with the original product
+- Identify EXACTLY where you went wrong:
+  * Did you change the product shape?
+  * Did you alter labels or text?
+  * Did you modify colors incorrectly?
+  * Did you leave artifacts or add unwanted elements?
+  
+Generate a NEW version that:
+1. Fixes the specific mistakes from your previous attempt
+2. Stays MORE faithful to the original product
+3. Only makes the compliance changes (background/badges) without altering the product itself`;
+    }
+
     // Add product context to ensure correct product identity
     if (productTitle || productAsin) {
       prompt += `
@@ -149,13 +175,22 @@ Same product, same labels, same branding, same colors.
 This ensures listing coherence across all images.`;
     }
 
-    console.log(`[Guardian] Generating ${imageType} fix...${previousCritique ? ' (retry with critique)' : ''}`);
+    console.log(`[Guardian] Generating ${imageType} fix...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
 
     // Build content array with images
     const content: any[] = [
       { type: "text", text: prompt },
+      { type: "text", text: "=== ORIGINAL IMAGE (fix this while preserving product identity) ===" },
       { type: "image_url", image_url: { url: imageBase64 } }
     ];
+
+    // Add previous generated image for comparison if provided
+    if (previousGeneratedImage) {
+      content.push(
+        { type: "text", text: "=== MY PREVIOUS ATTEMPT (analyze where I went wrong and fix it) ===" },
+        { type: "image_url", image_url: { url: previousGeneratedImage } }
+      );
+    }
 
     // Add main image reference for secondary images
     if (!isMain && mainImageBase64) {

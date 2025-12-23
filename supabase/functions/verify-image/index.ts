@@ -113,8 +113,20 @@ Return ONLY valid JSON:
   ],
   "failedChecks": [
     "What still needs to be fixed"
+  ],
+  "thinkingSteps": [
+    "Step-by-step verification process the user can see",
+    "🔬 Sampling background color at corners: RGB(X,Y,Z)...",
+    "📊 Comparing product silhouette with original...",
+    "✓ Label text 'BRAND NAME' preserved correctly",
+    "⚠️ Found slight color deviation in product body",
+    "Show your calculation process so user sees AI 'thinking'"
   ]
 }
+
+IMPORTANT: The thinkingSteps array should show your actual analysis process step-by-step.
+Include specific pixel sampling, measurements, comparisons, and decisions.
+This will be displayed live to the user so they can see the AI verification happening.
 
 CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for retry than pass a flawed image.`;
 
