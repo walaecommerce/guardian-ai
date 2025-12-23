@@ -6,8 +6,7 @@ import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
 import { SessionHistory } from '@/components/SessionHistory';
-import { ProgressStep } from '@/components/FixProgressSteps';
-import { ImageAsset, LogEntry, AnalysisResult, ImageCategory } from '@/types';
+import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,7 +32,7 @@ const Index = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<ImageAsset | null>(null);
   const [showFixModal, setShowFixModal] = useState(false);
-  const [fixProgress, setFixProgress] = useState<{ attempt: number; steps: ProgressStep[] } | null>(null);
+  const [fixProgress, setFixProgress] = useState<FixProgressState | null>(null);
   const { toast } = useToast();
 
   const addLog = useCallback((level: LogEntry['level'], message: string) => {
@@ -339,7 +338,7 @@ const Index = () => {
     }
   };
 
-  const handleRequestFix = async (assetId: string, showProgressInModal = false) => {
+  const handleRequestFix = async (assetId: string, previousGeneratedImage?: string) => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
 
@@ -356,21 +355,18 @@ const Index = () => {
     }
 
     setAssets(prev => prev.map(a => 
-      a.id === assetId ? { ...a, isGeneratingFix: true, fixAttempts: [] } : a
+      a.id === assetId ? { ...a, isGeneratingFix: true } : a
     ));
 
-    // Initialize progress steps
-    const initSteps: ProgressStep[] = [
-      { id: 'init', label: 'Initializing AI generation', status: 'pending' },
-      { id: 'generate', label: 'Generating compliant image', status: 'pending' },
-      { id: 'verify-identity', label: 'Verifying product identity', status: 'pending' },
-      { id: 'verify-compliance', label: 'Checking compliance fixes', status: 'pending' },
-      { id: 'verify-quality', label: 'Assessing quality', status: 'pending' },
-    ];
-
-    if (showProgressInModal) {
-      setFixProgress({ attempt: 1, steps: initSteps });
-    }
+    // Initialize progress state
+    const initProgress: FixProgressState = {
+      attempt: 1,
+      maxAttempts: 3,
+      currentStep: 'generating',
+      attempts: [],
+      thinkingSteps: ['🚀 Initializing AI generation pipeline...']
+    };
+    setFixProgress(initProgress);
 
     addLog('processing', `🎨 Guardian initiating ${asset.type} image fix...`);
     addLog('info', `   ├─ Loading compliance requirements...`);
@@ -378,6 +374,7 @@ const Index = () => {
 
     const originalBase64 = await fileToBase64(asset.file);
     let previousCritique: string | undefined;
+    let lastGeneratedImage: string | undefined = previousGeneratedImage;
     let finalImage: string | undefined;
     const maxAttempts = 3;
 
@@ -395,6 +392,14 @@ const Index = () => {
       }
       
       try {
+        // Update progress - generating
+        setFixProgress(prev => prev ? {
+          ...prev,
+          attempt,
+          currentStep: 'generating',
+          thinkingSteps: [...prev.thinkingSteps, `🖼️ Generation attempt ${attempt}/${maxAttempts}...`]
+        } : prev);
+
         // Step 1: Generate the fixed image
         const { data: genData, error: genError } = await supabase.functions.invoke('generate-fix', {
           body: { 
@@ -403,6 +408,7 @@ const Index = () => {
             generativePrompt: asset.analysisResult?.generativePrompt,
             mainImageBase64,
             previousCritique,
+            previousGeneratedImage: lastGeneratedImage,
             productTitle: listingTitle || undefined,
             productAsin: productAsin || extractAsin(amazonUrl) || undefined
           }
@@ -412,6 +418,22 @@ const Index = () => {
         if (!genData?.fixedImage) throw new Error('No image generated');
 
         addLog('success', `✨ AI generation complete`);
+        lastGeneratedImage = genData.fixedImage;
+
+        // Create new attempt and update progress with intermediate image
+        const newAttempt: FixAttempt = {
+          attempt,
+          generatedImage: genData.fixedImage,
+          status: 'verifying'
+        };
+
+        setFixProgress(prev => prev ? {
+          ...prev,
+          currentStep: 'verifying',
+          intermediateImage: genData.fixedImage,
+          attempts: [...prev.attempts, newAttempt],
+          thinkingSteps: [...prev.thinkingSteps, '✨ Image generated, starting verification...']
+        } : prev);
 
         // Step 2: Verify the generated image
         addLog('processing', `🔍 Verification protocol starting...`);
@@ -437,6 +459,13 @@ const Index = () => {
 
         const verification = verifyData;
         addLog('info', `📊 Verification score: ${verification.score}%`);
+
+        // Add thinking steps from verification to progress
+        const thinkingSteps = verification.thinkingSteps || [];
+        setFixProgress(prev => prev ? {
+          ...prev,
+          thinkingSteps: [...prev.thinkingSteps, ...thinkingSteps]
+        } : prev);
         
         if (verification.componentScores) {
           addLog('info', `   ├─ Identity: ${verification.componentScores.identity}%`);
@@ -451,13 +480,33 @@ const Index = () => {
           );
         }
 
+        // Update the attempt with verification result
+        setFixProgress(prev => {
+          if (!prev) return prev;
+          const updatedAttempts = [...prev.attempts];
+          const lastIdx = updatedAttempts.length - 1;
+          if (lastIdx >= 0) {
+            updatedAttempts[lastIdx] = {
+              ...updatedAttempts[lastIdx],
+              verification,
+              status: verification.isSatisfactory && verification.productMatch ? 'passed' : 'failed'
+            };
+          }
+          return { ...prev, attempts: updatedAttempts };
+        });
+
         if (verification.isSatisfactory && verification.productMatch) {
           addLog('success', `✅ All verification checks passed!`);
+          setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
           finalImage = genData.fixedImage;
           break;
         } else {
           if (!verification.productMatch) {
             addLog('error', `🚨 CRITICAL: Product identity mismatch detected`);
+            setFixProgress(prev => prev ? {
+              ...prev,
+              thinkingSteps: [...prev.thinkingSteps, '🚨 Product identity mismatch - I\'ll try again...']
+            } : prev);
           }
           addLog('warning', `⚠️ Issues: ${verification.critique}`);
           
@@ -469,6 +518,12 @@ const Index = () => {
           
           if (attempt < maxAttempts) {
             addLog('processing', `🔄 Refining prompt and retrying...`);
+            setFixProgress(prev => prev ? {
+              ...prev,
+              currentStep: 'retrying',
+              lastCritique: verification.critique,
+              thinkingSteps: [...prev.thinkingSteps, '🔄 Analyzing mistakes, preparing retry...']
+            } : prev);
             previousCritique = verification.critique;
             
             if (verification.improvements?.length > 0) {
@@ -479,6 +534,7 @@ const Index = () => {
             await new Promise(r => setTimeout(r, 2000));
           } else {
             addLog('warning', `⚠️ Max retries reached. Using best result (${verification.score}%).`);
+            setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
             finalImage = genData.fixedImage;
           }
         }
@@ -614,7 +670,7 @@ const Index = () => {
                 <AnalysisResults
                   assets={assets}
                   listingTitle={listingTitle}
-                  onRequestFix={(id) => handleRequestFix(id, true)}
+                  onRequestFix={(id) => handleRequestFix(id)}
                   onViewDetails={handleViewDetails}
                   onBatchFix={handleBatchFix}
                   isBatchFixing={isBatchFixing}
@@ -636,7 +692,7 @@ const Index = () => {
         asset={selectedAsset}
         isOpen={showFixModal}
         onClose={() => { setShowFixModal(false); setFixProgress(null); }}
-        onRetryFix={(id) => handleRequestFix(id, true)}
+        onRetryFix={(id) => handleRequestFix(id)}
         onDownload={handleDownload}
         fixProgress={fixProgress || undefined}
       />

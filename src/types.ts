@@ -69,14 +69,23 @@ export interface AnalysisResult {
 }
 
 // Verification Types
+export interface ComponentScores {
+  identity: number;
+  compliance: number;
+  quality: number;
+  noNewIssues: number;
+}
+
 export interface VerificationResult {
   score: number;
   isSatisfactory: boolean;
   productMatch: boolean;
+  componentScores?: ComponentScores;
   critique: string;
   improvements: string[];
   passedChecks: string[];
   failedChecks: string[];
+  thinkingSteps?: string[]; // AI's step-by-step reasoning for live display
 }
 
 // Fix Generation Types
@@ -85,6 +94,18 @@ export interface FixAttempt {
   generatedImage: string;
   verification?: VerificationResult;
   status: 'generating' | 'verifying' | 'passed' | 'failed' | 'error';
+  logs?: LogEntry[]; // Logs specific to this attempt
+}
+
+// Fix Progress with intermediate state
+export interface FixProgressState {
+  attempt: number;
+  maxAttempts: number;
+  currentStep: 'generating' | 'verifying' | 'retrying' | 'complete' | 'error';
+  intermediateImage?: string; // Show image immediately when generated
+  attempts: FixAttempt[]; // History of all attempts
+  thinkingSteps: string[]; // Live AI reasoning
+  lastCritique?: string;
 }
 
 // Scraping Types
