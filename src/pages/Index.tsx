@@ -415,7 +415,41 @@ const Index = () => {
           }
         });
 
-        if (genError) throw genError;
+        if (genError) {
+          // Check for specific error types
+          const errorContext = (genError as any)?.context;
+          if (errorContext?.status === 402 || genData?.errorType === 'payment_required') {
+            const creditError = 'Not enough AI credits. Please add credits in Settings → Workspace → Usage.';
+            addLog('error', `❌ ${creditError}`);
+            setAssets(prev => prev.map(a => 
+              a.id === assetId ? { ...a, isGeneratingFix: false } : a
+            ));
+            setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
+            toast({ title: 'AI Credits Required', description: creditError, variant: 'destructive' });
+            return;
+          }
+          if (errorContext?.status === 429 || genData?.errorType === 'rate_limit') {
+            const rateError = 'Rate limit exceeded. Please wait a moment and try again.';
+            addLog('warning', `⏳ ${rateError}`);
+            await new Promise(r => setTimeout(r, 5000)); // Wait before retry
+            throw new Error(rateError);
+          }
+          throw genError;
+        }
+        if (genData?.error) {
+          // Handle error in response body
+          if (genData.errorType === 'payment_required') {
+            const creditError = genData.error || 'Not enough AI credits.';
+            addLog('error', `❌ ${creditError}`);
+            setAssets(prev => prev.map(a => 
+              a.id === assetId ? { ...a, isGeneratingFix: false } : a
+            ));
+            setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
+            toast({ title: 'AI Credits Required', description: creditError, variant: 'destructive' });
+            return;
+          }
+          throw new Error(genData.error);
+        }
         if (!genData?.fixedImage) throw new Error('No image generated');
 
         addLog('success', `✨ AI generation complete`);
