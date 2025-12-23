@@ -11,6 +11,8 @@ interface AnalysisResultsProps {
   listingTitle: string;
   onRequestFix: (assetId: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
+  onBatchFix?: () => void;
+  isBatchFixing?: boolean;
 }
 
 function ScoreGauge({ score, size = 80 }: { score: number; size?: number }) {
@@ -282,7 +284,14 @@ function AssetResultCard({
   );
 }
 
-export function AnalysisResults({ assets, listingTitle, onRequestFix, onViewDetails }: AnalysisResultsProps) {
+export function AnalysisResults({ 
+  assets, 
+  listingTitle, 
+  onRequestFix, 
+  onViewDetails,
+  onBatchFix,
+  isBatchFixing 
+}: AnalysisResultsProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult || a.isAnalyzing);
 
   if (analyzedAssets.length === 0) {
@@ -316,7 +325,29 @@ export function AnalysisResults({ assets, listingTitle, onRequestFix, onViewDeta
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Analysis Summary</CardTitle>
-            <ExportButton assets={assets} listingTitle={listingTitle} />
+            <div className="flex items-center gap-2">
+              {failCount > 0 && onBatchFix && (
+                <Button 
+                  size="sm" 
+                  onClick={onBatchFix}
+                  disabled={isBatchFixing}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {isBatchFixing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Fixing...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="w-4 h-4 mr-2" />
+                      Fix All ({failCount})
+                    </>
+                  )}
+                </Button>
+              )}
+              <ExportButton assets={assets} listingTitle={listingTitle} />
+            </div>
           </div>
         </CardHeader>
         <CardContent>

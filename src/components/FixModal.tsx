@@ -1,9 +1,12 @@
-import { X, Download, CheckCircle, XCircle, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { X, Download, CheckCircle, XCircle, ArrowRight, Loader2, RefreshCw, SlidersHorizontal, Columns2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImageAsset } from '@/types';
+import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
+import { FixProgressSteps, ProgressStep } from '@/components/FixProgressSteps';
 
 interface FixModalProps {
   asset: ImageAsset | null;
@@ -11,9 +14,13 @@ interface FixModalProps {
   onClose: () => void;
   onRetryFix: (assetId: string) => void;
   onDownload: (imageUrl: string, filename: string) => void;
+  fixProgress?: {
+    attempt: number;
+    steps: ProgressStep[];
+  };
 }
 
-export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload }: FixModalProps) {
+export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixProgress }: FixModalProps) {
   if (!asset) return null;
 
   const result = asset.analysisResult;
@@ -39,62 +46,122 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload }: Fix
 
         <ScrollArea className="max-h-[calc(90vh-100px)]">
           <div className="space-y-6 pr-4">
-            {/* Side by Side Comparison */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Original Image */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Original</span>
-                  {result && (
-                    <Badge variant={result.status === 'PASS' ? 'default' : 'destructive'}>
-                      {result.overallScore}% Score
-                    </Badge>
-                  )}
-                </div>
-                <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
-                  <img
-                    src={asset.preview}
-                    alt="Original"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              </div>
-
-              {/* Fixed Image */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">AI-Fixed Version</span>
-                  {hasFixedImage && (
-                    <Badge variant="default" className="bg-success text-success-foreground">
-                      Compliant
-                    </Badge>
-                  )}
-                </div>
-                <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted relative">
-                  {asset.isGeneratingFix ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground">Generating fix...</p>
-                    </div>
-                  ) : hasFixedImage ? (
+            {/* Image Comparison Area */}
+            {asset.isGeneratingFix && fixProgress ? (
+              /* Real-time Fix Progress */
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <span className="text-sm font-medium">Original Image</span>
+                  <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
                     <img
-                      src={asset.fixedImage}
-                      alt="Fixed"
+                      src={asset.preview}
+                      alt="Original"
                       className="w-full h-full object-contain"
                     />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-muted-foreground/10 flex items-center justify-center">
-                        <ArrowRight className="w-6 h-6 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Click "Generate Fix" below
-                      </p>
-                    </div>
-                  )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <span className="text-sm font-medium">Generation Progress</span>
+                  <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted p-4 flex flex-col">
+                    <FixProgressSteps
+                      steps={fixProgress.steps}
+                      attempt={fixProgress.attempt}
+                      maxAttempts={3}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : hasFixedImage ? (
+              /* Before/After Comparison Tabs */
+              <Tabs defaultValue="slider" className="w-full">
+                <TabsList className="mb-3">
+                  <TabsTrigger value="slider" className="gap-2">
+                    <SlidersHorizontal className="w-4 h-4" />
+                    Slider View
+                  </TabsTrigger>
+                  <TabsTrigger value="sidebyside" className="gap-2">
+                    <Columns2 className="w-4 h-4" />
+                    Side by Side
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="slider" className="mt-0">
+                  <div className="aspect-video rounded-lg overflow-hidden border border-border bg-muted">
+                    <BeforeAfterSlider
+                      beforeImage={asset.preview}
+                      afterImage={asset.fixedImage!}
+                      beforeLabel="Original"
+                      afterLabel="AI Fixed"
+                      className="w-full h-full"
+                    />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="sidebyside" className="mt-0">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Original</span>
+                        {result && (
+                          <Badge variant={result.status === 'PASS' ? 'default' : 'destructive'}>
+                            {result.overallScore}% Score
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                        <img src={asset.preview} alt="Original" className="w-full h-full object-contain" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">AI-Fixed Version</span>
+                        <Badge variant="default" className="bg-success text-success-foreground">
+                          Compliant
+                        </Badge>
+                      </div>
+                      <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                        <img src={asset.fixedImage} alt="Fixed" className="w-full h-full object-contain" />
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            ) : (
+              /* Side by Side (No Fixed Image Yet) */
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Original</span>
+                    {result && (
+                      <Badge variant={result.status === 'PASS' ? 'default' : 'destructive'}>
+                        {result.overallScore}% Score
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                    <img src={asset.preview} alt="Original" className="w-full h-full object-contain" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <span className="text-sm font-medium">AI-Fixed Version</span>
+                  <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted relative">
+                    {asset.isGeneratingFix ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                        <p className="text-sm text-muted-foreground">Generating fix...</p>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-muted-foreground/10 flex items-center justify-center">
+                          <ArrowRight className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">Click "Generate Fix" below</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Analysis Details */}
             {result && (
