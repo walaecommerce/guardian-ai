@@ -5,6 +5,7 @@ import { AnalysisResults } from '@/components/AnalysisResults';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
+import { ProgressStep } from '@/components/FixProgressSteps';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
@@ -19,9 +20,11 @@ const Index = () => {
   const [productAsin, setProductAsin] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isBatchFixing, setIsBatchFixing] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<ImageAsset | null>(null);
   const [showFixModal, setShowFixModal] = useState(false);
+  const [fixProgress, setFixProgress] = useState<{ attempt: number; steps: ProgressStep[] } | null>(null);
   const { toast } = useToast();
 
   const addLog = useCallback((level: LogEntry['level'], message: string) => {
@@ -192,7 +195,7 @@ const Index = () => {
     toast({ title: 'Audit Complete', description: 'All images analyzed' });
   };
 
-  const handleRequestFix = async (assetId: string) => {
+  const handleRequestFix = async (assetId: string, showProgressInModal = false) => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
 
@@ -211,6 +214,19 @@ const Index = () => {
     setAssets(prev => prev.map(a => 
       a.id === assetId ? { ...a, isGeneratingFix: true, fixAttempts: [] } : a
     ));
+
+    // Initialize progress steps
+    const initSteps: ProgressStep[] = [
+      { id: 'init', label: 'Initializing AI generation', status: 'pending' },
+      { id: 'generate', label: 'Generating compliant image', status: 'pending' },
+      { id: 'verify-identity', label: 'Verifying product identity', status: 'pending' },
+      { id: 'verify-compliance', label: 'Checking compliance fixes', status: 'pending' },
+      { id: 'verify-quality', label: 'Assessing quality', status: 'pending' },
+    ];
+
+    if (showProgressInModal) {
+      setFixProgress({ attempt: 1, steps: initSteps });
+    }
 
     addLog('processing', `🎨 Guardian initiating ${asset.type} image fix...`);
     addLog('info', `   ├─ Loading compliance requirements...`);
@@ -343,9 +359,27 @@ const Index = () => {
       setAssets(prev => prev.map(a => 
         a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: finalImage } : a
       ));
+      setFixProgress(null);
       addLog('success', `🎉 Fix complete for ${asset.name}`);
       toast({ title: 'Fix Generated', description: 'AI-corrected image is ready' });
     }
+  };
+
+  const handleBatchFix = async () => {
+    const failedAssets = assets.filter(a => a.analysisResult?.status === 'FAIL' && !a.fixedImage);
+    if (failedAssets.length === 0) return;
+    
+    setIsBatchFixing(true);
+    addLog('processing', `🔧 Starting batch fix for ${failedAssets.length} images...`);
+    
+    for (const asset of failedAssets) {
+      await handleRequestFix(asset.id);
+      await new Promise(r => setTimeout(r, 1000)); // Delay between fixes
+    }
+    
+    setIsBatchFixing(false);
+    addLog('success', `✅ Batch fix complete!`);
+    toast({ title: 'Batch Fix Complete', description: `Fixed ${failedAssets.length} images` });
   };
 
   const handleViewDetails = (asset: ImageAsset) => {
@@ -394,8 +428,10 @@ const Index = () => {
                 <AnalysisResults
                   assets={assets}
                   listingTitle={listingTitle}
-                  onRequestFix={handleRequestFix}
+                  onRequestFix={(id) => handleRequestFix(id, true)}
                   onViewDetails={handleViewDetails}
+                  onBatchFix={handleBatchFix}
+                  isBatchFixing={isBatchFixing}
                 />
               </TabsContent>
               <TabsContent value="comparison">
@@ -413,9 +449,10 @@ const Index = () => {
       <FixModal
         asset={selectedAsset}
         isOpen={showFixModal}
-        onClose={() => setShowFixModal(false)}
-        onRetryFix={handleRequestFix}
+        onClose={() => { setShowFixModal(false); setFixProgress(null); }}
+        onRetryFix={(id) => handleRequestFix(id, true)}
         onDownload={handleDownload}
+        fixProgress={fixProgress || undefined}
       />
     </div>
   );
