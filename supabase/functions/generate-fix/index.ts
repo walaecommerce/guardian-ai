@@ -225,15 +225,29 @@ This ensures listing coherence across all images.`;
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[Guardian] AI Gateway error:", response.status, errorText);
+      
       if (response.status === 429) {
-        console.error("[Guardian] Rate limit exceeded");
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please wait and try again." }), {
+        return new Response(JSON.stringify({ 
+          error: "Rate limit exceeded. Please wait a moment and try again.",
+          errorType: "rate_limit"
+        }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errorText = await response.text();
-      console.error("[Guardian] AI Gateway error:", response.status, errorText);
+      
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ 
+          error: "Not enough AI credits. Please add credits to your Lovable workspace in Settings → Workspace → Usage.",
+          errorType: "payment_required"
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
       throw new Error(`AI Gateway error: ${response.status}`);
     }
 
