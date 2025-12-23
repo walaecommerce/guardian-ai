@@ -6,7 +6,7 @@ import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
 import { ImageAsset, LogEntry, AnalysisResult } from '@/types';
-import { scrapeAmazonProduct, downloadImage, getImageId } from '@/services/amazonScraper';
+import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin } from '@/services/amazonScraper';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,6 +15,7 @@ const Index = () => {
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [listingTitle, setListingTitle] = useState('');
   const [amazonUrl, setAmazonUrl] = useState('');
+  const [productAsin, setProductAsin] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -50,7 +51,9 @@ const Index = () => {
       const product = await scrapeAmazonProduct(amazonUrl);
       if (!product) throw new Error('Failed to scrape product');
 
-      addLog('success', `Found ${product.images.length} images`);
+      addLog('success', `Found ${product.images.length} images for ASIN: ${product.asin}`);
+      setProductAsin(product.asin);
+      
       if (product.title) {
         setListingTitle(product.title);
         addLog('info', `Title: ${product.title.substring(0, 50)}...`);
@@ -217,7 +220,9 @@ const Index = () => {
             imageType: asset.type,
             generativePrompt: asset.analysisResult?.generativePrompt,
             mainImageBase64,
-            previousCritique
+            previousCritique,
+            productTitle: listingTitle || undefined,
+            productAsin: productAsin || extractAsin(amazonUrl) || undefined
           }
         });
 
