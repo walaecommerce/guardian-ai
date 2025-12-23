@@ -35,7 +35,8 @@ serve(async (req) => {
         body: JSON.stringify({
           url,
           formats: ['html'],
-          waitFor: 3000,
+          waitFor: 5000,  // Wait longer for JS to load all images
+          onlyMainContent: false,  // We need full page to get gallery JSON
         }),
       });
 

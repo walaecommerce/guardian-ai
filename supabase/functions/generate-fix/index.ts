@@ -16,7 +16,9 @@ serve(async (req) => {
       imageType, 
       generativePrompt,
       mainImageBase64,
-      previousCritique
+      previousCritique,
+      productTitle,
+      productAsin
     } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -123,6 +125,17 @@ Pay special attention to:
 2. Any product identity/mismatch issues
 3. Any remaining badges or prohibited elements
 4. Quality or composition problems noted`;
+    }
+
+    // Add product context to ensure correct product identity
+    if (productTitle || productAsin) {
+      prompt += `
+
+## 📦 PRODUCT IDENTITY (CRITICAL):
+${productTitle ? `Product: "${productTitle}"` : ''}
+${productAsin ? `Amazon ASIN: ${productAsin}` : ''}
+The output image MUST show THIS EXACT product. Do NOT generate a different or generic product.
+Preserve ALL visible branding, model numbers, and product-specific features.`;
     }
 
     // Add cross-reference instruction for secondary images
