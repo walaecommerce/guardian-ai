@@ -94,6 +94,8 @@ export interface ScrapedImage {
   url: string;
   category: ImageCategory;
   index: number;
+  confidence?: number; // AI classification confidence 0-100
+  reasoning?: string;  // AI reasoning for the classification
 }
 
 export interface ScrapedProduct {

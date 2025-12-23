@@ -43,3 +43,6 @@ verify_jwt = false
 
 [functions.scrape-amazon]
 verify_jwt = false
+
+[functions.classify-image]
+verify_jwt = false
