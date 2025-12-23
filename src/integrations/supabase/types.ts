@@ -56,6 +56,104 @@ export type Database = {
         }
         Relationships: []
       }
+      enhancement_sessions: {
+        Row: {
+          amazon_url: string | null
+          average_score: number | null
+          created_at: string
+          failed_count: number
+          fixed_count: number
+          id: string
+          listing_title: string | null
+          passed_count: number
+          product_asin: string | null
+          status: string
+          total_images: number
+          updated_at: string
+        }
+        Insert: {
+          amazon_url?: string | null
+          average_score?: number | null
+          created_at?: string
+          failed_count?: number
+          fixed_count?: number
+          id?: string
+          listing_title?: string | null
+          passed_count?: number
+          product_asin?: string | null
+          status?: string
+          total_images?: number
+          updated_at?: string
+        }
+        Update: {
+          amazon_url?: string | null
+          average_score?: number | null
+          created_at?: string
+          failed_count?: number
+          fixed_count?: number
+          id?: string
+          listing_title?: string | null
+          passed_count?: number
+          product_asin?: string | null
+          status?: string
+          total_images?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      session_images: {
+        Row: {
+          analysis_result: Json | null
+          created_at: string
+          fix_attempts: Json | null
+          fixed_image_url: string | null
+          id: string
+          image_category: string | null
+          image_name: string
+          image_type: string
+          original_image_url: string
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_result?: Json | null
+          created_at?: string
+          fix_attempts?: Json | null
+          fixed_image_url?: string | null
+          id?: string
+          image_category?: string | null
+          image_name: string
+          image_type: string
+          original_image_url: string
+          session_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_result?: Json | null
+          created_at?: string
+          fix_attempts?: Json | null
+          fixed_image_url?: string | null
+          id?: string
+          image_category?: string | null
+          image_name?: string
+          image_type?: string
+          original_image_url?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_images_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "enhancement_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
