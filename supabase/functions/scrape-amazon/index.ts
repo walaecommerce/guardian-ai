@@ -34,8 +34,8 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           url,
-          formats: ['html'],
-          waitFor: 5000,  // Wait longer for JS to load all images
+          formats: ['rawHtml'],  // Use rawHtml to preserve Amazon's inline JSON/script blobs
+          waitFor: 8000,  // Wait longer for JS to load all images and gallery data
           onlyMainContent: false,  // We need full page to get gallery JSON
         }),
       });
@@ -50,11 +50,14 @@ serve(async (req) => {
         );
       }
 
-      console.log('Firecrawl scrape successful');
+      // Prefer rawHtml as it preserves the Amazon inline JSON/scripts we need for gallery extraction
+      const html = data.data?.rawHtml || data.rawHtml || data.data?.html || data.html;
+      console.log(`Firecrawl scrape successful, HTML length: ${html?.length || 0}`);
+      
       return new Response(
         JSON.stringify({ 
           success: true, 
-          html: data.data?.html || data.html,
+          html: html,
           markdown: data.data?.markdown || data.markdown
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
