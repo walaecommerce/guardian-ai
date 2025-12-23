@@ -5,7 +5,7 @@ import { AnalysisResults } from '@/components/AnalysisResults';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
-import { ReportHistory } from '@/components/ReportHistory';
+import { SessionHistory } from '@/components/SessionHistory';
 import { ProgressStep } from '@/components/FixProgressSteps';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin } from '@/services/amazonScraper';
@@ -15,12 +15,18 @@ import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
+import { uploadImage } from '@/services/imageStorage';
+
+// Map to track asset ID -> session_image ID for updates
+type AssetSessionMap = Map<string, string>;
 
 const Index = () => {
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [listingTitle, setListingTitle] = useState('');
   const [amazonUrl, setAmazonUrl] = useState('');
   const [productAsin, setProductAsin] = useState<string | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [assetSessionMap, setAssetSessionMap] = useState<AssetSessionMap>(new Map());
   const [isImporting, setIsImporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isBatchFixing, setIsBatchFixing] = useState(false);
@@ -66,8 +72,31 @@ const Index = () => {
         addLog('info', `Title: ${product.title.substring(0, 50)}...`);
       }
 
+      // Create enhancement session in database
+      addLog('processing', '💾 Creating enhancement session...');
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('enhancement_sessions')
+        .insert([{
+          amazon_url: amazonUrl,
+          product_asin: product.asin,
+          listing_title: product.title || null,
+          total_images: Math.min(product.images.length, 20),
+          status: 'in_progress'
+        }])
+        .select()
+        .single();
+
+      if (sessionError) {
+        console.error('Session creation error:', sessionError);
+        addLog('warning', 'Could not save session to history');
+      } else {
+        setCurrentSessionId(sessionData.id);
+        addLog('success', '📁 Session saved to history');
+      }
+
       // Download images
       const newAssets: ImageAsset[] = [];
+      const newAssetSessionMap = new Map<string, string>(assetSessionMap);
       const seenIds = new Set(assets.map(a => getImageId(a.preview)));
 
       addLog('processing', '🤖 AI classification enabled - analyzing image types...');
@@ -97,12 +126,44 @@ const Index = () => {
             addLog('info', `      ${classification.reasoning}`);
           }
 
+          const assetId = Math.random().toString(36).substring(2, 9);
+          const imageName = `${aiCategory}_${file.name}`;
+
+          // Upload to Supabase Storage if session was created
+          let originalImageUrl = URL.createObjectURL(file);
+          
+          if (sessionData?.id) {
+            addLog('processing', `   ☁️ Uploading to storage...`);
+            const uploaded = await uploadImage(file, sessionData.id, `original_${i}`);
+            if (uploaded) {
+              originalImageUrl = uploaded.url;
+              
+              // Create session_image record
+              const { data: sessionImageData, error: imgError } = await supabase
+                .from('session_images')
+                .insert([{
+                  session_id: sessionData.id,
+                  image_name: imageName,
+                  image_type: aiCategory === 'MAIN' ? 'MAIN' : 'SECONDARY',
+                  image_category: aiCategory,
+                  original_image_url: uploaded.url,
+                  status: 'pending'
+                }])
+                .select()
+                .single();
+
+              if (!imgError && sessionImageData) {
+                newAssetSessionMap.set(assetId, sessionImageData.id);
+              }
+            }
+          }
+
           newAssets.push({
-            id: Math.random().toString(36).substring(2, 9),
+            id: assetId,
             file,
             preview: URL.createObjectURL(file),
             type: aiCategory === 'MAIN' ? 'MAIN' : 'SECONDARY',
-            name: `${aiCategory}_${file.name}`,
+            name: imageName,
           });
 
           // Small delay between classifications to avoid rate limiting
@@ -114,6 +175,7 @@ const Index = () => {
 
       if (newAssets.length > 0) {
         setAssets(prev => [...prev, ...newAssets]);
+        setAssetSessionMap(newAssetSessionMap);
         addLog('success', `✅ Imported ${newAssets.length} images with AI classification`);
         toast({ title: 'Import Complete', description: `Added ${newAssets.length} images with AI-detected categories` });
       } else {
@@ -151,6 +213,10 @@ const Index = () => {
     addLog('processing', `🔍 Guardian initializing batch audit...`);
     addLog('info', `📦 ${assets.length} images queued for compliance check`);
 
+    let passedCount = 0;
+    let failedCount = 0;
+    const scores: number[] = [];
+
     for (let i = 0; i < assets.length; i++) {
       const asset = assets[i];
       
@@ -172,9 +238,26 @@ const Index = () => {
       ));
 
       if (result) {
-        const status = result.status === 'PASS' ? 'success' : 'warning';
+        const statusLog = result.status === 'PASS' ? 'success' : 'warning';
         const emoji = result.status === 'PASS' ? '✅' : '⚠️';
-        addLog(status, `${emoji} ${asset.name}: Score ${result.overallScore}% - ${result.status}`);
+        addLog(statusLog, `${emoji} ${asset.name}: Score ${result.overallScore}% - ${result.status}`);
+        
+        if (result.status === 'PASS') passedCount++;
+        else failedCount++;
+        scores.push(result.overallScore);
+        
+        // Update session_image in database
+        const sessionImageId = assetSessionMap.get(asset.id);
+        if (sessionImageId) {
+          const imageStatus = result.status === 'PASS' ? 'passed' : 'failed';
+          await supabase
+            .from('session_images')
+            .update({
+              analysis_result: JSON.parse(JSON.stringify(result)),
+              status: imageStatus
+            })
+            .eq('id', sessionImageId);
+        }
         
         // Log critical violations
         const criticalViolations = result.violations?.filter(v => v.severity === 'critical') || [];
@@ -193,9 +276,22 @@ const Index = () => {
       }
     }
 
+    // Update session summary
+    if (currentSessionId) {
+      const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+      await supabase
+        .from('enhancement_sessions')
+        .update({
+          passed_count: passedCount,
+          failed_count: failedCount,
+          average_score: avgScore
+        })
+        .eq('id', currentSessionId);
+    }
+
     addLog('success', '🎯 Guardian batch audit complete');
     setIsAnalyzing(false);
-    toast({ title: 'Audit Complete', description: 'All images analyzed. Click "Save Report" to save for later.' });
+    toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
   };
 
   const handleSaveReport = async () => {
@@ -408,8 +504,33 @@ const Index = () => {
         a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: finalImage } : a
       ));
       setFixProgress(null);
+      
+      // Save fixed image to storage and update session_image
+      const sessionImageId = assetSessionMap.get(assetId);
+      if (sessionImageId && currentSessionId) {
+        addLog('processing', '☁️ Saving fixed image to storage...');
+        const uploaded = await uploadImage(finalImage, currentSessionId, `fixed_${asset.name}`);
+        if (uploaded) {
+          await supabase
+            .from('session_images')
+            .update({
+              fixed_image_url: uploaded.url,
+              status: 'fixed'
+            })
+            .eq('id', sessionImageId);
+          
+          // Update session fixed count
+          await supabase
+            .from('enhancement_sessions')
+            .update({ 
+              fixed_count: assets.filter(a => a.fixedImage || a.id === assetId).length
+            })
+            .eq('id', currentSessionId);
+        }
+      }
+      
       addLog('success', `🎉 Fix complete for ${asset.name}`);
-      toast({ title: 'Fix Generated', description: 'AI-corrected image is ready' });
+      toast({ title: 'Fix Generated', description: 'AI-corrected image is ready and saved' });
     }
   };
 
@@ -423,6 +544,14 @@ const Index = () => {
     for (const asset of failedAssets) {
       await handleRequestFix(asset.id);
       await new Promise(r => setTimeout(r, 1000)); // Delay between fixes
+    }
+    
+    // Mark session as completed
+    if (currentSessionId) {
+      await supabase
+        .from('enhancement_sessions')
+        .update({ status: 'completed' })
+        .eq('id', currentSessionId);
     }
     
     setIsBatchFixing(false);
@@ -463,7 +592,7 @@ const Index = () => {
               isAnalyzing={isAnalyzing}
             />
             <ActivityLog logs={logs} />
-            <ReportHistory />
+            <SessionHistory currentSessionId={currentSessionId || undefined} />
           </div>
 
           {/* Right Panel - Results */}
