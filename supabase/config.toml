@@ -46,3 +46,6 @@ verify_jwt = false
 
 [functions.classify-image]
 verify_jwt = false
+
+[functions.verify-product-claims]
+verify_jwt = false
