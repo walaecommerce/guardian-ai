@@ -155,3 +155,10 @@ export interface AppState {
   selectedAssetId: string | null;
   showFixModal: boolean;
 }
+
+// Failed Download Types
+export interface FailedDownload {
+  url: string;
+  reason: string;
+  timestamp: Date;
+}

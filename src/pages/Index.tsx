@@ -6,7 +6,7 @@ import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
 import { SessionHistory } from '@/components/SessionHistory';
-import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState } from '@/types';
+import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,6 +33,8 @@ const Index = () => {
   const [selectedAsset, setSelectedAsset] = useState<ImageAsset | null>(null);
   const [showFixModal, setShowFixModal] = useState(false);
   const [fixProgress, setFixProgress] = useState<FixProgressState | null>(null);
+  const [failedDownloads, setFailedDownloads] = useState<FailedDownload[]>([]);
+  const [isRetrying, setIsRetrying] = useState(false);
   const { toast } = useToast();
 
   const addLog = useCallback((level: LogEntry['level'], message: string) => {
@@ -114,7 +116,7 @@ const Index = () => {
       let downloadedCount = 0;
       let skippedDuplicateUrl = 0;
       let skippedDuplicateContent = 0;
-      let failedDownloads: string[] = [];
+      const newFailedDownloads: FailedDownload[] = [];
 
       addLog('processing', '🤖 AI classification enabled - analyzing image types...');
 
@@ -134,7 +136,11 @@ const Index = () => {
         const file = await downloadImage(imageData.url);
         
         if (!file) {
-          failedDownloads.push(imageData.url.split('/').pop()?.substring(0, 20) || `image_${i}`);
+          newFailedDownloads.push({
+            url: imageData.url,
+            reason: 'Download failed',
+            timestamp: new Date()
+          });
           continue;
         }
         
@@ -226,8 +232,11 @@ const Index = () => {
       if (skippedDuplicateContent > 0) {
         addLog('info', `   Skipped (duplicate content): ${skippedDuplicateContent}`);
       }
-      if (failedDownloads.length > 0) {
-        addLog('warning', `   Failed downloads: ${failedDownloads.length} (${failedDownloads.slice(0, 3).join(', ')}${failedDownloads.length > 3 ? '...' : ''})`);
+      if (newFailedDownloads.length > 0) {
+        addLog('warning', `   Failed downloads: ${newFailedDownloads.length}`);
+        setFailedDownloads(newFailedDownloads);
+      } else {
+        setFailedDownloads([]);
       }
 
       if (newAssets.length > 0) {
@@ -245,6 +254,68 @@ const Index = () => {
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const handleRetryFailedDownloads = async () => {
+    if (failedDownloads.length === 0) return;
+    
+    setIsRetrying(true);
+    addLog('processing', `🔄 Retrying ${failedDownloads.length} failed downloads...`);
+    
+    const seenContentHashes = new Set(assets.filter(a => a.contentHash).map(a => a.contentHash!));
+    const stillFailed: FailedDownload[] = [];
+    const newAssets: ImageAsset[] = [];
+    
+    for (const failed of failedDownloads) {
+      addLog('processing', `Retrying: ${failed.url.split('/').pop()?.substring(0, 30)}...`);
+      const file = await downloadImage(failed.url);
+      
+      if (!file) {
+        stillFailed.push({ ...failed, timestamp: new Date() });
+        continue;
+      }
+      
+      // Content-hash deduplication
+      const contentHash = await computeContentHash(file);
+      if (seenContentHashes.has(contentHash)) {
+        addLog('info', `   Skipped (duplicate content)`);
+        continue;
+      }
+      seenContentHashes.add(contentHash);
+      
+      // Classify image
+      const base64 = await fileToBase64(file);
+      const classification = await classifyImage(base64, listingTitle, productAsin || undefined);
+      const aiCategory = classification.category as ImageCategory;
+      
+      const assetId = Math.random().toString(36).substring(2, 9);
+      const imageName = `${aiCategory}_${file.name}`;
+      
+      newAssets.push({
+        id: assetId,
+        file,
+        preview: URL.createObjectURL(file),
+        type: 'SECONDARY' as const, // Retry downloads are always secondary
+        name: imageName,
+        sourceUrl: failed.url,
+        contentHash,
+      });
+      
+      addLog('success', `   ✅ Downloaded and classified as ${aiCategory}`);
+    }
+    
+    if (newAssets.length > 0) {
+      setAssets(prev => [...prev, ...newAssets]);
+      addLog('success', `✅ Recovered ${newAssets.length} images`);
+      toast({ title: 'Retry Complete', description: `Recovered ${newAssets.length} images` });
+    }
+    
+    setFailedDownloads(stillFailed);
+    if (stillFailed.length > 0) {
+      addLog('warning', `${stillFailed.length} images still failed`);
+    }
+    
+    setIsRetrying(false);
   };
 
   const analyzeAsset = async (asset: ImageAsset): Promise<AnalysisResult | null> => {
@@ -739,6 +810,9 @@ const Index = () => {
               onImportFromAmazon={handleImportFromAmazon}
               onRunAudit={handleRunAudit}
               isAnalyzing={isAnalyzing}
+              failedDownloads={failedDownloads}
+              isRetrying={isRetrying}
+              onRetryFailedDownloads={handleRetryFailedDownloads}
             />
             <ActivityLog logs={logs} />
             <SessionHistory currentSessionId={currentSessionId || undefined} />
