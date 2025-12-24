@@ -544,7 +544,8 @@ const Index = () => {
             previousGeneratedImage: lastGeneratedImage,
             productTitle: listingTitle || undefined,
             productAsin: productAsin || extractAsin(amazonUrl) || undefined,
-            customPrompt: customPrompt // Pass custom prompt if provided
+            customPrompt: customPrompt, // Pass custom prompt if provided
+            spatialAnalysis: asset.analysisResult?.spatialAnalysis // Pass spatial zones for zone-aware editing
           }
         });
 
@@ -615,7 +616,8 @@ const Index = () => {
             originalImageBase64: originalBase64,
             generatedImageBase64: genData.fixedImage,
             imageType: asset.type,
-            mainImageBase64
+            mainImageBase64,
+            spatialAnalysis: asset.analysisResult?.spatialAnalysis // Pass spatial zones for verification
           }
         });
 

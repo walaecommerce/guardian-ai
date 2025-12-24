@@ -207,11 +207,12 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
 
             {/* Component Scores Progress Bars */}
             {componentScores && (
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-5 gap-3">
                 <ScoreBar label="Identity" score={componentScores.identity} />
                 <ScoreBar label="Compliance" score={componentScores.compliance} />
+                <ScoreBar label="Text/Layout" score={componentScores.textLayout ?? componentScores.noNewIssues} />
+                <ScoreBar label="No Additions" score={componentScores.noAdditions ?? 100} />
                 <ScoreBar label="Quality" score={componentScores.quality} />
-                <ScoreBar label="Clean Edit" score={componentScores.noNewIssues} />
               </div>
             )}
 

@@ -87,7 +87,8 @@ serve(async (req) => {
       originalImageBase64, 
       generatedImageBase64, 
       imageType, 
-      mainImageBase64 
+      mainImageBase64,
+      spatialAnalysis // NEW: Original spatial zones to verify preservation
     } = await req.json();
     
     const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
@@ -97,6 +98,31 @@ serve(async (req) => {
     }
 
     const isMain = imageType === 'MAIN';
+    
+    // Build protected zones reference for verification
+    const buildProtectedZonesReference = () => {
+      if (!spatialAnalysis) return '';
+      
+      const zones: string[] = [];
+      
+      if (spatialAnalysis.textZones?.length > 0) {
+        zones.push("TEXT ZONES that must be preserved:");
+        for (const zone of spatialAnalysis.textZones) {
+          zones.push(`  - [${zone.id}] at ${zone.location}: "${zone.content}"`);
+        }
+      }
+      
+      if (spatialAnalysis.protectedAreas?.length > 0) {
+        zones.push("PROTECTED AREAS that must be unchanged:");
+        for (const area of spatialAnalysis.protectedAreas) {
+          zones.push(`  - [${area.id}]: ${area.description}`);
+        }
+      }
+      
+      return zones.length > 0 ? zones.join('\n') : '';
+    };
+    
+    const protectedZonesRef = buildProtectedZonesReference();
     
     const systemPrompt = `You are Guardian's verification module. Your job is to critically evaluate AI-generated product images for Amazon compliance.
 
@@ -109,7 +135,7 @@ ${!isMain ? '3. MAIN PRODUCT REFERENCE - To verify product consistency' : ''}
 
 ## VERIFICATION CHECKLIST
 
-### CHECK 1: PRODUCT IDENTITY (CRITICAL - Weight: 40%)
+### CHECK 1: PRODUCT IDENTITY (CRITICAL - Weight: 35%)
 Compare the product between original and generated:
 - Is it visually the SAME product?
 - Are brand labels preserved and readable?
@@ -124,7 +150,7 @@ FAIL CONDITIONS:
 - Shape/proportions are distorted
 - Brand identity is compromised
 
-### CHECK 2: COMPLIANCE FIXES (Weight: 30%)
+### CHECK 2: COMPLIANCE FIXES (Weight: 25%)
 ${isMain ? `
 For MAIN images, verify:
 - Background is PURE WHITE RGB(255,255,255)
@@ -142,7 +168,44 @@ For SECONDARY images, verify:
 - Product demonstration context intact
 `}
 
-### CHECK 3: QUALITY ASSESSMENT (Weight: 20%)
+### CHECK 3: TEXT & LAYOUT PRESERVATION (NEW - Weight: 25%)
+${!isMain ? `
+CRITICAL FOR SECONDARY IMAGES:
+${protectedZonesRef ? `
+${protectedZonesRef}
+
+Verify EACH of these zones:
+` : ''}
+- Is ALL original text still fully visible and readable?
+- Are infographic callouts and feature descriptions intact?
+- Is the layout/composition identical to original?
+- Were any text areas obscured, covered, or modified?
+
+FAIL CONDITIONS:
+- Any text that was readable in original is now obscured or missing
+- New elements were added that cover existing content
+- Layout structure was changed
+- Text was distorted or made illegible
+` : `
+For MAIN images:
+- Product text/labels should remain sharp and readable
+- No new text artifacts introduced
+`}
+
+### CHECK 4: NO NEW ELEMENTS ADDED (Weight: 10%)
+${!isMain ? `
+CRITICAL CHECK: Compare original vs generated for ADDITIONS:
+- Were any NEW product images added that weren't in original?
+- Were any NEW shapes, icons, or graphics inserted?
+- Were any NEW text overlays created?
+
+FAIL CONDITIONS:
+- AI added a product image/cutout that wasn't in original
+- AI inserted graphics to "fill" removed area instead of inpainting
+- AI created new visual elements
+` : ''}
+
+### CHECK 5: QUALITY ASSESSMENT (Weight: 5%)
 Evaluate:
 - Resolution maintained or improved
 - No blur or soft focus introduced
@@ -150,16 +213,8 @@ Evaluate:
 - No unnatural edges or halos
 - Professional appearance
 
-### CHECK 4: NEW ISSUES INTRODUCED (Weight: 10%)
-Check for AI generation artifacts:
-- Distorted text on packaging
-- Warped product shapes
-- Unnatural lighting
-- Floating/disconnected elements
-- Visible editing seams
-
 ## SCORING FORMULA
-Final Score = (Identity × 0.40) + (Compliance × 0.30) + (Quality × 0.20) + (NoNewIssues × 0.10)
+Final Score = (Identity × 0.35) + (Compliance × 0.25) + (TextLayout × 0.25) + (NoAdditions × 0.10) + (Quality × 0.05)
 
 Score each component 0-100, then calculate weighted average.
 
@@ -167,13 +222,16 @@ Score each component 0-100, then calculate weighted average.
 Return ONLY valid JSON:
 {
   "score": <0-100 weighted final score>,
-  "isSatisfactory": <true if score >= 80 AND productMatch is true>,
+  "isSatisfactory": <true if score >= 80 AND productMatch is true AND no critical text issues>,
   "productMatch": <boolean - is this visually the SAME product?>,
+  "textPreserved": <boolean - is all original text still visible and readable?>,
+  "noElementsAdded": <boolean - were NO new elements added to the image?>,
   "componentScores": {
     "identity": <0-100>,
     "compliance": <0-100>,
-    "quality": <0-100>,
-    "noNewIssues": <0-100>
+    "textLayout": <0-100>,
+    "noAdditions": <0-100>,
+    "quality": <0-100>
   },
   "critique": "Concise description of the most important issues that need fixing",
   "improvements": [
@@ -186,21 +244,28 @@ Return ONLY valid JSON:
   "failedChecks": [
     "What still needs to be fixed"
   ],
+  "textIssues": [
+    "Specific text/callout that was obscured or damaged"
+  ],
+  "addedElements": [
+    "Description of any new elements that were incorrectly added"
+  ],
   "thinkingSteps": [
-    "Step-by-step verification process the user can see",
-    "🔬 Sampling background color at corners: RGB(X,Y,Z)...",
-    "📊 Comparing product silhouette with original...",
-    "✓ Label text 'BRAND NAME' preserved correctly",
-    "⚠️ Found slight color deviation in product body",
-    "Show your calculation process so user sees AI 'thinking'"
+    "Step-by-step verification process",
+    "🔬 Checking product identity...",
+    "📝 Verifying text zones preserved...",
+    "🚫 Checking for added elements...",
+    "Show your analysis process"
   ]
 }
 
-IMPORTANT: The thinkingSteps array should show your actual analysis process step-by-step.
-Include specific pixel sampling, measurements, comparisons, and decisions.
-This will be displayed live to the user so they can see the AI verification happening.
+CRITICAL FAIL CONDITIONS (automatic isSatisfactory: false):
+- Product identity mismatch (different product shown)
+- Text zones obscured by new elements
+- New product images added over original content
+- Layout structure significantly altered
 
-CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for retry than pass a flawed image.`;
+Be STRICT. Better to flag for retry than pass a flawed image.`;
 
     const guessImageMimeType = (base64DataRaw: string): string => {
       const base64Data = (base64DataRaw || '').trim();
