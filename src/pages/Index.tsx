@@ -7,7 +7,7 @@ import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
 import { SessionHistory } from '@/components/SessionHistory';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState } from '@/types';
-import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin } from '@/services/amazonScraper';
+import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +53,14 @@ const Index = () => {
     });
   };
 
+  // Compute SHA-256 hash of file content for deduplication
+  const computeContentHash = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
   const handleImportFromAmazon = async () => {
     if (!amazonUrl) return;
     
@@ -79,7 +87,7 @@ const Index = () => {
           amazon_url: amazonUrl,
           product_asin: product.asin,
           listing_title: product.title || null,
-          total_images: Math.min(product.images.length, 20),
+          total_images: product.images.length,
           status: 'in_progress'
         }])
         .select()
@@ -93,96 +101,140 @@ const Index = () => {
         addLog('success', '📁 Session saved to history');
       }
 
-      // Download images
+      // Download images with content-hash deduplication
       const newAssets: ImageAsset[] = [];
       const newAssetSessionMap = new Map<string, string>(assetSessionMap);
-      const seenIds = new Set(assets.map(a => getImageId(a.preview)));
+      
+      // Track by canonical URL key AND content hash for robust deduplication
+      const seenCanonicalKeys = new Set(assets.map(a => a.sourceUrl ? getCanonicalImageKey(a.sourceUrl) : ''));
+      const seenContentHashes = new Set(assets.filter(a => a.contentHash).map(a => a.contentHash!));
+      
+      // Import stats for summary logging
+      let foundCount = product.images.length;
+      let downloadedCount = 0;
+      let skippedDuplicateUrl = 0;
+      let skippedDuplicateContent = 0;
+      let failedDownloads: string[] = [];
 
       addLog('processing', '🤖 AI classification enabled - analyzing image types...');
 
-      for (let i = 0; i < Math.min(product.images.length, 20); i++) {
+      for (let i = 0; i < product.images.length; i++) {
         const imageData = product.images[i];
-        const imageId = getImageId(imageData.url);
+        const canonicalKey = getCanonicalImageKey(imageData.url);
         
-        if (seenIds.has(imageId)) continue;
-        seenIds.add(imageId);
+        // Skip if we've already seen this canonical URL
+        if (seenCanonicalKeys.has(canonicalKey)) {
+          skippedDuplicateUrl++;
+          console.log(`[Import] Skipping duplicate URL: ${imageData.url.substring(0, 60)}...`);
+          continue;
+        }
+        seenCanonicalKeys.add(canonicalKey);
 
-        addLog('processing', `Downloading image ${i + 1}...`);
+        addLog('processing', `Downloading image ${i + 1}/${product.images.length}...`);
         const file = await downloadImage(imageData.url);
         
-        if (file) {
-          // Convert to base64 for AI classification
-          const base64 = await fileToBase64(file);
-          
-          addLog('processing', `🔍 Classifying image ${i + 1} with AI vision...`);
-          const classification = await classifyImage(base64, product.title, product.asin);
-          
-          const aiCategory = classification.category as ImageCategory;
-          const confidence = classification.confidence;
-          
-          addLog('info', `   └─ Detected: ${aiCategory} (${confidence}% confidence)`);
-          if (classification.reasoning) {
-            addLog('info', `      ${classification.reasoning}`);
-          }
+        if (!file) {
+          failedDownloads.push(imageData.url.split('/').pop()?.substring(0, 20) || `image_${i}`);
+          continue;
+        }
+        
+        // Content-hash deduplication: compute hash and skip if we've seen this exact content
+        const contentHash = await computeContentHash(file);
+        if (seenContentHashes.has(contentHash)) {
+          skippedDuplicateContent++;
+          console.log(`[Import] Skipping duplicate content (hash collision): ${imageData.url.substring(0, 60)}...`);
+          continue;
+        }
+        seenContentHashes.add(contentHash);
+        downloadedCount++;
+        
+        // Convert to base64 for AI classification
+        const base64 = await fileToBase64(file);
+        
+        addLog('processing', `🔍 Classifying image ${downloadedCount} with AI vision...`);
+        const classification = await classifyImage(base64, product.title, product.asin);
+        
+        const aiCategory = classification.category as ImageCategory;
+        const confidence = classification.confidence;
+        
+        addLog('info', `   └─ Detected: ${aiCategory} (${confidence}% confidence)`);
+        if (classification.reasoning) {
+          addLog('info', `      ${classification.reasoning}`);
+        }
 
-          const assetId = Math.random().toString(36).substring(2, 9);
-          const imageName = `${aiCategory}_${file.name}`;
+        const assetId = Math.random().toString(36).substring(2, 9);
+        const imageName = `${aiCategory}_${file.name}`;
 
-          // Upload to Supabase Storage if session was created
-          let originalImageUrl = URL.createObjectURL(file);
-          
-          if (sessionData?.id) {
-            addLog('processing', `   ☁️ Uploading to storage...`);
-            const uploaded = await uploadImage(file, sessionData.id, `original_${i}`);
-            if (uploaded) {
-              originalImageUrl = uploaded.url;
-              
-              // Create session_image record
-              // image_type is position-based (first = MAIN), category is content-based from AI
-              const isFirstImage = newAssets.length === 0 && assets.length === 0;
-              const { data: sessionImageData, error: imgError } = await supabase
-                .from('session_images')
-                .insert([{
-                  session_id: sessionData.id,
-                  image_name: imageName,
-                  image_type: isFirstImage ? 'MAIN' : 'SECONDARY',
-                  image_category: aiCategory,
-                  original_image_url: uploaded.url,
-                  status: 'pending'
-                }])
-                .select()
-                .single();
+        // Upload to Supabase Storage if session was created
+        let originalImageUrl = URL.createObjectURL(file);
+        
+        if (sessionData?.id) {
+          addLog('processing', `   ☁️ Uploading to storage...`);
+          const uploaded = await uploadImage(file, sessionData.id, `original_${downloadedCount}`);
+          if (uploaded) {
+            originalImageUrl = uploaded.url;
+            
+            // Create session_image record
+            // image_type is position-based (first = MAIN), category is content-based from AI
+            const isFirstImage = newAssets.length === 0 && assets.length === 0;
+            const { data: sessionImageData, error: imgError } = await supabase
+              .from('session_images')
+              .insert([{
+                session_id: sessionData.id,
+                image_name: imageName,
+                image_type: isFirstImage ? 'MAIN' : 'SECONDARY',
+                image_category: aiCategory,
+                original_image_url: uploaded.url,
+                status: 'pending'
+              }])
+              .select()
+              .single();
 
-              if (!imgError && sessionImageData) {
-                newAssetSessionMap.set(assetId, sessionImageData.id);
-              }
+            if (!imgError && sessionImageData) {
+              newAssetSessionMap.set(assetId, sessionImageData.id);
             }
           }
-
-          // Only the FIRST image gets type 'MAIN', all others are 'SECONDARY'
-          // Position-based, not content-based - matches Amazon's listing structure
-          const isFirstImage = newAssets.length === 0 && assets.length === 0;
-          
-          newAssets.push({
-            id: assetId,
-            file,
-            preview: URL.createObjectURL(file),
-            type: isFirstImage ? 'MAIN' : 'SECONDARY',
-            name: imageName,
-          });
-
-          // Small delay between classifications to avoid rate limiting
-          if (i < product.images.length - 1) {
-            await new Promise(r => setTimeout(r, 300));
-          }
         }
+
+        // Only the FIRST image gets type 'MAIN', all others are 'SECONDARY'
+        // Position-based, not content-based - matches Amazon's listing structure
+        const isFirstImage = newAssets.length === 0 && assets.length === 0;
+        
+        newAssets.push({
+          id: assetId,
+          file,
+          preview: URL.createObjectURL(file),
+          type: isFirstImage ? 'MAIN' : 'SECONDARY',
+          name: imageName,
+          sourceUrl: imageData.url,
+          contentHash,
+        });
+
+        // Small delay between classifications to avoid rate limiting
+        if (i < product.images.length - 1) {
+          await new Promise(r => setTimeout(r, 300));
+        }
+      }
+
+      // Log import summary
+      addLog('info', `📊 Import Summary:`);
+      addLog('info', `   Found: ${foundCount} URLs`);
+      addLog('info', `   Downloaded: ${downloadedCount} unique images`);
+      if (skippedDuplicateUrl > 0) {
+        addLog('info', `   Skipped (duplicate URL): ${skippedDuplicateUrl}`);
+      }
+      if (skippedDuplicateContent > 0) {
+        addLog('info', `   Skipped (duplicate content): ${skippedDuplicateContent}`);
+      }
+      if (failedDownloads.length > 0) {
+        addLog('warning', `   Failed downloads: ${failedDownloads.length} (${failedDownloads.slice(0, 3).join(', ')}${failedDownloads.length > 3 ? '...' : ''})`);
       }
 
       if (newAssets.length > 0) {
         setAssets(prev => [...prev, ...newAssets]);
         setAssetSessionMap(newAssetSessionMap);
-        addLog('success', `✅ Imported ${newAssets.length} images with AI classification`);
-        toast({ title: 'Import Complete', description: `Added ${newAssets.length} images with AI-detected categories` });
+        addLog('success', `✅ Imported ${newAssets.length} unique images with AI classification`);
+        toast({ title: 'Import Complete', description: `Added ${newAssets.length} unique images (${skippedDuplicateUrl + skippedDuplicateContent} duplicates removed)` });
       } else {
         throw new Error('No images could be downloaded');
       }

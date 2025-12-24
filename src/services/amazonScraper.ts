@@ -51,6 +51,35 @@ export function cleanImageUrl(url: string): string {
   return url.replace(/\._[A-Z]{2}_[A-Z0-9_,]+_\./g, '.');
 }
 
+// Canonical key for reliable deduplication (ignores host differences, query strings)
+export function getCanonicalImageKey(url: string): string {
+  const cleaned = cleanImageUrl(url);
+  // Extract just the path part after /images/I/
+  const pathMatch = cleaned.match(/\/images\/I\/([a-zA-Z0-9\-+%._]+)/i);
+  if (pathMatch) {
+    // Remove extension and size modifiers for canonical comparison
+    return pathMatch[1].replace(/\.(jpg|jpeg|png|gif|webp)$/i, '').toLowerCase();
+  }
+  // Fallback to getImageId
+  return getImageId(url).toLowerCase();
+}
+
+// Check if URL is a valid Amazon product image (broader acceptance)
+function isValidAmazonImage(url: string): boolean {
+  // Must contain /images/I/ path (the actual product image path)
+  if (!url.includes('/images/I/')) return false;
+  
+  // Host must be Amazon-related
+  const amazonHosts = ['media-amazon.com', 'ssl-images-amazon.com', 'images-amazon.com', 'm.media-amazon.com'];
+  try {
+    const urlObj = new URL(url);
+    return amazonHosts.some(host => urlObj.hostname.includes(host) || urlObj.hostname.endsWith(host));
+  } catch {
+    // If URL parsing fails, check by string
+    return amazonHosts.some(host => url.includes(host));
+  }
+}
+
 function isIconOrSprite(url: string): boolean {
   const lower = url.toLowerCase();
   return ICON_FILTERS.some(filter => lower.includes(filter));
@@ -143,12 +172,12 @@ function extractGalleryImagesWithVariants(html: string, targetAsin: string): Ima
     console.log(`[Scraper] Warning: imageBlockState ASIN (${blockAsin}) doesn't match target (${targetAsin})`);
   }
   
-  // Helper to add image if not duplicate
+  // Helper to add image if not duplicate - use canonical key for robust deduplication
   const addImage = (url: string, variant: string | null, isLanding: boolean) => {
     const cleaned = cleanImageUrl(url);
-    const id = getImageId(cleaned);
-    if (!seenIds.has(id) && !isIconOrSprite(cleaned) && cleaned.includes('media-amazon.com/images/I/')) {
-      seenIds.add(id);
+    const canonicalKey = getCanonicalImageKey(cleaned);
+    if (!seenIds.has(canonicalKey) && !isIconOrSprite(cleaned) && isValidAmazonImage(cleaned)) {
+      seenIds.add(canonicalKey);
       images.push({ url: cleaned, variant, isLandingImage: isLanding });
     }
   };
@@ -267,24 +296,33 @@ function extractGalleryImagesWithVariants(html: string, targetAsin: string): Ima
     }
   }
   
-  // Pattern 4: imageBlockState JSON (another data source)
+  // Pattern 4: imageBlockState JSON (most reliable source - parse ALL color variant keys, not just 'initial')
   const imageBlockStateMatch = html.match(/data-a-state='{"key":"imageBlockState"}'[^>]*>([\s\S]*?)<\/script>/i);
   if (imageBlockStateMatch) {
     try {
       const stateJson = JSON.parse(imageBlockStateMatch[1]);
-      if (stateJson.colorImages?.initial) {
-        console.log(`[Scraper] Found imageBlockState with ${stateJson.colorImages.initial.length} images`);
-        stateJson.colorImages.initial.forEach((img: any) => {
-          const url = img.hiRes || img.large || img.main;
-          if (url) {
-            const variant = img.variant || null;
-            const isLanding = landingImageUrl ? getImageId(url) === getImageId(landingImageUrl) : false;
-            addImage(url, variant, isLanding);
+      if (stateJson.colorImages) {
+        // Iterate ALL keys in colorImages (initial, plus any color variant ASINs)
+        const allKeys = Object.keys(stateJson.colorImages);
+        console.log(`[Scraper] Found imageBlockState with colorImages keys: ${allKeys.join(', ')}`);
+        
+        for (const key of allKeys) {
+          const imageArray = stateJson.colorImages[key];
+          if (Array.isArray(imageArray)) {
+            console.log(`[Scraper] Processing colorImages.${key} with ${imageArray.length} images`);
+            imageArray.forEach((img: any) => {
+              const url = img.hiRes || img.large || img.main || img.thumb;
+              if (url) {
+                const variant = img.variant || null;
+                const isLanding = landingImageUrl ? getImageId(url) === getImageId(landingImageUrl) : false;
+                addImage(url, variant, isLanding);
+              }
+            });
           }
-        });
+        }
       }
     } catch (e) {
-      // JSON parse failed
+      console.log('[Scraper] Failed to parse imageBlockState JSON');
     }
   }
   

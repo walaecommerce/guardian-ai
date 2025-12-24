@@ -7,6 +7,8 @@ export interface ImageAsset {
   preview: string;
   type: AssetType;
   name: string;
+  sourceUrl?: string;      // Original Amazon image URL
+  contentHash?: string;    // SHA-256 hash for deduplication
   analysisResult?: AnalysisResult;
   fixedImage?: string;
   isAnalyzing?: boolean;
