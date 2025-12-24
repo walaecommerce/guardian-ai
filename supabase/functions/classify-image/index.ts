@@ -5,6 +5,78 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_DELAY_MS = 1000;
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const parseGeminiError = (status: number, errorText: string): { message: string; errorType: string; retryable: boolean } => {
+  try {
+    const errorJson = JSON.parse(errorText);
+    const apiMessage = errorJson?.error?.message || '';
+    
+    if (status === 429) {
+      return { message: "Rate limit exceeded. Please wait a moment and try again.", errorType: "rate_limit", retryable: true };
+    }
+    if (status === 403) {
+      return { message: "API key invalid or quota exceeded.", errorType: "auth_error", retryable: false };
+    }
+    if (status === 400) {
+      if (apiMessage.includes('MIME type')) {
+        return { message: `Invalid image format: ${apiMessage}`, errorType: "invalid_image", retryable: false };
+      }
+      if (apiMessage.includes('safety')) {
+        return { message: "Image was blocked by safety filters.", errorType: "safety_block", retryable: false };
+      }
+      return { message: `Invalid request: ${apiMessage}`, errorType: "bad_request", retryable: false };
+    }
+    if (status >= 500) {
+      return { message: "Google AI service temporarily unavailable. Retrying...", errorType: "server_error", retryable: true };
+    }
+    return { message: apiMessage || `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
+  } catch {
+    return { message: `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
+  }
+};
+
+const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = MAX_RETRIES): Promise<Response> => {
+  let lastError: Error | null = null;
+  let delay = INITIAL_DELAY_MS;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (response.ok) return response;
+      
+      const errorText = await response.text();
+      const parsedError = parseGeminiError(response.status, errorText);
+      
+      console.log(`[Guardian] Attempt ${attempt}/${maxRetries}: ${parsedError.message}`);
+      
+      if (!parsedError.retryable || attempt === maxRetries) {
+        return new Response(errorText, { status: response.status, headers: response.headers });
+      }
+      
+      console.log(`[Guardian] Retrying in ${delay}ms...`);
+      await sleep(delay);
+      delay *= 2;
+      
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`[Guardian] Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+      
+      if (attempt === maxRetries) throw lastError;
+      
+      await sleep(delay);
+      delay *= 2;
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+};
+
 interface ClassificationResult {
   category: string;
   confidence: number;
@@ -12,7 +84,6 @@ interface ClassificationResult {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -22,7 +93,7 @@ serve(async (req) => {
 
     if (!imageBase64) {
       return new Response(
-        JSON.stringify({ error: 'imageBase64 is required' }),
+        JSON.stringify({ error: 'imageBase64 is required', errorType: 'missing_image' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -32,7 +103,7 @@ serve(async (req) => {
     if (!GOOGLE_GEMINI_API_KEY) {
       console.error('GOOGLE_GEMINI_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
+        JSON.stringify({ error: 'AI service not configured', errorType: 'config_error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -65,9 +136,8 @@ ${asinInfo}
 
 Analyze the image and determine which category it belongs to based on its visual characteristics.`;
 
-    console.log('Calling Google Gemini API for image classification...');
+    console.log('[Guardian] Calling Google Gemini API for image classification...');
 
-    // Extract base64 data from data URL
     const guessImageMimeType = (base64DataRaw: string): string => {
       const base64Data = (base64DataRaw || '').trim();
       if (base64Data.startsWith('/9j/')) return 'image/jpeg';
@@ -101,69 +171,58 @@ Analyze the image and determine which category it belongs to based on its visual
 
     const imageData = extractBase64(imageBase64);
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        contents: [{
-          parts: [
-            { text: userPrompt },
-            {
-              inline_data: {
-                mime_type: imageData.mimeType,
-                data: imageData.data
+    const response = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{
+            parts: [
+              { text: userPrompt },
+              {
+                inline_data: {
+                  mime_type: imageData.mimeType,
+                  data: imageData.data
+                }
               }
-            }
-          ]
-        }]
-      }),
-    });
+            ]
+          }]
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Google Gemini API error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded, please try again later' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 403) {
-        return new Response(
-          JSON.stringify({ error: 'API key invalid or quota exceeded' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      const parsedError = parseGeminiError(response.status, errorText);
+      console.error('[Guardian] Google Gemini API error:', response.status, errorText);
       
       return new Response(
-        JSON.stringify({ error: 'AI classification failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: parsedError.message, 
+          errorType: parsedError.errorType,
+          category: 'UNKNOWN',
+          confidence: 0
+        }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
-    console.log('AI response:', content);
+    console.log('[Guardian] AI response:', content);
 
-    // Parse the JSON response
     let result: ClassificationResult;
     try {
-      // Extract JSON from the response (handle markdown code blocks)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('No JSON found in response');
       }
       result = JSON.parse(jsonMatch[0]);
     } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
-      // Default fallback
+      console.error('[Guardian] Failed to parse AI response:', parseError);
       result = {
         category: 'UNKNOWN',
         confidence: 0,
@@ -171,13 +230,12 @@ Analyze the image and determine which category it belongs to based on its visual
       };
     }
 
-    // Validate the category
     const validCategories = ['MAIN', 'INFOGRAPHIC', 'LIFESTYLE', 'PRODUCT_IN_USE', 'SIZE_CHART', 'COMPARISON', 'PACKAGING', 'DETAIL', 'UNKNOWN'];
     if (!validCategories.includes(result.category)) {
       result.category = 'UNKNOWN';
     }
 
-    console.log('Classification result:', result);
+    console.log('[Guardian] Classification result:', result);
 
     return new Response(
       JSON.stringify(result),
@@ -185,10 +243,11 @@ Analyze the image and determine which category it belongs to based on its visual
     );
 
   } catch (error) {
-    console.error('Classification error:', error);
+    console.error('[Guardian] Classification error:', error);
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Unknown error',
+        errorType: 'classification_failed',
         category: 'UNKNOWN',
         confidence: 0
       }),

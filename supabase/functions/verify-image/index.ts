@@ -5,6 +5,78 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_DELAY_MS = 1000;
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const parseGeminiError = (status: number, errorText: string): { message: string; errorType: string; retryable: boolean } => {
+  try {
+    const errorJson = JSON.parse(errorText);
+    const apiMessage = errorJson?.error?.message || '';
+    
+    if (status === 429) {
+      return { message: "Rate limit exceeded. Please wait a moment and try again.", errorType: "rate_limit", retryable: true };
+    }
+    if (status === 403) {
+      return { message: "API key invalid or quota exceeded.", errorType: "auth_error", retryable: false };
+    }
+    if (status === 400) {
+      if (apiMessage.includes('MIME type')) {
+        return { message: `Invalid image format: ${apiMessage}`, errorType: "invalid_image", retryable: false };
+      }
+      if (apiMessage.includes('safety')) {
+        return { message: "Image was blocked by safety filters.", errorType: "safety_block", retryable: false };
+      }
+      return { message: `Invalid request: ${apiMessage}`, errorType: "bad_request", retryable: false };
+    }
+    if (status >= 500) {
+      return { message: "Google AI service temporarily unavailable. Retrying...", errorType: "server_error", retryable: true };
+    }
+    return { message: apiMessage || `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
+  } catch {
+    return { message: `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
+  }
+};
+
+const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = MAX_RETRIES): Promise<Response> => {
+  let lastError: Error | null = null;
+  let delay = INITIAL_DELAY_MS;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (response.ok) return response;
+      
+      const errorText = await response.text();
+      const parsedError = parseGeminiError(response.status, errorText);
+      
+      console.log(`[Guardian] Attempt ${attempt}/${maxRetries}: ${parsedError.message}`);
+      
+      if (!parsedError.retryable || attempt === maxRetries) {
+        return new Response(errorText, { status: response.status, headers: response.headers });
+      }
+      
+      console.log(`[Guardian] Retrying in ${delay}ms...`);
+      await sleep(delay);
+      delay *= 2;
+      
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`[Guardian] Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+      
+      if (attempt === maxRetries) throw lastError;
+      
+      await sleep(delay);
+      delay *= 2;
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -130,7 +202,6 @@ This will be displayed live to the user so they can see the AI verification happ
 
 CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for retry than pass a flawed image.`;
 
-    // Helper to extract base64 data from data URL
     const guessImageMimeType = (base64DataRaw: string): string => {
       const base64Data = (base64DataRaw || '').trim();
       if (base64Data.startsWith('/9j/')) return 'image/jpeg';
@@ -162,7 +233,6 @@ CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for r
       return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
     };
 
-    // Build parts array for Google's API format
     const parts: any[] = [
       { text: `Verify this ${imageType} AI-generated image against Amazon compliance requirements.` },
       { text: "=== ORIGINAL IMAGE (source with violations) ===" }
@@ -185,7 +255,6 @@ CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for r
       }
     });
 
-    // Add main image reference for secondary images
     if (!isMain && mainImageBase64) {
       parts.push({ text: "=== MAIN PRODUCT REFERENCE (generated image must match this product) ===" });
       const mainImage = extractBase64(mainImageBase64);
@@ -204,30 +273,30 @@ CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for r
     console.log(`[Guardian] Check 2: Compliance fixes verification...`);
     console.log(`[Guardian] Check 3: Quality assessment...`);
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        contents: [{ parts }]
-      }),
-    });
+    const response = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ parts }]
+        }),
+      }
+    );
 
     if (!response.ok) {
-      if (response.status === 429) {
-        console.error("[Guardian] Rate limit exceeded");
-        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const errorText = await response.text();
+      const parsedError = parseGeminiError(response.status, errorText);
       console.error("[Guardian] Google Gemini API error:", response.status, errorText);
-      throw new Error(`Google Gemini API error: ${response.status}`);
+      
+      return new Response(JSON.stringify({ 
+        error: parsedError.message,
+        errorType: parsedError.errorType 
+      }), {
+        status: response.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();
@@ -253,7 +322,10 @@ CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for r
   } catch (error) {
     console.error("[Guardian] Verification error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ 
+      error: errorMessage,
+      errorType: "verification_failed"
+    }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
