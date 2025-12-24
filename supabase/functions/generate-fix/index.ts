@@ -182,34 +182,40 @@ This ensures listing coherence across all images.`;
     console.log(`[Guardian] Generating ${imageType} fix...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
 
     // Helper to extract base64 data from data URL
-    const guessImageMimeType = (base64Data: string): string => {
+    const guessImageMimeType = (base64DataRaw: string): string => {
+      const base64Data = (base64DataRaw || '').trim();
       if (base64Data.startsWith('/9j/')) return 'image/jpeg';
       if (base64Data.startsWith('iVBOR')) return 'image/png';
       if (base64Data.startsWith('R0lGOD')) return 'image/gif';
       if (base64Data.startsWith('UklGR')) return 'image/webp';
+      // Default to jpeg (most common) if we can't detect
       return 'image/jpeg';
     };
 
-    const normalizeMimeType = (mimeType: string, base64Data: string): string => {
-      const mt = (mimeType || '').toLowerCase();
+    const normalizeMimeType = (mimeTypeRaw: string, base64Data: string): string => {
+      const mt = (mimeTypeRaw || '').toLowerCase().trim();
       if (mt === 'image/jpg') return 'image/jpeg';
-      if (mt === 'application/octet-stream' || mt === 'binary/octet-stream' || mt === '') {
+
+      const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+      if (!allowed.has(mt)) {
+        // Browser/FileReader sometimes returns application/octet-stream; Google rejects it.
         return guessImageMimeType(base64Data);
       }
-      return mimeType;
+
+      return mt;
     };
 
     const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
       if (dataUrl.startsWith('data:')) {
         const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
         if (match) {
-          const data = match[2];
+          const data = (match[2] || '').trim();
           const mimeType = normalizeMimeType(match[1], data);
           return { mimeType, data };
         }
       }
-      // Assume JPEG if no data URL prefix
-      return { mimeType: 'image/jpeg', data: dataUrl };
+      // If it's not a data URL, assume it's raw base64 and treat as jpeg
+      return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
     };
 
     // Build parts array for Google's API format
