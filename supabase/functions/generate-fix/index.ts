@@ -64,144 +64,143 @@ serve(async (req) => {
       prompt = customPrompt;
       console.log("[Guardian] Using custom prompt from user");
     } else if (isMain) {
-      prompt = generativePrompt || `Transform this product image into an Amazon MAIN image that is 100% compliant:
+      prompt = generativePrompt || `## 🔒 CRITICAL: BACKGROUND-ONLY EDIT TASK
 
-## CRITICAL REQUIREMENTS - MUST FOLLOW EXACTLY:
+You are performing a SURGICAL BACKGROUND REPLACEMENT. This is NOT image generation - it is MINIMAL EDITING.
 
-### 1. BACKGROUND TRANSFORMATION
-- Replace ENTIRE background with PURE WHITE: RGB(255,255,255)
-- This means EVERY pixel that is not the product must be #FFFFFF
-- Remove ALL shadows, gradients, or off-white tones
-- Create clean, crisp edges between product and background
-- NO gray areas, NO subtle shadows, NO gradient falloffs
+## ⛔ ABSOLUTE RESTRICTIONS - VIOLATING THESE FAILS THE TASK:
+1. DO NOT regenerate, redraw, or recreate the product
+2. DO NOT change the product's shape, size, proportions, or orientation
+3. DO NOT alter ANY text, labels, logos, or branding on the product
+4. DO NOT modify product colors, materials, or surface details
+5. DO NOT reposition or resize the product in the frame
+6. DO NOT add or remove any product features or accessories
+7. The product pixels must remain IDENTICAL to the source image
 
-### 2. PRODUCT PRESERVATION (HIGHEST PRIORITY)
-- The product must remain EXACTLY as it appears in the original
-- Preserve ALL product labels, text, and branding PRECISELY
-- Maintain exact colors, shapes, and proportions
-- Keep all product details sharp and unchanged
-- DO NOT alter, enhance, or "improve" the product itself
+## ✅ YOUR ONLY ALLOWED CHANGES:
+1. Replace the background with PURE WHITE (#FFFFFF)
+2. Remove shadows that fall on the background (not on the product)
+3. Remove any Amazon badges/overlays floating in the background area
+4. Create clean edges where product meets the new white background
 
-### 3. PROHIBITED ELEMENTS - REMOVE COMPLETELY
-- "Best Seller" badges or ribbons
+## BACKGROUND REPLACEMENT RULES:
+- Every pixel that is NOT the product → change to RGB(255,255,255)
+- Keep product shadows that fall ON the product itself
+- Edge detection must be precise - no halos or white fringing on product
+- No gray gradients or soft shadows on the white background
+
+## PROHIBITED OVERLAYS TO REMOVE (if present):
+- "Best Seller" ribbons/badges
 - "Amazon's Choice" labels
-- Star ratings or review counts
-- "Prime" logos (unless on actual packaging)
-- "Deal" or "Sale" tags
-- ANY promotional overlays
-- Watermarks or third-party logos
+- Star rating overlays
+- "Prime" logo overlays
+- Promotional tags ("Deal", "Sale", etc.)
 
-### 4. FRAMING & COMPOSITION
-- Product should occupy 85% of the frame
-- Center the product perfectly
-- Square 1:1 aspect ratio
-- No cropping of product edges
-- Professional studio lighting appearance
-
-### 5. QUALITY STANDARDS
-- High resolution output
-- Sharp focus throughout
-- No compression artifacts
-- Professional appearance`;
+## 🎯 SUCCESS CRITERIA:
+✓ Someone looking at before/after should see the SAME EXACT product
+✓ Only the background changed to white
+✓ All product text/labels perfectly readable and unchanged
+✓ Product proportions exactly match the original`;
     } else {
-      prompt = generativePrompt || `Edit this SECONDARY Amazon product image while PRESERVING its context:
+      prompt = generativePrompt || `## 🔒 CRITICAL: MINIMAL SURGICAL EDIT TASK FOR SECONDARY IMAGE
 
-## CRITICAL REQUIREMENTS:
+This is a PRESERVATION task, not a transformation. Make the MINIMUM changes required.
 
-### 1. CONTEXT PRESERVATION (HIGHEST PRIORITY)
-- KEEP the lifestyle background/scene EXACTLY as is
-- DO NOT replace background with white
-- Maintain the infographic layout if present
-- Preserve all product demonstration context
+## ⛔ ABSOLUTE RESTRICTIONS - VIOLATING THESE FAILS THE TASK:
+1. DO NOT change the background - keep the lifestyle/context scene EXACTLY as is
+2. DO NOT regenerate, redraw, or recreate the product
+3. DO NOT alter the product's shape, colors, labels, or branding
+4. DO NOT remove infographic text, feature callouts, or annotations
+5. DO NOT modify charts, diagrams, or comparison graphics
+6. DO NOT change the image composition or layout
+7. It is better to make NO changes than to alter the product identity
 
-### 2. PRODUCT IDENTITY
-- The product shown must remain IDENTICAL
-- Same labels, same colors, same branding
-- No alterations to the product itself
-- Keep product positioning unchanged
+## 📝 TEXT & GRAPHICS YOU MUST PRESERVE (these are NOT prohibited):
+- ✅ Feature callouts (e.g., "Waterproof", "7 Colors", "BPA Free", "Adjustable")
+- ✅ Dimension/size annotations and measurements
+- ✅ Comparison charts or tables
+- ✅ How-to-use illustrations and diagrams
+- ✅ Material/ingredient lists
+- ✅ Model names and product specifications
+- ✅ Before/after demonstrations
+- ✅ Lifestyle scene backgrounds
+- ✅ Brand logos that are part of the product or legitimate branding
 
-### 3. REMOVE ONLY PROHIBITED ELEMENTS:
-- "Best Seller" badges (gold/orange ribbon style)
-- "Amazon's Choice" labels (dark orange/black)
-- "#1 Best Seller" or ranking overlays
-- Star ratings added as overlays (not on packaging)
-- "Prime" logos added as overlays
-- Promotional text like "30% OFF" 
-- "Deal of the Day" tags
+## 🚫 ONLY REMOVE THESE SPECIFIC AMAZON BADGE TYPES:
+- "Best Seller" gold/orange ribbon badges (usually in corners)
+- "Amazon's Choice" dark label badges
+- "#1 Best Seller" ranking overlays
+- Star rating graphics (⭐) added as floating overlays
+- "Prime" logo badges added as overlays
+- "Deal of the Day" promotional tags
+- "X% OFF" sale overlays
 
-### 4. PRESERVE ALLOWED ELEMENTS:
-- Product feature callouts ("Waterproof", "BPA Free")
-- Dimension/size annotations
-- Ingredient lists or material info
-- Comparison charts
-- Before/after demonstrations
-- How-to-use illustrations
+## 🎯 REMOVAL TECHNIQUE:
+- Surgically remove ONLY the badge pixels
+- Fill the removed area with content that matches the surroundings
+- If a badge overlaps important content, prioritize keeping the content
+- If you cannot cleanly remove a badge, LEAVE IT rather than damage the image
 
-### 5. QUALITY
-- Maintain original image quality
-- Clean removal of prohibited elements
-- Seamless editing with no visible artifacts`;
+## ✅ SUCCESS CRITERIA:
+✓ The image looks 95%+ identical to the original
+✓ Only floating Amazon promotional badges were removed
+✓ ALL product information text and graphics remain intact
+✓ Product identity is completely unchanged`;
     }
 
     // Add previous critique for retry attempts
     if (previousCritique) {
       prompt += `
 
-## ⚠️ PREVIOUS ATTEMPT FAILED VERIFICATION - FIX THESE ISSUES:
+## ⚠️ PREVIOUS ATTEMPT FAILED - YOU MUST FIX THESE SPECIFIC ISSUES:
 ${previousCritique}
 
-This is a retry. The previous generated image had problems. You MUST address each issue listed above.
-Pay special attention to:
-1. Any background color issues mentioned
-2. Any product identity/mismatch issues
-3. Any remaining badges or prohibited elements
-4. Quality or composition problems noted`;
+🔴 CRITICAL RETRY INSTRUCTIONS:
+- Your last attempt changed the product too much or had compliance issues
+- This time, be MORE CONSERVATIVE with changes
+- Focus ONLY on fixing the specific issues mentioned above
+- If the critique mentions product mismatch: you changed the product - DON'T do that
+- If the critique mentions background issues: focus ONLY on background, leave product alone
+- LESS IS MORE: Make minimal changes to achieve compliance`;
     }
 
     // Add error-aware regeneration when previous generated image is provided
     if (previousGeneratedImage) {
       prompt += `
 
-## 🔄 REGENERATION MODE - ANALYZE YOUR PREVIOUS MISTAKE:
-I am providing THREE images:
-1. ORIGINAL - The source image that needs fixing
-2. MY PREVIOUS ATTEMPT - What I generated before (which had issues)
-3. The reference context if applicable
+## 🔄 CORRECTION MODE - YOU MADE MISTAKES BEFORE:
+Your previous attempt was rejected. Common mistakes you may have made:
+1. ❌ You regenerated the entire product instead of just editing the background
+2. ❌ You changed product labels, text, or branding
+3. ❌ You altered the product's shape or proportions
+4. ❌ You removed text/graphics that should have been kept (feature callouts, dimensions)
+5. ❌ You changed the product color or materials
 
-CRITICAL COMPARISON TASK:
-- Look CAREFULLY at your previous attempt
-- Compare it pixel-by-pixel with the original product
-- Identify EXACTLY where you went wrong:
-  * Did you change the product shape?
-  * Did you alter labels or text?
-  * Did you modify colors incorrectly?
-  * Did you leave artifacts or add unwanted elements?
-  
-Generate a NEW version that:
-1. Fixes the specific mistakes from your previous attempt
-2. Stays MORE faithful to the original product
-3. Only makes the compliance changes (background/badges) without altering the product itself`;
+🎯 THIS TIME:
+- Make the MINIMUM possible changes
+- If in doubt, change LESS not MORE
+- The product must be recognizable as the SAME EXACT product
+- Only touch background (for MAIN) or specific badges (for SECONDARY)`;
     }
 
     // Add product context to ensure correct product identity
     if (productTitle || productAsin) {
       prompt += `
 
-## 📦 PRODUCT IDENTITY (CRITICAL):
-${productTitle ? `Product: "${productTitle}"` : ''}
-${productAsin ? `Amazon ASIN: ${productAsin}` : ''}
-The output image MUST show THIS EXACT product. Do NOT generate a different or generic product.
-Preserve ALL visible branding, model numbers, and product-specific features.`;
+## 📦 PRODUCT IDENTITY LOCK:
+${productTitle ? `This is: "${productTitle}"` : ''}
+${productAsin ? `ASIN: ${productAsin}` : ''}
+The output MUST show this EXACT product with all its distinctive features intact.
+If your output looks like a different product, YOU HAVE FAILED.`;
     }
 
     // Add cross-reference instruction for secondary images
     if (!isMain && mainImageBase64) {
       prompt += `
 
-## 🔗 CROSS-REFERENCE REQUIREMENT:
-The product in your output MUST be visually consistent with the main product image.
-Same product, same labels, same branding, same colors.
-This ensures listing coherence across all images.`;
+## 🔗 CONSISTENCY CHECK:
+The product must match the main listing image exactly.
+Same product, same branding, same identifying features.`;
     }
 
     console.log(`[Guardian] Generating ${imageType} fix using OpenAI gpt-image-1...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
