@@ -101,9 +101,41 @@ function extractImageBlockAsin(html: string): string | null {
   return null;
 }
 
+// Interface for image with variant metadata
+interface ImageWithVariant {
+  url: string;
+  variant: string | null;  // "MAIN", "PT01", "PT02", etc.
+  isLandingImage: boolean;
+}
+
+// Extract landing image URL (the DEFINITIVE main image)
+function extractLandingImageUrl(html: string): string | null {
+  const landingImagePatterns = [
+    /id=["']landingImage["'][^>]*data-old-hires=["'](https:[^"']+)["']/i,
+    /id=["']landingImage["'][^>]*src=["'](https:[^"']+)["']/i,
+    /id=["']imgBlkFront["'][^>]*data-old-hires=["'](https:[^"']+)["']/i,
+    /id=["']imgBlkFront["'][^>]*src=["'](https:[^"']+)["']/i,
+  ];
+  
+  for (const pattern of landingImagePatterns) {
+    const match = html.match(pattern);
+    if (match && match[1].includes('media-amazon.com/images/I/')) {
+      const cleaned = cleanImageUrl(match[1]);
+      console.log(`[Scraper] Found landing image: ${cleaned.substring(0, 80)}...`);
+      return cleaned;
+    }
+  }
+  return null;
+}
+
 // Extract main gallery images from Amazon's imageGalleryData or colorImages JSON
-function extractGalleryImages(html: string, targetAsin: string): string[] {
-  const galleryImages: string[] = [];
+// Returns images with variant metadata for accurate categorization
+function extractGalleryImagesWithVariants(html: string, targetAsin: string): ImageWithVariant[] {
+  const images: ImageWithVariant[] = [];
+  const seenIds = new Set<string>();
+  
+  // First, get the landing image - this is ALWAYS the main image
+  const landingImageUrl = extractLandingImageUrl(html);
   
   // Verify we're extracting from the correct product's data
   const blockAsin = extractImageBlockAsin(html);
@@ -111,55 +143,108 @@ function extractGalleryImages(html: string, targetAsin: string): string[] {
     console.log(`[Scraper] Warning: imageBlockState ASIN (${blockAsin}) doesn't match target (${targetAsin})`);
   }
   
-  // Pattern 1: colorImages with various quote styles (rawHtml may use different quotes)
-  const colorImagesPatterns = [
-    /'colorImages'\s*:\s*\{[^}]*['"]initial['"]\s*:\s*\[([\s\S]*?)\]\s*\}/,
-    /"colorImages"\s*:\s*\{[^}]*"initial"\s*:\s*\[([\s\S]*?)\]\s*\}/,
-    /colorImages['"]\s*:\s*\{[\s\S]*?['"]initial['"]\s*:\s*\[([\s\S]*?)\]/,
+  // Helper to add image if not duplicate
+  const addImage = (url: string, variant: string | null, isLanding: boolean) => {
+    const cleaned = cleanImageUrl(url);
+    const id = getImageId(cleaned);
+    if (!seenIds.has(id) && !isIconOrSprite(cleaned) && cleaned.includes('media-amazon.com/images/I/')) {
+      seenIds.add(id);
+      images.push({ url: cleaned, variant, isLandingImage: isLanding });
+    }
+  };
+  
+  // Pattern 1: Try to parse full colorImages JSON with variant metadata
+  const colorImagesFullPatterns = [
+    /'colorImages'\s*:\s*(\{[\s\S]*?\})\s*(?=,\s*['"]|$)/,
+    /"colorImages"\s*:\s*(\{[\s\S]*?\})\s*(?=,\s*"|$)/,
   ];
   
-  for (const pattern of colorImagesPatterns) {
-    const colorImagesMatch = html.match(pattern);
-    if (colorImagesMatch) {
-      console.log('[Scraper] Found colorImages.initial');
-      const imagesJson = colorImagesMatch[1];
-      
-      // Extract hiRes first (highest quality)
-      const hiResMatches = imagesJson.match(/['"]hiRes['"]\s*:\s*['"]?(https:[^'"}\s,]+)['"]?/gi);
-      if (hiResMatches) {
-        hiResMatches.forEach(match => {
-          const urlMatch = match.match(/['"]?(https:[^'"}\s,]+)['"]?/);
-          if (urlMatch) {
-            const cleanUrl = urlMatch[1].replace(/\\u002F/g, '/').replace(/\\\//g, '/');
-            if (cleanUrl.includes('media-amazon.com/images/I/') && !galleryImages.includes(cleanUrl)) {
-              galleryImages.push(cleanUrl);
-            }
-          }
-        });
-      }
-      
-      // Fallback to large if no hiRes
-      if (galleryImages.length === 0) {
-        const largeMatches = imagesJson.match(/['"]large['"]\s*:\s*['"]?(https:[^'"}\s,]+)['"]?/gi);
-        if (largeMatches) {
-          largeMatches.forEach(match => {
-            const urlMatch = match.match(/['"]?(https:[^'"}\s,]+)['"]?/);
-            if (urlMatch) {
-              const cleanUrl = urlMatch[1].replace(/\\u002F/g, '/').replace(/\\\//g, '/');
-              if (cleanUrl.includes('media-amazon.com/images/I/') && !galleryImages.includes(cleanUrl)) {
-                galleryImages.push(cleanUrl);
+  for (const pattern of colorImagesFullPatterns) {
+    const match = html.match(pattern);
+    if (match) {
+      try {
+        // Clean up JSON escapes
+        let jsonStr = match[1]
+          .replace(/\\u002F/g, '/')
+          .replace(/\\\//g, '/')
+          .replace(/\\'/g, "'");
+        
+        // Try to extract the initial array with variants
+        const initialMatch = jsonStr.match(/['"]initial['"]\s*:\s*\[([\s\S]*?)\](?=\s*[,}])/);
+        if (initialMatch) {
+          // Parse each image object to get variant info
+          const imageObjPattern = /\{[^{}]*['"]hiRes['"][^{}]*\}/g;
+          const imageObjs = initialMatch[1].match(imageObjPattern);
+          
+          if (imageObjs) {
+            console.log(`[Scraper] Found ${imageObjs.length} image objects in colorImages.initial`);
+            
+            imageObjs.forEach(objStr => {
+              // Extract hiRes URL
+              const hiResMatch = objStr.match(/['"]hiRes['"]\s*:\s*['"]?(https:[^'"}\s,]+)['"]?/);
+              // Extract variant (MAIN, PT01, PT02, etc.)
+              const variantMatch = objStr.match(/['"]variant['"]\s*:\s*['"]([^'"]+)['"]/);
+              
+              if (hiResMatch) {
+                const url = hiResMatch[1];
+                const variant = variantMatch ? variantMatch[1] : null;
+                const isLanding = landingImageUrl ? getImageId(url) === getImageId(landingImageUrl) : false;
+                addImage(url, variant, isLanding);
               }
-            }
-          });
+            });
+          }
         }
+        
+        if (images.length > 0) {
+          console.log(`[Scraper] Extracted ${images.length} images with variants from colorImages`);
+          break;
+        }
+      } catch (e) {
+        console.log('[Scraper] Failed to parse colorImages JSON, trying fallback patterns');
       }
-      
-      if (galleryImages.length > 0) break;
     }
   }
   
-  // Pattern 2: imageGalleryData array (alternative structure)
-  if (galleryImages.length === 0) {
+  // Pattern 2: Simple hiRes extraction if JSON parsing failed
+  if (images.length === 0) {
+    const colorImagesPatterns = [
+      /'colorImages'\s*:\s*\{[^}]*['"]initial['"]\s*:\s*\[([\s\S]*?)\]\s*\}/,
+      /"colorImages"\s*:\s*\{[^}]*"initial"\s*:\s*\[([\s\S]*?)\]\s*\}/,
+      /colorImages['"]\s*:\s*\{[\s\S]*?['"]initial['"]\s*:\s*\[([\s\S]*?)\]/,
+    ];
+    
+    for (const pattern of colorImagesPatterns) {
+      const colorImagesMatch = html.match(pattern);
+      if (colorImagesMatch) {
+        console.log('[Scraper] Found colorImages.initial (simple extraction)');
+        const imagesJson = colorImagesMatch[1];
+        
+        // Extract ALL hiRes URLs (not just first few)
+        const hiResMatches = imagesJson.matchAll(/['"]hiRes['"]\s*:\s*['"]?(https:[^'"}\s,]+)['"]?/gi);
+        for (const match of hiResMatches) {
+          const url = match[1];
+          const isLanding = landingImageUrl ? getImageId(url) === getImageId(landingImageUrl) : false;
+          addImage(url, null, isLanding);
+        }
+        
+        // Fallback to large if no hiRes
+        if (images.length === 0) {
+          const largeMatches = imagesJson.matchAll(/['"]large['"]\s*:\s*['"]?(https:[^'"}\s,]+)['"]?/gi);
+          for (const match of largeMatches) {
+            const url = match[1];
+            const isLanding = landingImageUrl ? getImageId(url) === getImageId(landingImageUrl) : false;
+            addImage(url, null, isLanding);
+          }
+        }
+        
+        console.log(`[Scraper] Extracted ${images.length} images from colorImages (simple)`);
+        if (images.length > 0) break;
+      }
+    }
+  }
+  
+  // Pattern 3: imageGalleryData array (alternative structure)
+  if (images.length === 0) {
     const galleryDataPatterns = [
       /'imageGalleryData'\s*:\s*\[([\s\S]*?)\]/,
       /"imageGalleryData"\s*:\s*\[([\s\S]*?)\]/,
@@ -170,247 +255,220 @@ function extractGalleryImages(html: string, targetAsin: string): string[] {
       const galleryDataMatch = html.match(pattern);
       if (galleryDataMatch) {
         console.log('[Scraper] Found imageGalleryData');
-        const hiResMatches = galleryDataMatch[1].match(/['"]hiRes['"]\s*:\s*['"]?(https:[^'"}\s,]+)['"]?/gi);
-        if (hiResMatches) {
-          hiResMatches.forEach(match => {
-            const urlMatch = match.match(/['"]?(https:[^'"}\s,]+)['"]?/);
-            if (urlMatch) {
-              const cleanUrl = urlMatch[1].replace(/\\u002F/g, '/').replace(/\\\//g, '/');
-              if (cleanUrl.includes('media-amazon.com/images/I/') && !galleryImages.includes(cleanUrl)) {
-                galleryImages.push(cleanUrl);
-              }
-            }
-          });
+        const hiResMatches = galleryDataMatch[1].matchAll(/['"]hiRes['"]\s*:\s*['"]?(https:[^'"}\s,]+)['"]?/gi);
+        for (const match of hiResMatches) {
+          const url = match[1];
+          const isLanding = landingImageUrl ? getImageId(url) === getImageId(landingImageUrl) : false;
+          addImage(url, null, isLanding);
         }
-        if (galleryImages.length > 0) break;
+        console.log(`[Scraper] Extracted ${images.length} images from imageGalleryData`);
+        if (images.length > 0) break;
       }
     }
   }
   
-  // Pattern 3: Landing image with data-old-hires or src (always the MAIN image)
-  const landingImagePatterns = [
-    /id=["']landingImage["'][^>]*data-old-hires=["'](https:[^"']+)["']/i,
-    /id=["']landingImage["'][^>]*src=["'](https:[^"']+)["']/i,
-    /id=["']imgBlkFront["'][^>]*src=["'](https:[^"']+)["']/i,
-  ];
-  
-  for (const pattern of landingImagePatterns) {
-    const landingImageMatch = html.match(pattern);
-    if (landingImageMatch) {
-      const mainImage = cleanImageUrl(landingImageMatch[1]);
-      console.log(`[Scraper] Found landing image: ${mainImage.substring(0, 80)}...`);
-      // Ensure main image is first
-      if (!galleryImages.some(img => getImageId(img) === getImageId(mainImage))) {
-        galleryImages.unshift(mainImage);
-      }
-      break;
-    }
-  }
-  
-  // Pattern 4: Extract from image block dynamicImageUrl data attributes
-  const dynamicImageMatches = html.match(/data-a-dynamic-image=["']\{([^}]+)\}["']/gi);
-  if (dynamicImageMatches && galleryImages.length === 0) {
-    console.log('[Scraper] Found dynamic image data');
-    dynamicImageMatches.forEach(match => {
-      const urls = match.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[a-zA-Z0-9\-+%._]+/gi);
-      if (urls) {
-        urls.forEach(url => {
-          const cleaned = cleanImageUrl(url);
-          if (!galleryImages.some(img => getImageId(img) === getImageId(cleaned)) && !isIconOrSprite(cleaned)) {
-            galleryImages.push(cleaned);
+  // Pattern 4: imageBlockState JSON (another data source)
+  const imageBlockStateMatch = html.match(/data-a-state='{"key":"imageBlockState"}'[^>]*>([\s\S]*?)<\/script>/i);
+  if (imageBlockStateMatch) {
+    try {
+      const stateJson = JSON.parse(imageBlockStateMatch[1]);
+      if (stateJson.colorImages?.initial) {
+        console.log(`[Scraper] Found imageBlockState with ${stateJson.colorImages.initial.length} images`);
+        stateJson.colorImages.initial.forEach((img: any) => {
+          const url = img.hiRes || img.large || img.main;
+          if (url) {
+            const variant = img.variant || null;
+            const isLanding = landingImageUrl ? getImageId(url) === getImageId(landingImageUrl) : false;
+            addImage(url, variant, isLanding);
           }
         });
       }
-    });
-  }
-  
-  // Pattern 5: Extract from altImages thumbnail list (reliable fallback)
-  if (galleryImages.length <= 1) {
-    const altImagesMatch = html.match(/id=["']altImages["'][^>]*>([\s\S]*?)(?=<\/ul>|<\/div>\s*<div[^>]*id=["'](?!altImages))/i);
-    if (altImagesMatch) {
-      console.log('[Scraper] Found altImages thumbnail section');
-      const thumbContent = altImagesMatch[1];
-      // Extract all image URLs from thumbnails
-      const thumbUrls = thumbContent.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[a-zA-Z0-9\-+%._]+\.(jpg|jpeg|png)/gi);
-      if (thumbUrls) {
-        thumbUrls.forEach(url => {
-          const cleaned = cleanImageUrl(url);
-          if (!galleryImages.some(img => getImageId(img) === getImageId(cleaned)) && !isIconOrSprite(cleaned)) {
-            galleryImages.push(cleaned);
-          }
-        });
-        console.log(`[Scraper] Added ${thumbUrls.length} thumbnails from altImages`);
-      }
+    } catch (e) {
+      // JSON parse failed
     }
   }
   
-  // Pattern 6: Look for thumb images with specific class
-  if (galleryImages.length <= 1) {
-    const thumbMatches = html.match(/class=["'][^"]*imageThumbnail[^"]*["'][^>]*>[\s\S]*?<img[^>]*src=["'](https:[^"']+)["']/gi);
-    if (thumbMatches) {
-      console.log('[Scraper] Found imageThumbnail elements');
-      thumbMatches.forEach(match => {
-        const urlMatch = match.match(/src=["'](https:[^"']+)["']/i);
-        if (urlMatch && urlMatch[1].includes('media-amazon.com/images/I/')) {
-          const cleaned = cleanImageUrl(urlMatch[1]);
-          if (!galleryImages.some(img => getImageId(img) === getImageId(cleaned)) && !isIconOrSprite(cleaned)) {
-            galleryImages.push(cleaned);
-          }
-        }
+  // Pattern 5: Extract from data-a-dynamic-image attributes
+  const dynamicImageMatches = html.matchAll(/data-a-dynamic-image=["']\{([^}]+)\}["']/gi);
+  for (const match of dynamicImageMatches) {
+    const urls = match[1].match(/https:\/\/m\.media-amazon\.com\/images\/I\/[a-zA-Z0-9\-+%._]+/gi);
+    if (urls) {
+      urls.forEach(url => {
+        const isLanding = landingImageUrl ? getImageId(url) === getImageId(landingImageUrl) : false;
+        addImage(url, null, isLanding);
       });
     }
   }
   
-  return galleryImages;
-}
-
-// Check if an image URL is within an excluded section by checking data-asin attributes
-function isImageFromOtherProduct(html: string, imageUrl: string, targetAsin: string): boolean {
-  const imageId = getImageId(imageUrl);
-  
-  // Find where this image appears in the HTML
-  const imageIndex = html.indexOf(imageId);
-  if (imageIndex === -1) return false;
-  
-  // Look backwards from the image to find the nearest data-asin attribute
-  const precedingHtml = html.substring(Math.max(0, imageIndex - 2000), imageIndex);
-  
-  // Check for excluded section IDs in the preceding HTML
-  for (const sectionId of EXCLUDED_SECTION_IDS) {
-    if (precedingHtml.includes(`id="${sectionId}"`) || precedingHtml.includes(`id='${sectionId}'`)) {
-      console.log(`[Scraper] Excluding image from section: ${sectionId}`);
-      return true;
-    }
-  }
-  
-  // Check for data-asin that doesn't match our target
-  const dataAsinMatches = precedingHtml.match(/data-asin=["']([A-Z0-9]{10})["']/gi);
-  if (dataAsinMatches && dataAsinMatches.length > 0) {
-    // Get the closest data-asin (last one before the image)
-    const lastMatch = dataAsinMatches[dataAsinMatches.length - 1];
-    const asinMatch = lastMatch.match(/["']([A-Z0-9]{10})["']/i);
-    if (asinMatch && asinMatch[1].toUpperCase() !== targetAsin) {
-      console.log(`[Scraper] Excluding image with different ASIN: ${asinMatch[1]} (target: ${targetAsin})`);
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-// Extract A+ content images that belong to THIS product only
-function extractAPlusImages(html: string, asin: string): string[] {
-  const aplusImages: string[] = [];
-  
-  // Find the product's A+ content section (aplus or aplus-3p)
-  // The product's own A+ content is typically in a specific container
-  const aplusMatch = html.match(/id=["']aplus["'][^>]*>([\s\S]*?)(?=<div[^>]*id=["'](?:dp-container|similarities|sponsored))/i);
-  
-  if (aplusMatch) {
-    const aplusContent = aplusMatch[1];
-    
-    // Only extract images that don't appear to be from other products
-    const imgMatches = aplusContent.match(/https:\/\/m\.media-amazon\.com\/images\/[SG]\/[a-zA-Z0-9\-+%\/._]+\.(jpg|jpeg|png|webp)/gi);
-    if (imgMatches) {
-      imgMatches.forEach(url => {
-        if (!isIconOrSprite(url)) {
-          aplusImages.push(cleanImageUrl(url));
+  // Pattern 6: altImages thumbnail list (always extract, no minimum)
+  const altImagesMatch = html.match(/id=["']altImages["'][^>]*>([\s\S]*?)(?=<\/ul>|<\/div>\s*<div[^>]*id=["'](?!altImages))/i);
+  if (altImagesMatch) {
+    console.log('[Scraper] Found altImages thumbnail section');
+    const thumbContent = altImagesMatch[1];
+    const thumbUrls = thumbContent.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[a-zA-Z0-9\-+%._]+\.(jpg|jpeg|png)/gi);
+    if (thumbUrls) {
+      let addedFromAlt = 0;
+      thumbUrls.forEach(url => {
+        const cleaned = cleanImageUrl(url);
+        const id = getImageId(cleaned);
+        if (!seenIds.has(id) && !isIconOrSprite(cleaned)) {
+          seenIds.add(id);
+          const isLanding = landingImageUrl ? id === getImageId(landingImageUrl) : false;
+          images.push({ url: cleaned, variant: null, isLandingImage: isLanding });
+          addedFromAlt++;
         }
       });
+      console.log(`[Scraper] Added ${addedFromAlt} new images from altImages`);
     }
   }
   
-  return aplusImages;
+  // Pattern 7: imageThumbnail class elements
+  const thumbMatches = html.matchAll(/class=["'][^"]*imageThumbnail[^"]*["'][^>]*>[\s\S]*?<img[^>]*src=["'](https:[^"']+)["']/gi);
+  for (const match of thumbMatches) {
+    if (match[1].includes('media-amazon.com/images/I/')) {
+      const isLanding = landingImageUrl ? getImageId(match[1]) === getImageId(landingImageUrl) : false;
+      addImage(match[1], null, isLanding);
+    }
+  }
+  
+  // Ensure landing image is in the list and properly marked
+  if (landingImageUrl) {
+    const landingId = getImageId(landingImageUrl);
+    const existingLanding = images.find(img => getImageId(img.url) === landingId);
+    if (!existingLanding) {
+      // Landing image not found in gallery, add it
+      images.unshift({ url: landingImageUrl, variant: 'MAIN', isLandingImage: true });
+      console.log('[Scraper] Added landing image that was missing from gallery');
+    } else {
+      // Mark it as landing and ensure MAIN variant
+      existingLanding.isLandingImage = true;
+      if (!existingLanding.variant) existingLanding.variant = 'MAIN';
+    }
+  }
+  
+  console.log(`[Scraper] Total images extracted: ${images.length}`);
+  return images;
 }
 
-// Detect image category based on URL and position
-function detectImageCategory(url: string, index: number): ImageCategory {
-  const lower = url.toLowerCase();
+// Detect image category based on variant metadata, landing image flag, and URL patterns
+function detectImageCategory(img: ImageWithVariant, index: number): ImageCategory {
+  // PRIORITY 1: Landing image is ALWAYS the main image
+  if (img.isLandingImage) {
+    console.log(`[Scraper] Image ${index} is landing image -> MAIN`);
+    return 'MAIN';
+  }
   
-  // First image is always MAIN
-  if (index === 0) return 'MAIN';
+  // PRIORITY 2: Check variant metadata from Amazon
+  if (img.variant) {
+    const variant = img.variant.toUpperCase();
+    if (variant === 'MAIN') {
+      return 'MAIN';
+    }
+    // PT01, PT02, etc. are secondary product images
+    // They could be any category, so check URL patterns next
+  }
   
-  // Check URL patterns for category hints
-  if (lower.includes('infographic') || lower.includes('info_') || lower.includes('_info')) {
+  // PRIORITY 3: URL pattern analysis
+  const lower = img.url.toLowerCase();
+  
+  if (lower.includes('infographic') || lower.includes('info_') || lower.includes('_info') || lower.includes('_infog')) {
     return 'INFOGRAPHIC';
   }
-  if (lower.includes('lifestyle') || lower.includes('life_') || lower.includes('_life')) {
+  if (lower.includes('lifestyle') || lower.includes('life_') || lower.includes('_life') || lower.includes('_ls')) {
     return 'LIFESTYLE';
   }
-  if (lower.includes('inuse') || lower.includes('in-use') || lower.includes('action')) {
+  if (lower.includes('inuse') || lower.includes('in-use') || lower.includes('action') || lower.includes('_iu_')) {
     return 'PRODUCT_IN_USE';
   }
-  if (lower.includes('size') || lower.includes('chart') || lower.includes('dimension')) {
+  if (lower.includes('size') || lower.includes('chart') || lower.includes('dimension') || lower.includes('_sz_')) {
     return 'SIZE_CHART';
   }
-  if (lower.includes('compare') || lower.includes('vs') || lower.includes('versus')) {
+  if (lower.includes('compare') || lower.includes('vs') || lower.includes('versus') || lower.includes('_comp')) {
     return 'COMPARISON';
   }
-  if (lower.includes('package') || lower.includes('box') || lower.includes('unbox')) {
+  if (lower.includes('package') || lower.includes('box') || lower.includes('unbox') || lower.includes('_pkg')) {
     return 'PACKAGING';
   }
-  if (lower.includes('detail') || lower.includes('close') || lower.includes('zoom')) {
+  if (lower.includes('detail') || lower.includes('close') || lower.includes('zoom') || lower.includes('_dt_')) {
     return 'DETAIL';
+  }
+  
+  // Default: If first image (and not landing), still treat as MAIN for backward compat
+  // But this shouldn't happen if landing image is properly detected
+  if (index === 0) {
+    return 'MAIN';
   }
   
   return 'UNKNOWN';
 }
 
 function extractImages(html: string, asin: string): ScrapedImage[] {
-  const imageSet = new Set<string>();
-  const seenIds = new Set<string>();
   const resultImages: ScrapedImage[] = [];
   
   console.log(`[Scraper] Starting image extraction for ASIN: ${asin}`);
   
-  // PRIORITY 1: Gallery images from colorImages/imageGalleryData JSON
-  // These are the DEFINITIVE product images
-  const galleryImages = extractGalleryImages(html, asin);
-  console.log(`[Scraper] Found ${galleryImages.length} gallery images from JSON`);
+  // Extract gallery images with variant metadata
+  const galleryImages = extractGalleryImagesWithVariants(html, asin);
+  console.log(`[Scraper] Found ${galleryImages.length} gallery images`);
   
-  galleryImages.forEach((url, index) => {
-    const cleaned = cleanImageUrl(url);
-    const id = getImageId(cleaned);
-    if (!seenIds.has(id) && !isIconOrSprite(cleaned)) {
-      seenIds.add(id);
-      imageSet.add(cleaned);
-      resultImages.push({
-        url: cleaned,
-        category: detectImageCategory(cleaned, index),
-        index,
-      });
+  // Sort images: landing image first, then by variant (MAIN first, then PT01, PT02, etc.)
+  galleryImages.sort((a, b) => {
+    // Landing image always first
+    if (a.isLandingImage && !b.isLandingImage) return -1;
+    if (!a.isLandingImage && b.isLandingImage) return 1;
+    
+    // MAIN variant second
+    if (a.variant === 'MAIN' && b.variant !== 'MAIN') return -1;
+    if (a.variant !== 'MAIN' && b.variant === 'MAIN') return 1;
+    
+    // Sort by variant name (PT01 before PT02, etc.)
+    if (a.variant && b.variant) {
+      return a.variant.localeCompare(b.variant);
     }
+    
+    return 0;
   });
   
-  // If we found gallery images, we're done - these are the authoritative product images
+  // Convert to ScrapedImage format with proper category detection
+  galleryImages.forEach((img, index) => {
+    const category = detectImageCategory(img, index);
+    resultImages.push({
+      url: img.url,
+      category,
+      index,
+    });
+  });
+  
+  // If we found gallery images, we're done
   if (resultImages.length > 0) {
-    console.log(`[Scraper] Using ${resultImages.length} gallery images (no fallback needed)`);
+    console.log(`[Scraper] Final image categories:`);
+    resultImages.forEach((img, i) => {
+      console.log(`  [${i}] ${img.category}: ${img.url.substring(0, 60)}...`);
+    });
     return resultImages;
   }
   
-  // FALLBACK: Only if gallery extraction failed, find images from the main image block section only
+  // FALLBACK: Only if gallery extraction failed
   console.log('[Scraper] Gallery extraction failed, using fallback');
   
-  // Try to find the imageBlock section and extract only images from there
   const imageBlockMatch = html.match(/id=["']imageBlock["'][^>]*>([\s\S]*?)(?=<div[^>]*id=["'](?:centerCol|rightCol|feature-bullets))/i) ||
                           html.match(/id=["']altImages["'][^>]*>([\s\S]*?)(?=<\/ul>)/i);
   
   if (imageBlockMatch) {
     const imageBlockContent = imageBlockMatch[1];
-    // Extract only /images/I/ URLs (main product images)
     const productImageMatches = imageBlockContent.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[a-zA-Z0-9\-+%._]+\.(jpg|jpeg|png)/gi);
     if (productImageMatches) {
+      const seenIds = new Set<string>();
       console.log(`[Scraper] Found ${productImageMatches.length} images in imageBlock section`);
       productImageMatches.forEach((url, index) => {
         const cleaned = cleanImageUrl(url);
         const id = getImageId(cleaned);
         if (!seenIds.has(id) && !isIconOrSprite(cleaned)) {
           seenIds.add(id);
-          imageSet.add(cleaned);
           resultImages.push({
             url: cleaned,
-            category: detectImageCategory(cleaned, index),
-            index,
+            category: index === 0 ? 'MAIN' : 'UNKNOWN',
+            index: resultImages.length,
           });
         }
       });
@@ -429,9 +487,7 @@ function extractImages(html: string, asin: string): ScrapedImage[] {
       const match = html.match(pattern);
       if (match && match[1].includes('media-amazon.com/images/I/')) {
         const cleaned = cleanImageUrl(match[1]);
-        const id = getImageId(cleaned);
         if (!isIconOrSprite(cleaned)) {
-          seenIds.add(id);
           resultImages.push({
             url: cleaned,
             category: 'MAIN',
