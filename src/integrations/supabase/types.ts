@@ -101,6 +101,45 @@ export type Database = {
         }
         Relationships: []
       }
+      product_claim_cache: {
+        Row: {
+          claim_key: string
+          claim_text: string
+          created_at: string
+          details: string | null
+          exists: boolean
+          expires_at: string
+          id: string
+          release_status: string
+          sources: Json | null
+          verified: boolean
+        }
+        Insert: {
+          claim_key: string
+          claim_text: string
+          created_at?: string
+          details?: string | null
+          exists?: boolean
+          expires_at?: string
+          id?: string
+          release_status?: string
+          sources?: Json | null
+          verified?: boolean
+        }
+        Update: {
+          claim_key?: string
+          claim_text?: string
+          created_at?: string
+          details?: string | null
+          exists?: boolean
+          expires_at?: string
+          id?: string
+          release_status?: string
+          sources?: Json | null
+          verified?: boolean
+        }
+        Relationships: []
+      }
       session_images: {
         Row: {
           analysis_result: Json | null
