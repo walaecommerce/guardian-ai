@@ -238,8 +238,7 @@ This ensures listing coherence across all images.`;
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: {
-          responseModalities: ["image", "text"],
-          responseMimeType: "image/png"
+          responseModalities: ["IMAGE", "TEXT"]
         }
       }),
     });
