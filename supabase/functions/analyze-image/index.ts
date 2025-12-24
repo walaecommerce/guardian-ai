@@ -159,7 +159,7 @@ Execute full analysis protocol and return comprehensive JSON assessment.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-pro-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { 
