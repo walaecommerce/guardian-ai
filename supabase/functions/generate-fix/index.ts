@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -5,16 +6,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to convert base64 to ArrayBuffer
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  // Remove data URL prefix if present
-  const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+type DecodedImage = { mime: string; buffer: ArrayBuffer };
+
+function decodeImageDataUrl(dataUrl: string): DecodedImage {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
+  const mime = match?.[1] ?? 'image/png';
+  const base64Data = match?.[2] ?? dataUrl.replace(/^data:image\/\w+;base64,/, '');
+
   const binaryString = atob(base64Data);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
-  return bytes.buffer as ArrayBuffer;
+
+  // Deno types can expose ArrayBufferLike; runtime buffer is ArrayBuffer.
+  return { mime, buffer: bytes.buffer as ArrayBuffer };
+}
+
+function extFromMime(mime: string): string {
+  if (mime === 'image/jpeg') return 'jpg';
+  if (mime === 'image/png') return 'png';
+  if (mime === 'image/webp') return 'webp';
+  const fromSlash = mime.split('/')[1];
+  return fromSlash || 'png';
 }
 
 serve(async (req) => {
@@ -192,26 +206,27 @@ This ensures listing coherence across all images.`;
 
     console.log(`[Guardian] Generating ${imageType} fix using OpenAI gpt-image-1...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
 
-    // Convert base64 image to ArrayBuffer for FormData
-    const imageBuffer = base64ToArrayBuffer(imageBase64);
-    
+    const { mime, buffer } = decodeImageDataUrl(imageBase64);
+    const ext = extFromMime(mime);
+
     // Create FormData for the API request
     const formData = new FormData();
-    
-    // Create a Blob from the image buffer
-    const imageBlob = new Blob([imageBuffer], { type: 'image/png' });
-    formData.append('image', imageBlob, 'image.png');
+
+    // Use a real file upload (required by OpenAI images/edits)
+    const file = new File([buffer], `image.${ext}`, { type: mime });
+    formData.append('image', file);
     formData.append('prompt', prompt);
     formData.append('model', 'gpt-image-1');
     formData.append('n', '1');
     formData.append('size', '1024x1024');
 
+    console.log(`[Guardian] Sending OpenAI images/edits as multipart/form-data (${mime})`);
+
     const response = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
-      headers: {
+      headers: new Headers({
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        // Don't set Content-Type - fetch will set it automatically with boundary for FormData
-      },
+      }),
       body: formData,
     });
 
