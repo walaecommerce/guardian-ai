@@ -111,10 +111,12 @@ serve(async (req) => {
     const contextInfo = productTitle ? `Product: "${productTitle}"` : '';
     const asinInfo = asin ? `ASIN: ${asin}` : '';
 
-    const systemPrompt = `You are an expert Amazon product image classifier. Your task is to analyze product listing images and classify them into specific categories.
+    const systemPrompt = `You are an expert Amazon product image classifier. Your task is to analyze product listing images and classify them into specific categories based on their CONTENT, not their position in the listing.
 
-Categories to classify:
-1. MAIN - Primary product image on a pure white background, no text overlays, badges, or graphics. Just the product clearly visible.
+IMPORTANT: "MAIN" is a POSITION designation (first image in listing), NOT a content category. Do NOT use "MAIN" as a category.
+
+Categories to classify based on image CONTENT:
+1. PRODUCT_SHOT - Product photographed on a clean/white background, no text overlays, badges, or graphics. Just the product clearly visible. This is what Amazon requires for the first listing position.
 2. INFOGRAPHIC - Image with text callouts, feature highlights, specifications, bullet points, diagrams, or educational content about the product.
 3. LIFESTYLE - Product shown in a real-world setting or environment. May include people, rooms, outdoor scenes, or contextual backgrounds.
 4. PRODUCT_IN_USE - Someone actively using or demonstrating the product. Focus is on the action/usage.
@@ -230,7 +232,12 @@ Analyze the image and determine which category it belongs to based on its visual
       };
     }
 
-    const validCategories = ['MAIN', 'INFOGRAPHIC', 'LIFESTYLE', 'PRODUCT_IN_USE', 'SIZE_CHART', 'COMPARISON', 'PACKAGING', 'DETAIL', 'UNKNOWN'];
+    // Map legacy "MAIN" category to "PRODUCT_SHOT" for consistency
+    if (result.category === 'MAIN') {
+      result.category = 'PRODUCT_SHOT';
+    }
+    
+    const validCategories = ['PRODUCT_SHOT', 'INFOGRAPHIC', 'LIFESTYLE', 'PRODUCT_IN_USE', 'SIZE_CHART', 'COMPARISON', 'PACKAGING', 'DETAIL', 'UNKNOWN'];
     if (!validCategories.includes(result.category)) {
       result.category = 'UNKNOWN';
     }
