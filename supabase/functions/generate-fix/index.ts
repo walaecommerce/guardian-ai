@@ -182,11 +182,30 @@ This ensures listing coherence across all images.`;
     console.log(`[Guardian] Generating ${imageType} fix...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
 
     // Helper to extract base64 data from data URL
+    const guessImageMimeType = (base64Data: string): string => {
+      if (base64Data.startsWith('/9j/')) return 'image/jpeg';
+      if (base64Data.startsWith('iVBOR')) return 'image/png';
+      if (base64Data.startsWith('R0lGOD')) return 'image/gif';
+      if (base64Data.startsWith('UklGR')) return 'image/webp';
+      return 'image/jpeg';
+    };
+
+    const normalizeMimeType = (mimeType: string, base64Data: string): string => {
+      const mt = (mimeType || '').toLowerCase();
+      if (mt === 'image/jpg') return 'image/jpeg';
+      if (mt === 'application/octet-stream' || mt === 'binary/octet-stream' || mt === '') {
+        return guessImageMimeType(base64Data);
+      }
+      return mimeType;
+    };
+
     const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
       if (dataUrl.startsWith('data:')) {
         const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
         if (match) {
-          return { mimeType: match[1], data: match[2] };
+          const data = match[2];
+          const mimeType = normalizeMimeType(match[1], data);
+          return { mimeType, data };
         }
       }
       // Assume JPEG if no data URL prefix
