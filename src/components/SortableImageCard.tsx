@@ -1,13 +1,14 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { X, Loader2, Crop, Star, GripVertical } from 'lucide-react';
-import { ImageAsset, ImageCategory } from '@/types';
+import { ImageAsset } from '@/types';
 
 interface SortableImageCardProps {
   asset: ImageAsset;
   index: number;
   onRemove: (id: string) => void;
   onCrop: (asset: ImageAsset) => void;
+  isOverlay?: boolean;
 }
 
 const getCategoryColor = (category: string | null) => {
@@ -38,7 +39,7 @@ const getOrdinalSuffix = (n: number) => {
   return 'th';
 };
 
-export function SortableImageCard({ asset, index, onRemove, onCrop }: SortableImageCardProps) {
+export function SortableImageCard({ asset, index, onRemove, onCrop, isOverlay = false }: SortableImageCardProps) {
   const {
     attributes,
     listeners,
@@ -46,13 +47,13 @@ export function SortableImageCard({ asset, index, onRemove, onCrop }: SortableIm
     transform,
     transition,
     isDragging,
+    isOver,
   } = useSortable({ id: asset.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 50 : undefined,
-    opacity: isDragging ? 0.8 : 1,
   };
 
   // Extract category from asset name (format: CATEGORY_filename)
@@ -63,6 +64,20 @@ export function SortableImageCard({ asset, index, onRemove, onCrop }: SortableIm
   const isLandingPosition = asset.type === 'MAIN';
   const position = index + 1;
 
+  // If this is a drag overlay, render a simplified version
+  if (isOverlay) {
+    return (
+      <div className="aspect-square rounded-lg overflow-hidden border-2 border-primary bg-muted shadow-2xl scale-105 rotate-3">
+        <img
+          src={asset.preview}
+          alt={asset.name}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-primary/10" />
+      </div>
+    );
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -71,8 +86,17 @@ export function SortableImageCard({ asset, index, onRemove, onCrop }: SortableIm
         isLandingPosition 
           ? 'border-amber-400 ring-2 ring-amber-400/30' 
           : 'border-border'
-      } ${isDragging ? 'shadow-xl scale-105' : ''}`}
+      } ${isDragging ? 'opacity-40 scale-95' : ''} ${isOver && !isDragging ? 'ring-2 ring-primary ring-offset-2' : ''}`}
     >
+      {/* Drop indicator overlay */}
+      {isOver && !isDragging && (
+        <div className="absolute inset-0 bg-primary/20 z-10 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-primary/40 flex items-center justify-center animate-pulse">
+            <div className="w-4 h-4 rounded-full bg-primary" />
+          </div>
+        </div>
+      )}
+      
       <img
         src={asset.preview}
         alt={asset.name}
