@@ -352,17 +352,18 @@ function extractGalleryImagesWithVariants(html: string, targetAsin: string): Ima
 
 // Detect image category based on variant metadata, landing image flag, and URL patterns
 function detectImageCategory(img: ImageWithVariant, index: number): ImageCategory {
-  // PRIORITY 1: Landing image is ALWAYS the main image
+  // PRIORITY 1: Landing image is the MAIN position - content is typically a PRODUCT_SHOT
   if (img.isLandingImage) {
-    console.log(`[Scraper] Image ${index} is landing image -> MAIN`);
-    return 'MAIN';
+    console.log(`[Scraper] Image ${index} is landing image -> PRODUCT_SHOT`);
+    return 'PRODUCT_SHOT';
   }
   
   // PRIORITY 2: Check variant metadata from Amazon
   if (img.variant) {
     const variant = img.variant.toUpperCase();
     if (variant === 'MAIN') {
-      return 'MAIN';
+      // Amazon's "MAIN" variant means product shot on white background
+      return 'PRODUCT_SHOT';
     }
     // PT01, PT02, etc. are secondary product images
     // They could be any category, so check URL patterns next
@@ -393,10 +394,9 @@ function detectImageCategory(img: ImageWithVariant, index: number): ImageCategor
     return 'DETAIL';
   }
   
-  // Default: If first image (and not landing), still treat as MAIN for backward compat
-  // But this shouldn't happen if landing image is properly detected
+  // Default: First image without other signals is likely a product shot
   if (index === 0) {
-    return 'MAIN';
+    return 'PRODUCT_SHOT';
   }
   
   return 'UNKNOWN';
@@ -467,7 +467,7 @@ function extractImages(html: string, asin: string): ScrapedImage[] {
           seenIds.add(id);
           resultImages.push({
             url: cleaned,
-            category: index === 0 ? 'MAIN' : 'UNKNOWN',
+            category: index === 0 ? 'PRODUCT_SHOT' : 'UNKNOWN',
             index: resultImages.length,
           });
         }
@@ -490,7 +490,7 @@ function extractImages(html: string, asin: string): ScrapedImage[] {
         if (!isIconOrSprite(cleaned)) {
           resultImages.push({
             url: cleaned,
-            category: 'MAIN',
+            category: 'PRODUCT_SHOT',
             index: 0,
           });
           console.log(`[Scraper] Found main image via fallback pattern: ${cleaned.substring(0, 60)}...`);

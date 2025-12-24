@@ -138,12 +138,14 @@ const Index = () => {
               originalImageUrl = uploaded.url;
               
               // Create session_image record
+              // image_type is position-based (first = MAIN), category is content-based from AI
+              const isFirstImage = newAssets.length === 0 && assets.length === 0;
               const { data: sessionImageData, error: imgError } = await supabase
                 .from('session_images')
                 .insert([{
                   session_id: sessionData.id,
                   image_name: imageName,
-                  image_type: aiCategory === 'MAIN' ? 'MAIN' : 'SECONDARY',
+                  image_type: isFirstImage ? 'MAIN' : 'SECONDARY',
                   image_category: aiCategory,
                   original_image_url: uploaded.url,
                   status: 'pending'
@@ -157,11 +159,15 @@ const Index = () => {
             }
           }
 
+          // Only the FIRST image gets type 'MAIN', all others are 'SECONDARY'
+          // Position-based, not content-based - matches Amazon's listing structure
+          const isFirstImage = newAssets.length === 0 && assets.length === 0;
+          
           newAssets.push({
             id: assetId,
             file,
             preview: URL.createObjectURL(file),
-            type: aiCategory === 'MAIN' ? 'MAIN' : 'SECONDARY',
+            type: isFirstImage ? 'MAIN' : 'SECONDARY',
             name: imageName,
           });
 
