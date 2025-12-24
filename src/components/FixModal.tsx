@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Download, CheckCircle, XCircle, ArrowRight, Loader2, RefreshCw, SlidersHorizontal, Sparkles, Eye, PenLine, Wand2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Download, CheckCircle, XCircle, ArrowRight, Loader2, RefreshCw, SlidersHorizontal, Sparkles, Eye, PenLine, Wand2, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Slider } from '@/components/ui/slider';
 import { ImageAsset, FixProgressState, FixAttempt, OptimizeMode } from '@/types';
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
 import { FixActivityLog } from '@/components/FixActivityLog';
@@ -253,6 +254,10 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                     <SlidersHorizontal className="w-4 h-4" />
                     Before/After Slider
                   </TabsTrigger>
+                  <TabsTrigger value="diff" className="gap-2">
+                    <Layers className="w-4 h-4" />
+                    Pixel Diff
+                  </TabsTrigger>
                   <TabsTrigger value="details" className="gap-2">
                     <Eye className="w-4 h-4" />
                     Analysis Details
@@ -269,6 +274,13 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                       className="w-full h-full"
                     />
                   </div>
+                </TabsContent>
+                
+                <TabsContent value="diff" className="mt-0">
+                  <ImageDiffOverlay
+                    originalImage={asset.preview}
+                    fixedImage={asset.fixedImage!}
+                  />
                 </TabsContent>
                 
                 <TabsContent value="details" className="mt-0">
@@ -507,6 +519,178 @@ function AnalysisItem({
         <span className="text-sm font-medium">{label}</span>
       </div>
       <p className="text-xs text-muted-foreground">{message}</p>
+    </div>
+  );
+}
+
+// Image Diff Overlay Component for pixel-level comparison
+function ImageDiffOverlay({ 
+  originalImage, 
+  fixedImage 
+}: { 
+  originalImage: string; 
+  fixedImage: string;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [mode, setMode] = useState<'overlay' | 'difference' | 'highlight'>('highlight');
+  const [opacity, setOpacity] = useState([50]);
+  const [diffStats, setDiffStats] = useState({ changedPixels: 0, totalPixels: 0, percentChanged: 0 });
+
+  const generateDiff = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img1 = new Image();
+    const img2 = new Image();
+    img1.crossOrigin = 'anonymous';
+    img2.crossOrigin = 'anonymous';
+
+    let loaded = 0;
+    const onLoad = () => {
+      loaded++;
+      if (loaded < 2) return;
+
+      const width = Math.max(img1.width, img2.width);
+      const height = Math.max(img1.height, img2.height);
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw first image
+      ctx.drawImage(img1, 0, 0, width, height);
+      const data1 = ctx.getImageData(0, 0, width, height);
+
+      // Draw second image
+      ctx.drawImage(img2, 0, 0, width, height);
+      const data2 = ctx.getImageData(0, 0, width, height);
+
+      // Create diff
+      const diffData = ctx.createImageData(width, height);
+      let changedPixels = 0;
+      const threshold = 30; // Color difference threshold
+
+      for (let i = 0; i < data1.data.length; i += 4) {
+        const rDiff = Math.abs(data1.data[i] - data2.data[i]);
+        const gDiff = Math.abs(data1.data[i + 1] - data2.data[i + 1]);
+        const bDiff = Math.abs(data1.data[i + 2] - data2.data[i + 2]);
+        const totalDiff = rDiff + gDiff + bDiff;
+
+        if (mode === 'difference') {
+          // Show raw pixel difference (amplified)
+          diffData.data[i] = Math.min(255, rDiff * 3);
+          diffData.data[i + 1] = Math.min(255, gDiff * 3);
+          diffData.data[i + 2] = Math.min(255, bDiff * 3);
+          diffData.data[i + 3] = 255;
+        } else if (mode === 'highlight') {
+          // Show changed areas in magenta, unchanged in grayscale
+          if (totalDiff > threshold) {
+            changedPixels++;
+            diffData.data[i] = 255;     // Red
+            diffData.data[i + 1] = 0;   // Green
+            diffData.data[i + 2] = 255; // Blue (magenta)
+            diffData.data[i + 3] = 200;
+          } else {
+            // Grayscale original
+            const gray = (data1.data[i] + data1.data[i + 1] + data1.data[i + 2]) / 3;
+            diffData.data[i] = gray;
+            diffData.data[i + 1] = gray;
+            diffData.data[i + 2] = gray;
+            diffData.data[i + 3] = 255;
+          }
+        } else {
+          // Overlay mode - blend images
+          const alpha = opacity[0] / 100;
+          diffData.data[i] = data1.data[i] * (1 - alpha) + data2.data[i] * alpha;
+          diffData.data[i + 1] = data1.data[i + 1] * (1 - alpha) + data2.data[i + 1] * alpha;
+          diffData.data[i + 2] = data1.data[i + 2] * (1 - alpha) + data2.data[i + 2] * alpha;
+          diffData.data[i + 3] = 255;
+        }
+      }
+
+      ctx.putImageData(diffData, 0, 0);
+      
+      const totalPixels = (width * height);
+      setDiffStats({
+        changedPixels,
+        totalPixels,
+        percentChanged: Math.round((changedPixels / totalPixels) * 100)
+      });
+    };
+
+    img1.onload = onLoad;
+    img2.onload = onLoad;
+    img1.src = originalImage;
+    img2.src = fixedImage;
+  }, [originalImage, fixedImage, mode, opacity]);
+
+  useEffect(() => {
+    generateDiff();
+  }, [generateDiff]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2">
+          <Button 
+            variant={mode === 'highlight' ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setMode('highlight')}
+          >
+            Highlight Changes
+          </Button>
+          <Button 
+            variant={mode === 'difference' ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setMode('difference')}
+          >
+            Raw Difference
+          </Button>
+          <Button 
+            variant={mode === 'overlay' ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setMode('overlay')}
+          >
+            Overlay Blend
+          </Button>
+        </div>
+        {mode === 'highlight' && (
+          <Badge variant={diffStats.percentChanged > 30 ? 'destructive' : 'secondary'}>
+            {diffStats.percentChanged}% pixels changed
+          </Badge>
+        )}
+      </div>
+      
+      {mode === 'overlay' && (
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">Original</span>
+          <Slider 
+            value={opacity} 
+            onValueChange={setOpacity} 
+            max={100} 
+            step={1}
+            className="flex-1"
+          />
+          <span className="text-xs text-muted-foreground">Fixed</span>
+        </div>
+      )}
+      
+      <div className="aspect-video rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center">
+        <canvas 
+          ref={canvasRef} 
+          className="max-w-full max-h-full object-contain"
+        />
+      </div>
+      
+      {mode === 'highlight' && (
+        <p className="text-xs text-muted-foreground text-center">
+          Magenta areas show where pixels changed significantly between original and fixed images.
+          {diffStats.percentChanged > 50 && (
+            <span className="text-destructive font-medium"> ⚠️ High change detected - product may have been altered.</span>
+          )}
+        </p>
+      )}
     </div>
   );
 }
