@@ -1,12 +1,28 @@
 import { useCallback, useState } from 'react';
-import { Upload, Link, X, Image as ImageIcon, Loader2, Shield, Crop, Star } from 'lucide-react';
+import { Upload, Link, X, Image as ImageIcon, Loader2, Shield, Crop, Star, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ImageAsset, AssetType } from '@/types';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ImageAsset, AssetType, FailedDownload } from '@/types';
 import { ImageCropper } from '@/components/ImageCropper';
+import { SortableImageCard } from '@/components/SortableImageCard';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
 
 interface ImageUploaderProps {
   assets: ImageAsset[];
@@ -19,6 +35,9 @@ interface ImageUploaderProps {
   onImportFromAmazon: () => void;
   onRunAudit: () => void;
   isAnalyzing: boolean;
+  failedDownloads?: FailedDownload[];
+  isRetrying?: boolean;
+  onRetryFailedDownloads?: () => void;
 }
 
 export function ImageUploader({
@@ -32,10 +51,24 @@ export function ImageUploader({
   onImportFromAmazon,
   onRunAudit,
   isAnalyzing,
+  failedDownloads = [],
+  isRetrying = false,
+  onRetryFailedDownloads,
 }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [assetToCrop, setAssetToCrop] = useState<ImageAsset | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -82,20 +115,6 @@ export function ImageUploader({
     onAssetsChange(updated);
   };
 
-  const toggleAssetType = (id: string) => {
-    const updated = assets.map(a => {
-      if (a.id === id) {
-        return { ...a, type: (a.type === 'MAIN' ? 'SECONDARY' : 'MAIN') as AssetType };
-      }
-      // If setting to MAIN, demote others
-      if (a.type === 'MAIN' && assets.find(x => x.id === id)?.type === 'SECONDARY') {
-        return { ...a, type: 'SECONDARY' as AssetType };
-      }
-      return a;
-    });
-    onAssetsChange(updated);
-  };
-
   const openCropper = (asset: ImageAsset) => {
     setAssetToCrop(asset);
     setCropperOpen(true);
@@ -114,6 +133,25 @@ export function ImageUploader({
     );
     onAssetsChange(updated);
     setAssetToCrop(null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = assets.findIndex((a) => a.id === active.id);
+      const newIndex = assets.findIndex((a) => a.id === over.id);
+
+      const reordered = arrayMove(assets, oldIndex, newIndex);
+      
+      // Update types: first position is always MAIN, others are SECONDARY
+      const updatedAssets = reordered.map((asset, idx) => ({
+        ...asset,
+        type: (idx === 0 ? 'MAIN' : 'SECONDARY') as AssetType,
+      }));
+
+      onAssetsChange(updatedAssets);
+    }
   };
 
   return (
@@ -146,6 +184,39 @@ export function ImageUploader({
               )}
             </Button>
           </div>
+          
+          {/* Failed Downloads Alert */}
+          {failedDownloads.length > 0 && (
+            <Alert variant="destructive" className="mt-3">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="flex items-center justify-between">
+                <span>
+                  {failedDownloads.length} image{failedDownloads.length > 1 ? 's' : ''} failed to download
+                </span>
+                {onRetryFailedDownloads && (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={onRetryFailedDownloads}
+                    disabled={isRetrying}
+                    className="ml-2"
+                  >
+                    {isRetrying ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Retrying...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Retry Failed
+                      </>
+                    )}
+                  </Button>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
@@ -188,126 +259,40 @@ export function ImageUploader({
         </CardContent>
       </Card>
 
-      {/* Image Grid Preview */}
+      {/* Image Grid Preview with Drag & Drop */}
       {assets.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              Uploaded Assets ({assets.length})
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>Uploaded Assets ({assets.length})</span>
+              <span className="text-xs text-muted-foreground font-normal">
+                Drag to reorder • First position = Landing image
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-3">
-              {assets.map((asset, assetIndex) => {
-                // Extract category from asset name (format: CATEGORY_filename)
-                const categoryMatch = asset.name.match(/^(PRODUCT_SHOT|INFOGRAPHIC|LIFESTYLE|PRODUCT_IN_USE|SIZE_CHART|COMPARISON|PACKAGING|DETAIL|UNKNOWN)_/);
-                const imageCategory = categoryMatch ? categoryMatch[1] : null;
-                
-                // Check if this is the landing position (first image in listing)
-                const isLandingPosition = asset.type === 'MAIN';
-                
-                const getCategoryColor = (category: string | null) => {
-                  switch (category) {
-                    case 'PRODUCT_SHOT': return 'bg-emerald-500 text-white';
-                    case 'INFOGRAPHIC': return 'bg-blue-500 text-white';
-                    case 'LIFESTYLE': return 'bg-green-500 text-white';
-                    case 'PRODUCT_IN_USE': return 'bg-purple-500 text-white';
-                    case 'SIZE_CHART': return 'bg-orange-500 text-white';
-                    case 'COMPARISON': return 'bg-yellow-500 text-black';
-                    case 'PACKAGING': return 'bg-pink-500 text-white';
-                    case 'DETAIL': return 'bg-cyan-500 text-white';
-                    default: return 'bg-muted text-muted-foreground';
-                  }
-                };
-
-                const formatCategory = (category: string | null) => {
-                  if (!category) return null;
-                  return category.replace(/_/g, ' ').split(' ').map(w => 
-                    w.charAt(0) + w.slice(1).toLowerCase()
-                  ).join(' ');
-                };
-
-                return (
-                  <div
-                    key={asset.id}
-                    className={`relative group aspect-square rounded-lg overflow-hidden border-2 bg-muted transition-all ${
-                      isLandingPosition 
-                        ? 'border-amber-400 ring-2 ring-amber-400/30' 
-                        : 'border-border'
-                    }`}
-                  >
-                    <img
-                      src={asset.preview}
-                      alt={asset.name}
-                      className="w-full h-full object-cover"
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={assets.map(a => a.id)}
+                strategy={rectSortingStrategy}
+              >
+                <div className="grid grid-cols-3 gap-3">
+                  {assets.map((asset, index) => (
+                    <SortableImageCard
+                      key={asset.id}
+                      asset={asset}
+                      index={index}
+                      onRemove={removeAsset}
+                      onCrop={openCropper}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    
-                    {/* Landing Position Indicator */}
-                    {isLandingPosition && (
-                      <div className="absolute -top-1 -left-1 w-6 h-6 bg-amber-400 rounded-br-lg flex items-center justify-center shadow-md" title="Landing Position (First Image)">
-                        <Star className="w-3.5 h-3.5 text-amber-900 fill-amber-900" />
-                      </div>
-                    )}
-                    
-                    {/* Position Badge (1st, 2nd, 3rd, etc.) */}
-                    <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                      isLandingPosition 
-                        ? 'bg-amber-400 text-amber-900' 
-                        : 'bg-muted-foreground/80 text-background'
-                    }`}>
-                      {isLandingPosition ? '1st • Landing' : `${assetIndex + 1}${assetIndex === 0 ? 'st' : assetIndex === 1 ? 'nd' : assetIndex === 2 ? 'rd' : 'th'}`}
-                    </div>
-
-                    {/* AI Category Badge */}
-                    {imageCategory && (
-                      <div className={`absolute top-2 right-8 px-1.5 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(imageCategory)}`}>
-                        {formatCategory(imageCategory)}
-                      </div>
-                    )}
-
-                    {/* Remove Button */}
-                    <button
-                      onClick={() => removeAsset(asset.id)}
-                      className="absolute top-2 right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-
-                    {/* Analysis Status */}
-                    {asset.isAnalyzing && (
-                      <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                      </div>
-                    )}
-
-                    {/* Crop Button */}
-                    <button
-                      onClick={() => openCropper(asset)}
-                      className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Crop image"
-                    >
-                      <Crop className="w-3 h-3" />
-                    </button>
-
-                    {/* Score Badge */}
-                    {asset.analysisResult && (
-                      <div className={`
-                        absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-bold
-                        ${asset.analysisResult.overallScore >= 85 
-                          ? 'bg-success text-success-foreground'
-                          : asset.analysisResult.overallScore >= 70
-                          ? 'bg-warning text-warning-foreground'
-                          : 'bg-destructive text-destructive-foreground'
-                        }
-                      `}>
-                        {asset.analysisResult.overallScore}%
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           </CardContent>
         </Card>
       )}
