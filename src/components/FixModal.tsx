@@ -174,47 +174,11 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                       )}
                     </>
                   ) : isGenerating ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-6">
-                      {/* Animated spinner with pulsing ring */}
-                      <div className="relative">
-                        <div className="w-16 h-16 border-4 border-primary/20 rounded-full"></div>
-                        <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-primary rounded-full animate-spin"></div>
-                        <Loader2 className="absolute inset-0 m-auto w-8 h-8 text-primary animate-pulse" />
-                      </div>
-                      
-                      {/* Step indicator */}
-                      <div className="text-center space-y-2">
-                        <p className="text-sm font-medium text-foreground">
-                          {fixProgress?.currentStep === 'generating' ? '🖼️ AI is generating your image...' : 
-                           fixProgress?.currentStep === 'verifying' ? '🔍 Verifying quality...' :
-                           fixProgress?.currentStep === 'retrying' ? '🔄 Retrying with feedback...' :
-                           '⏳ Starting optimization...'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {fixProgress?.attempt ? `Attempt ${fixProgress.attempt}/${fixProgress.maxAttempts}` : 'Please wait...'}
-                        </p>
-                        
-                        {/* Progress dots */}
-                        <div className="flex justify-center gap-1.5 pt-2">
-                          {['generating', 'verifying', 'retrying'].map((step, i) => (
-                            <div 
-                              key={step}
-                              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                                fixProgress?.currentStep === step 
-                                  ? 'bg-primary scale-125 animate-pulse' 
-                                  : 'bg-muted-foreground/30'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Latest thinking step */}
-                      {fixProgress?.thinkingSteps && fixProgress.thinkingSteps.length > 0 && (
-                        <p className="text-xs text-muted-foreground text-center max-w-[200px] truncate">
-                          {fixProgress.thinkingSteps[fixProgress.thinkingSteps.length - 1]}
-                        </p>
-                      )}
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                      <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">
+                        {fixProgress?.currentStep === 'generating' ? 'Generating image...' : 'Starting...'}
+                      </p>
                     </div>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-3">
