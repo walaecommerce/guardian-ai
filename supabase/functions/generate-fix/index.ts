@@ -5,6 +5,121 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_DELAY_MS = 1000;
+
+// Helper to sleep for exponential backoff
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Parse Gemini API error for user-friendly message
+const parseGeminiError = (status: number, errorText: string): { message: string; errorType: string; retryable: boolean } => {
+  try {
+    const errorJson = JSON.parse(errorText);
+    const apiMessage = errorJson?.error?.message || '';
+    
+    if (status === 429) {
+      return { 
+        message: "Rate limit exceeded. Please wait a moment and try again.", 
+        errorType: "rate_limit",
+        retryable: true 
+      };
+    }
+    if (status === 403) {
+      return { 
+        message: "API key invalid or quota exceeded. Please check your Google Gemini API key.", 
+        errorType: "auth_error",
+        retryable: false 
+      };
+    }
+    if (status === 400) {
+      if (apiMessage.includes('MIME type')) {
+        return { 
+          message: `Invalid image format: ${apiMessage}`, 
+          errorType: "invalid_image",
+          retryable: false 
+        };
+      }
+      if (apiMessage.includes('safety')) {
+        return { 
+          message: "Image was blocked by safety filters. Please try a different image.", 
+          errorType: "safety_block",
+          retryable: false 
+        };
+      }
+      return { 
+        message: `Invalid request: ${apiMessage}`, 
+        errorType: "bad_request",
+        retryable: false 
+      };
+    }
+    if (status === 500 || status === 502 || status === 503) {
+      return { 
+        message: "Google AI service temporarily unavailable. Retrying...", 
+        errorType: "server_error",
+        retryable: true 
+      };
+    }
+    return { 
+      message: apiMessage || `API error (${status})`, 
+      errorType: "unknown",
+      retryable: status >= 500 
+    };
+  } catch {
+    return { 
+      message: `API error (${status}): ${errorText.substring(0, 100)}`, 
+      errorType: "unknown",
+      retryable: status >= 500 
+    };
+  }
+};
+
+// Fetch with retry logic
+const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = MAX_RETRIES): Promise<Response> => {
+  let lastError: Error | null = null;
+  let delay = INITIAL_DELAY_MS;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (response.ok) {
+        return response;
+      }
+      
+      const errorText = await response.text();
+      const parsedError = parseGeminiError(response.status, errorText);
+      
+      console.log(`[Guardian] Attempt ${attempt}/${maxRetries}: ${parsedError.message}`);
+      
+      if (!parsedError.retryable || attempt === maxRetries) {
+        // Create a new response with the error info
+        return new Response(errorText, { 
+          status: response.status, 
+          headers: response.headers 
+        });
+      }
+      
+      console.log(`[Guardian] Retrying in ${delay}ms...`);
+      await sleep(delay);
+      delay *= 2; // Exponential backoff
+      
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`[Guardian] Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+      
+      if (attempt === maxRetries) {
+        throw lastError;
+      }
+      
+      await sleep(delay);
+      delay *= 2;
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -188,20 +303,16 @@ This ensures listing coherence across all images.`;
       if (base64Data.startsWith('iVBOR')) return 'image/png';
       if (base64Data.startsWith('R0lGOD')) return 'image/gif';
       if (base64Data.startsWith('UklGR')) return 'image/webp';
-      // Default to jpeg (most common) if we can't detect
       return 'image/jpeg';
     };
 
     const normalizeMimeType = (mimeTypeRaw: string, base64Data: string): string => {
       const mt = (mimeTypeRaw || '').toLowerCase().trim();
       if (mt === 'image/jpg') return 'image/jpeg';
-
       const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
       if (!allowed.has(mt)) {
-        // Browser/FileReader sometimes returns application/octet-stream; Google rejects it.
         return guessImageMimeType(base64Data);
       }
-
       return mt;
     };
 
@@ -214,7 +325,6 @@ This ensures listing coherence across all images.`;
           return { mimeType, data };
         }
       }
-      // If it's not a data URL, assume it's raw base64 and treat as jpeg
       return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
     };
 
@@ -255,41 +365,32 @@ This ensures listing coherence across all images.`;
       });
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [{ parts }]
-      }),
-    });
+    const response = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts }]
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
+      const parsedError = parseGeminiError(response.status, errorText);
       console.error("[Guardian] Google Gemini API error:", response.status, errorText);
       
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ 
-          error: "Rate limit exceeded. Please wait a moment and try again.",
-          errorType: "rate_limit"
-        }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      if (response.status === 403) {
-        return new Response(JSON.stringify({ 
-          error: "API key invalid or quota exceeded. Please check your Google Gemini API key.",
-          errorType: "auth_error"
-        }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      throw new Error(`Google Gemini API error: ${response.status}`);
+      return new Response(JSON.stringify({ 
+        error: parsedError.message,
+        errorType: parsedError.errorType,
+        statusCode: response.status
+      }), {
+        status: response.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();
@@ -309,8 +410,20 @@ This ensures listing coherence across all images.`;
     }
     
     if (!generatedImage) {
+      // Check for content filtering or other issues
+      const finishReason = candidates?.[0]?.finishReason;
+      if (finishReason === 'SAFETY') {
+        return new Response(JSON.stringify({ 
+          error: "Image generation was blocked by safety filters. Please try a different image.",
+          errorType: "safety_block"
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
       console.error("[Guardian] No image in response:", JSON.stringify(data).substring(0, 500));
-      throw new Error("No image generated");
+      throw new Error("No image generated - the AI could not process this request");
     }
 
     console.log("[Guardian] Image fix generated successfully");
@@ -321,7 +434,10 @@ This ensures listing coherence across all images.`;
   } catch (error) {
     console.error("[Guardian] Generation error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ 
+      error: errorMessage,
+      errorType: "generation_failed"
+    }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
