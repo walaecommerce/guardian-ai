@@ -18,10 +18,10 @@ serve(async (req) => {
       mainImageBase64 
     } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GOOGLE_GEMINI_API_KEY) {
+      throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
     }
 
     const isMain = imageType === 'MAIN';
@@ -130,48 +130,69 @@ This will be displayed live to the user so they can see the AI verification happ
 
 CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for retry than pass a flawed image.`;
 
-    const messages: any[] = [
-      { role: "system", content: systemPrompt },
+    // Helper to extract base64 data from data URL
+    const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
+      if (dataUrl.startsWith('data:')) {
+        const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          return { mimeType: match[1], data: match[2] };
+        }
+      }
+      return { mimeType: 'image/jpeg', data: dataUrl };
+    };
+
+    // Build parts array for Google's API format
+    const parts: any[] = [
+      { text: `Verify this ${imageType} AI-generated image against Amazon compliance requirements.` },
+      { text: "=== ORIGINAL IMAGE (source with violations) ===" }
     ];
 
-    // Build content array with images
-    const content: any[] = [
-      { type: "text", text: `Verify this ${imageType} AI-generated image against Amazon compliance requirements.` },
-      { type: "text", text: "=== ORIGINAL IMAGE (source with violations) ===" },
-      { type: "image_url", image_url: { url: originalImageBase64 } },
-      { type: "text", text: "=== GENERATED IMAGE (AI-corrected, needs verification) ===" },
-      { type: "image_url", image_url: { url: generatedImageBase64 } },
-    ];
+    const originalImage = extractBase64(originalImageBase64);
+    parts.push({
+      inline_data: {
+        mime_type: originalImage.mimeType,
+        data: originalImage.data
+      }
+    });
+
+    parts.push({ text: "=== GENERATED IMAGE (AI-corrected, needs verification) ===" });
+    const generatedImage = extractBase64(generatedImageBase64);
+    parts.push({
+      inline_data: {
+        mime_type: generatedImage.mimeType,
+        data: generatedImage.data
+      }
+    });
 
     // Add main image reference for secondary images
     if (!isMain && mainImageBase64) {
-      content.push(
-        { type: "text", text: "=== MAIN PRODUCT REFERENCE (generated image must match this product) ===" },
-        { type: "image_url", image_url: { url: mainImageBase64 } }
-      );
+      parts.push({ text: "=== MAIN PRODUCT REFERENCE (generated image must match this product) ===" });
+      const mainImage = extractBase64(mainImageBase64);
+      parts.push({
+        inline_data: {
+          mime_type: mainImage.mimeType,
+          data: mainImage.data
+        }
+      });
     }
 
-    content.push({ 
-      type: "text", 
-      text: "Execute full verification protocol and return detailed JSON assessment." 
-    });
-
-    messages.push({ role: "user", content });
+    parts.push({ text: "Execute full verification protocol and return detailed JSON assessment." });
 
     console.log(`[Guardian] Verifying ${imageType} image...`);
     console.log(`[Guardian] Check 1: Product identity verification...`);
     console.log(`[Guardian] Check 2: Compliance fixes verification...`);
     console.log(`[Guardian] Check 3: Quality assessment...`);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-preview",
-        messages,
+        system_instruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        contents: [{ parts }]
       }),
     });
 
@@ -184,12 +205,12 @@ CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for r
         });
       }
       const errorText = await response.text();
-      console.error("[Guardian] AI Gateway error:", response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error("[Guardian] Google Gemini API error:", response.status, errorText);
+      throw new Error(`Google Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const responseContent = data.choices?.[0]?.message?.content || "";
+    const responseContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     
     const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
