@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Upload, Link, X, Image as ImageIcon, Loader2, Shield, Crop } from 'lucide-react';
+import { Upload, Link, X, Image as ImageIcon, Loader2, Shield, Crop, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -198,14 +198,17 @@ export function ImageUploader({
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-3">
-              {assets.map((asset) => {
+              {assets.map((asset, assetIndex) => {
                 // Extract category from asset name (format: CATEGORY_filename)
-                const categoryMatch = asset.name.match(/^(MAIN|INFOGRAPHIC|LIFESTYLE|PRODUCT_IN_USE|SIZE_CHART|COMPARISON|PACKAGING|DETAIL|UNKNOWN)_/);
+                const categoryMatch = asset.name.match(/^(PRODUCT_SHOT|INFOGRAPHIC|LIFESTYLE|PRODUCT_IN_USE|SIZE_CHART|COMPARISON|PACKAGING|DETAIL|UNKNOWN)_/);
                 const imageCategory = categoryMatch ? categoryMatch[1] : null;
+                
+                // Check if this is the landing position (first image in listing)
+                const isLandingPosition = asset.type === 'MAIN';
                 
                 const getCategoryColor = (category: string | null) => {
                   switch (category) {
-                    case 'MAIN': return 'bg-primary text-primary-foreground';
+                    case 'PRODUCT_SHOT': return 'bg-emerald-500 text-white';
                     case 'INFOGRAPHIC': return 'bg-blue-500 text-white';
                     case 'LIFESTYLE': return 'bg-green-500 text-white';
                     case 'PRODUCT_IN_USE': return 'bg-purple-500 text-white';
@@ -227,7 +230,11 @@ export function ImageUploader({
                 return (
                   <div
                     key={asset.id}
-                    className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-muted"
+                    className={`relative group aspect-square rounded-lg overflow-hidden border-2 bg-muted transition-all ${
+                      isLandingPosition 
+                        ? 'border-amber-400 ring-2 ring-amber-400/30' 
+                        : 'border-border'
+                    }`}
                   >
                     <img
                       src={asset.preview}
@@ -236,14 +243,21 @@ export function ImageUploader({
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     
-                    {/* Type Badge (MAIN/SECONDARY) */}
-                    <Badge
-                      variant={asset.type === 'MAIN' ? 'default' : 'secondary'}
-                      className="absolute top-2 left-2 cursor-pointer text-xs"
-                      onClick={() => toggleAssetType(asset.id)}
-                    >
-                      {asset.type}
-                    </Badge>
+                    {/* Landing Position Indicator */}
+                    {isLandingPosition && (
+                      <div className="absolute -top-1 -left-1 w-6 h-6 bg-amber-400 rounded-br-lg flex items-center justify-center shadow-md" title="Landing Position (First Image)">
+                        <Star className="w-3.5 h-3.5 text-amber-900 fill-amber-900" />
+                      </div>
+                    )}
+                    
+                    {/* Position Badge (1st, 2nd, 3rd, etc.) */}
+                    <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      isLandingPosition 
+                        ? 'bg-amber-400 text-amber-900' 
+                        : 'bg-muted-foreground/80 text-background'
+                    }`}>
+                      {isLandingPosition ? '1st • Landing' : `${assetIndex + 1}${assetIndex === 0 ? 'st' : assetIndex === 1 ? 'nd' : assetIndex === 2 ? 'rd' : 'th'}`}
+                    </div>
 
                     {/* AI Category Badge */}
                     {imageCategory && (
