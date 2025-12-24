@@ -5,6 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
 interface ClassificationResult {
   category: string;
   confidence: number;
@@ -27,10 +29,8 @@ serve(async (req) => {
       );
     }
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    
-    if (!OPENAI_API_KEY) {
-      console.error('OPENAI_API_KEY not configured');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'AI service not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -70,16 +70,16 @@ ${asinInfo}
 
 Analyze the image and determine which category it belongs to based on its visual characteristics.`;
 
-    console.log('Calling OpenAI for image classification...');
+    console.log('Calling Lovable AI for image classification...');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           {
@@ -90,13 +90,12 @@ Analyze the image and determine which category it belongs to based on its visual
             ]
           }
         ],
-        max_tokens: 500
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
+      console.error('AI Gateway error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -104,9 +103,9 @@ Analyze the image and determine which category it belongs to based on its visual
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402 || response.status === 401) {
+      if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'OpenAI API key issue. Please check your API key.' }),
+          JSON.stringify({ error: 'AI credits exhausted' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -120,7 +119,7 @@ Analyze the image and determine which category it belongs to based on its visual
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
     
-    console.log('OpenAI response:', content);
+    console.log('AI response:', content);
 
     // Parse the JSON response
     let result: ClassificationResult;

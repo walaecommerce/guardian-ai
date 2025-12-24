@@ -416,14 +416,9 @@ const Index = () => {
         });
 
         if (genError) {
-          // Extract detailed error info
+          // Check for specific error types
           const errorContext = (genError as any)?.context;
-          const statusCode = errorContext?.status || (genError as any)?.status;
-          const errorMessage = typeof genError === 'string' ? genError : (genError as any)?.message || 'Unknown error';
-          
-          console.error('[Generate-Fix Error]', { statusCode, errorMessage, genError, genData });
-          
-          if (statusCode === 402 || genData?.errorType === 'payment_required') {
+          if (errorContext?.status === 402 || genData?.errorType === 'payment_required') {
             const creditError = 'Not enough AI credits. Please add credits in Settings → Workspace → Usage.';
             addLog('error', `❌ ${creditError}`);
             setAssets(prev => prev.map(a => 
@@ -433,29 +428,18 @@ const Index = () => {
             toast({ title: 'AI Credits Required', description: creditError, variant: 'destructive' });
             return;
           }
-          if (statusCode === 429 || genData?.errorType === 'rate_limit') {
+          if (errorContext?.status === 429 || genData?.errorType === 'rate_limit') {
             const rateError = 'Rate limit exceeded. Please wait a moment and try again.';
             addLog('warning', `⏳ ${rateError}`);
             await new Promise(r => setTimeout(r, 5000)); // Wait before retry
             throw new Error(rateError);
           }
-          // Show detailed error with status code
-          const detailedError = `Generate-fix error (${statusCode || 'N/A'}): ${errorMessage}`;
-          addLog('error', `❌ ${detailedError}`);
-          toast({ 
-            title: `Image Generation Failed (${statusCode || 'Error'})`, 
-            description: errorMessage.slice(0, 200), 
-            variant: 'destructive' 
-          });
-          throw new Error(detailedError);
+          throw genError;
         }
         if (genData?.error) {
-          // Handle error in response body - show OpenAI's exact message
-          const errorDetail = genData.error;
-          console.error('[Generate-Fix Response Error]', { errorDetail, genData });
-          
+          // Handle error in response body
           if (genData.errorType === 'payment_required') {
-            const creditError = errorDetail || 'Not enough AI credits.';
+            const creditError = genData.error || 'Not enough AI credits.';
             addLog('error', `❌ ${creditError}`);
             setAssets(prev => prev.map(a => 
               a.id === assetId ? { ...a, isGeneratingFix: false } : a
@@ -464,14 +448,7 @@ const Index = () => {
             toast({ title: 'AI Credits Required', description: creditError, variant: 'destructive' });
             return;
           }
-          // Display OpenAI's exact error message
-          addLog('error', `❌ OpenAI Error: ${errorDetail}`);
-          toast({ 
-            title: 'OpenAI API Error', 
-            description: errorDetail.slice(0, 200), 
-            variant: 'destructive' 
-          });
-          throw new Error(errorDetail);
+          throw new Error(genData.error);
         }
         if (!genData?.fixedImage) throw new Error('No image generated');
 
