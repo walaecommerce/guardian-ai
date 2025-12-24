@@ -68,14 +68,35 @@ Analyze the image and determine which category it belongs to based on its visual
     console.log('Calling Google Gemini API for image classification...');
 
     // Extract base64 data from data URL
+    const guessImageMimeType = (base64DataRaw: string): string => {
+      const base64Data = (base64DataRaw || '').trim();
+      if (base64Data.startsWith('/9j/')) return 'image/jpeg';
+      if (base64Data.startsWith('iVBOR')) return 'image/png';
+      if (base64Data.startsWith('R0lGOD')) return 'image/gif';
+      if (base64Data.startsWith('UklGR')) return 'image/webp';
+      return 'image/jpeg';
+    };
+
+    const normalizeMimeType = (mimeTypeRaw: string, base64Data: string): string => {
+      const mt = (mimeTypeRaw || '').toLowerCase().trim();
+      if (mt === 'image/jpg') return 'image/jpeg';
+      const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+      if (!allowed.has(mt)) {
+        return guessImageMimeType(base64Data);
+      }
+      return mt;
+    };
+
     const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
       if (dataUrl.startsWith('data:')) {
         const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
         if (match) {
-          return { mimeType: match[1], data: match[2] };
+          const data = (match[2] || '').trim();
+          const mimeType = normalizeMimeType(match[1], data);
+          return { mimeType, data };
         }
       }
-      return { mimeType: 'image/jpeg', data: dataUrl };
+      return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
     };
 
     const imageData = extractBase64(imageBase64);
