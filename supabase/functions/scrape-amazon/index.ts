@@ -35,7 +35,7 @@ serve(async (req) => {
         body: JSON.stringify({
           url,
           formats: ['rawHtml'],  // Use rawHtml to preserve Amazon's inline JSON/script blobs
-          waitFor: 8000,  // Wait longer for JS to load all images and gallery data
+          waitFor: 15000,  // Wait 15s for JS to load ALL images and gallery data
           onlyMainContent: false,  // We need full page to get gallery JSON
         }),
       });
