@@ -239,6 +239,32 @@ Read all visible text on product packaging:
 
 Compare against listing title for discrepancies.
 
+### Phase 6: SPATIAL ZONE MAPPING (CRITICAL FOR FIX GENERATION)
+You MUST identify and map all content zones in the image:
+
+**TEXT ZONES** - Areas containing text that must be preserved:
+- Location (top-banner, bottom-banner, left-sidebar, right-sidebar, center-overlay)
+- Approximate bounds (top%, left%, width%, height%)
+- Content summary
+- Protection level: CRITICAL (must never be touched)
+
+**PRODUCT ZONES** - Areas containing the product:
+- Location description
+- Coverage percentage of frame
+- Type: packaged-product, unpackaged-product, lifestyle-shot, demonstration
+
+**OVERLAY ELEMENTS** - Elements that may need removal:
+- Type: logo, watermark, badge, promotional-text
+- Location with approximate bounds
+- Is it PART OF PRODUCT PACKAGING? (true = preserve, false = can remove)
+- Recommended action: remove, preserve, or inpaint
+
+**PROTECTED AREAS** - Regions that MUST NOT be modified during fixes:
+- Infographic callouts with feature text
+- Dimension annotations
+- Brand logos that are ON the product packaging itself
+- Ingredient lists or specification tables
+
 ## OUTPUT FORMAT
 Return ONLY valid JSON:
 {
@@ -268,6 +294,44 @@ Return ONLY valid JSON:
       "message": "Technical quality assessment" 
     }
   },
+  "spatialAnalysis": {
+    "textZones": [
+      {
+        "id": "text_zone_1",
+        "location": "bottom-banner",
+        "bounds": { "top": 75, "left": 0, "width": 100, "height": 25 },
+        "content": "Summary of text content",
+        "protection": "CRITICAL"
+      }
+    ],
+    "productZones": [
+      {
+        "id": "product_1",
+        "location": "center-left",
+        "bounds": { "top": 10, "left": 5, "width": 50, "height": 80 },
+        "coverage": 45,
+        "type": "packaged-product"
+      }
+    ],
+    "overlayElements": [
+      {
+        "id": "overlay_1",
+        "type": "logo",
+        "location": "top-right",
+        "bounds": { "top": 5, "left": 80, "width": 15, "height": 10 },
+        "isPartOfPackaging": false,
+        "action": "remove"
+      }
+    ],
+    "protectedAreas": [
+      {
+        "id": "protected_1",
+        "reason": "Feature callout text",
+        "bounds": { "top": 60, "left": 50, "width": 45, "height": 35 },
+        "description": "Bullet points describing product features"
+      }
+    ]
+  },
   "contentConsistency": {
     "packagingTextDetected": "All text read from product packaging",
     "listingTitleMatch": boolean,
@@ -279,12 +343,20 @@ Return ONLY valid JSON:
       "severity": "critical|warning|info", 
       "category": "background|badges|text|quality|occupancy",
       "message": "What's wrong",
-      "recommendation": "Specific fix action"
+      "recommendation": "Specific fix action",
+      "affectedZone": "overlay_1 or null if not zone-specific"
     }
   ],
   "fixRecommendations": ["Ordered list of fixes by priority"],
-  "generativePrompt": "Detailed prompt for AI image generation to fix all issues"
+  "generativePrompt": "Detailed prompt for AI image generation to fix all issues. MUST include specific instructions about which zones to preserve and which overlays to remove via inpainting."
 }
+
+IMPORTANT FOR generativePrompt:
+- MUST reference specific zones by ID when describing fixes
+- MUST explicitly state protected areas that cannot be modified
+- MUST instruct to use INPAINTING for overlay removal (not replacement)
+- MUST NOT instruct to add new product images or objects
+- MUST NOT instruct to cover or obscure any text zones
 
 SCORING GUIDE:
 - 100: Perfect compliance, no issues

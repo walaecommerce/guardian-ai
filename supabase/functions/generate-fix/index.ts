@@ -136,7 +136,8 @@ serve(async (req) => {
       productTitle,
       productAsin,
       customPrompt,
-      verifiedProductClaims // NEW: Pass verified claims to prevent incorrect modifications
+      verifiedProductClaims,
+      spatialAnalysis // NEW: Pass spatial zones from analyze-image
     } = await req.json();
     
     const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
@@ -146,6 +147,50 @@ serve(async (req) => {
     }
 
     const isMain = imageType === 'MAIN';
+    
+    // Build protected zones list from spatial analysis
+    const buildProtectedZonesText = () => {
+      if (!spatialAnalysis) return '';
+      
+      const zones: string[] = [];
+      
+      // Add text zones as protected
+      if (spatialAnalysis.textZones?.length > 0) {
+        for (const zone of spatialAnalysis.textZones) {
+          zones.push(`- TEXT ZONE [${zone.id}] at ${zone.location}: "${zone.content}" (bounds: top ${zone.bounds?.top}%, left ${zone.bounds?.left}%, ${zone.bounds?.width}%x${zone.bounds?.height}%) - DO NOT TOUCH`);
+        }
+      }
+      
+      // Add protected areas
+      if (spatialAnalysis.protectedAreas?.length > 0) {
+        for (const area of spatialAnalysis.protectedAreas) {
+          zones.push(`- PROTECTED [${area.id}]: ${area.description} (bounds: top ${area.bounds?.top}%, left ${area.bounds?.left}%, ${area.bounds?.width}%x${area.bounds?.height}%) - DO NOT MODIFY`);
+        }
+      }
+      
+      // Add product zones
+      if (spatialAnalysis.productZones?.length > 0) {
+        for (const zone of spatialAnalysis.productZones) {
+          zones.push(`- PRODUCT [${zone.id}] at ${zone.location}: ${zone.type}, covers ${zone.coverage}% of frame - PRESERVE EXACTLY`);
+        }
+      }
+      
+      return zones.length > 0 ? zones.join('\n') : '';
+    };
+    
+    // Build removal instructions from overlay elements
+    const buildRemovalInstructions = () => {
+      if (!spatialAnalysis?.overlayElements?.length) return '';
+      
+      const removals = spatialAnalysis.overlayElements
+        .filter((el: any) => el.action === 'remove' && !el.isPartOfPackaging)
+        .map((el: any) => `- REMOVE [${el.id}]: ${el.type} at ${el.location} (bounds: top ${el.bounds?.top}%, left ${el.bounds?.left}%, ${el.bounds?.width}%x${el.bounds?.height}%) via INPAINTING - match surrounding background`);
+      
+      return removals.length > 0 ? removals.join('\n') : '';
+    };
+    
+    const protectedZonesText = buildProtectedZonesText();
+    const removalInstructions = buildRemovalInstructions();
     
     // Build comprehensive prompt based on image type
     let prompt: string;
@@ -194,114 +239,120 @@ serve(async (req) => {
 - No compression artifacts
 - Professional appearance`;
     } else {
-      prompt = generativePrompt || `Edit this SECONDARY Amazon product image while PRESERVING its context:
+      // SECONDARY IMAGE - Zone-aware editing with strict constraints
+      prompt = `## ⚠️ CRITICAL CONSTRAINTS - READ BEFORE DOING ANYTHING:
 
-## CRITICAL REQUIREMENTS:
+### ABSOLUTE RULES (VIOLATION = FAILURE):
+1. **NEVER ADD ELEMENTS** - Do NOT add product images, icons, shapes, or ANY new objects
+2. **NEVER COVER TEXT** - All existing text, callouts, and infographics must remain 100% visible and readable
+3. **NEVER CHANGE LAYOUT** - The composition, arrangement, and spacing must stay IDENTICAL
+4. **THIS IS REMOVAL-ONLY EDITING** - You are ONLY removing prohibited overlays, NOT redesigning
 
-### 1. CONTEXT PRESERVATION (HIGHEST PRIORITY)
-- KEEP the lifestyle background/scene EXACTLY as is
-- DO NOT replace background with white
-- Maintain the infographic layout if present
-- Preserve all product demonstration context
+### YOUR SPECIFIC TASK:
+Edit this SECONDARY Amazon product image to REMOVE ONLY prohibited overlays while PRESERVING everything else.
 
-### 2. PRODUCT IDENTITY
-- The product shown must remain IDENTICAL
-- Same labels, same colors, same branding
-- No alterations to the product itself
-- Keep product positioning unchanged
+${protectedZonesText ? `
+## 🛡️ PROTECTED ZONES - THESE ARE UNTOUCHABLE:
+${protectedZonesText}
 
-### 3. REMOVE ONLY PROHIBITED ELEMENTS:
+⚠️ ANY modification to these zones will cause AUTOMATIC FAILURE. Do not add anything on top of them, do not move them, do not alter them in any way.
+` : ''}
+
+${removalInstructions ? `
+## 🗑️ ELEMENTS TO REMOVE (via clean inpainting):
+${removalInstructions}
+
+HOW TO REMOVE:
+- Use INPAINTING to seamlessly fill the area where the overlay was
+- Match the surrounding background texture, color, and lighting exactly
+- The removal should be INVISIBLE - as if the overlay was never there
+- Do NOT replace removed elements with product images or new graphics
+` : `
+## COMPLIANCE CHECK:
+If there are no prohibited overlays visible, make minimal adjustments for quality only.
+Maintain the image exactly as-is if already compliant.
+`}
+
+## WHAT TO PRESERVE (must remain identical):
+- The lifestyle background/scene EXACTLY as is
+- All infographic text and feature callouts
+- Dimension and size annotations
+- Comparison charts or tables
+- Product demonstration context
+- The product itself (same position, same appearance)
+- ALL existing text and labels
+
+## WHAT IS ALLOWED TO REMOVE:
 - "Best Seller" badges (gold/orange ribbon style)
 - "Amazon's Choice" labels (dark orange/black)
 - "#1 Best Seller" or ranking overlays
-- Star ratings added as overlays (not on packaging)
-- "Prime" logos added as overlays
-- Promotional text like "30% OFF" 
-- "Deal of the Day" tags
+- Star ratings added as overlays (NOT on packaging)
+- "Prime" logos added as overlays (NOT on packaging)
+- Promotional text like "30% OFF", "Deal of the Day"
+- Third-party watermarks or logos (NOT brand logos on product)
 
-### 4. PRESERVE ALLOWED ELEMENTS:
-- Product feature callouts ("Waterproof", "BPA Free")
-- Dimension/size annotations
-- Ingredient lists or material info
-- Comparison charts
-- Before/after demonstrations
-- How-to-use illustrations
-
-### 5. QUALITY
-- Maintain original image quality
-- Clean removal of prohibited elements
-- Seamless editing with no visible artifacts`;
+## QUALITY REQUIREMENTS:
+- Seamless removal with NO visible editing artifacts
+- Maintain original resolution and sharpness
+- No blur or smudging around removal areas
+- Professional, clean appearance`;
     }
 
     // Add previous critique for retry attempts
     if (previousCritique) {
       prompt += `
 
-## ⚠️ PREVIOUS ATTEMPT FAILED VERIFICATION - FIX THESE ISSUES:
+## ⚠️ PREVIOUS ATTEMPT FAILED - FIX THESE SPECIFIC ISSUES:
 ${previousCritique}
 
-This is a retry. The previous generated image had problems. You MUST address each issue listed above.
-Pay special attention to:
-1. Any background color issues mentioned
-2. Any product identity/mismatch issues
-3. Any remaining badges or prohibited elements
-4. Quality or composition problems noted`;
+CRITICAL: Your previous attempt had problems. Address EACH issue above.
+Common mistakes to avoid:
+- DO NOT add product images that weren't in the original
+- DO NOT place elements over existing text
+- DO NOT change the product or its packaging
+- DO NOT alter the layout structure`;
     }
 
     // Add error-aware regeneration when previous generated image is provided
     if (previousGeneratedImage) {
       prompt += `
 
-## 🔄 REGENERATION MODE - ANALYZE YOUR PREVIOUS MISTAKE:
-I am providing THREE images:
-1. ORIGINAL - The source image that needs fixing
-2. MY PREVIOUS ATTEMPT - What I generated before (which had issues)
-3. The reference context if applicable
+## 🔄 REGENERATION MODE - LEARN FROM PREVIOUS MISTAKE:
+I am providing your PREVIOUS ATTEMPT that failed verification.
 
-CRITICAL COMPARISON TASK:
-- Look CAREFULLY at your previous attempt
-- Compare it pixel-by-pixel with the original product
-- Identify EXACTLY where you went wrong:
-  * Did you change the product shape?
-  * Did you alter labels or text?
-  * Did you modify colors incorrectly?
-  * Did you leave artifacts or add unwanted elements?
-  
-Generate a NEW version that:
-1. Fixes the specific mistakes from your previous attempt
-2. Stays MORE faithful to the original product
-3. Only makes the compliance changes (background/badges) without altering the product itself`;
+CRITICAL COMPARISON:
+- Look at what you generated before
+- Identify where you went wrong (did you add something? cover text? change product?)
+- Generate a NEW version that:
+  1. Fixes those specific mistakes
+  2. Stays MORE faithful to the original
+  3. ONLY removes prohibited overlays without adding anything`;
     }
 
     // Add product context to ensure correct product identity
     if (productTitle || productAsin) {
       prompt += `
 
-## 📦 PRODUCT IDENTITY (CRITICAL):
+## 📦 PRODUCT IDENTITY (MUST MATCH):
 ${productTitle ? `Product: "${productTitle}"` : ''}
 ${productAsin ? `Amazon ASIN: ${productAsin}` : ''}
-The output image MUST show THIS EXACT product. Do NOT generate a different or generic product.
-Preserve ALL visible branding, model numbers, and product-specific features.`;
+The output MUST show THIS EXACT product. Do NOT generate a different product.`;
     }
 
     // Add verified product claims to prevent incorrect modifications
     if (verifiedProductClaims && Object.keys(verifiedProductClaims).length > 0) {
       const verifiedList = Object.entries(verifiedProductClaims)
         .filter(([_, v]: [string, any]) => v.verified)
-        .map(([claim, v]: [string, any]) => `- "${claim}": ${v.details || 'Verified as released/real product'}`)
+        .map(([claim, v]: [string, any]) => `- "${claim}": ${v.details || 'Verified product'}`)
         .join('\n');
       
       if (verifiedList) {
         prompt += `
 
-## ✅ VERIFIED PRODUCT CLAIMS - DO NOT MODIFY:
-The following product claims have been verified as ACCURATE through real-time market research.
-DO NOT change, "correct", or remove these claims - they are factually correct:
-
+## ✅ VERIFIED CLAIMS - DO NOT MODIFY:
 ${verifiedList}
 
-CRITICAL: If the image shows any of these products/claims, keep them EXACTLY as shown.
-Do NOT replace with older models or "safer" alternatives. The claims are verified accurate.`;
+These claims are factually correct. Keep them exactly as shown.`;
       }
     }
 
@@ -309,11 +360,9 @@ Do NOT replace with older models or "safer" alternatives. The claims are verifie
     if (!isMain && mainImageBase64) {
       prompt += `
 
-## 🔗 CROSS-REFERENCE REQUIREMENT:
-I am also providing the MAIN product image as reference.
-The product in your output MUST be visually consistent with this reference.
-Same product, same labels, same branding, same colors.
-This ensures listing coherence across all images.`;
+## 🔗 PRODUCT REFERENCE:
+The MAIN product image is provided as reference.
+Your output must show the SAME product with SAME branding and colors.`;
     }
 
     console.log(`[Guardian] Generating ${imageType} fix...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);

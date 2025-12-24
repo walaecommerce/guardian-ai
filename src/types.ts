@@ -58,6 +58,54 @@ export interface Violation {
   category: string;
   message: string;
   recommendation: string;
+  affectedZone?: string; // ID of the affected spatial zone
+}
+
+// Spatial Analysis Types for zone-aware editing
+export interface SpatialBounds {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+export interface TextZone {
+  id: string;
+  location: string;
+  bounds?: SpatialBounds;
+  content: string;
+  protection: 'CRITICAL' | 'HIGH' | 'MEDIUM';
+}
+
+export interface ProductZone {
+  id: string;
+  location: string;
+  bounds?: SpatialBounds;
+  coverage: number;
+  type: 'packaged-product' | 'unpackaged-product' | 'lifestyle-shot' | 'demonstration';
+}
+
+export interface OverlayElement {
+  id: string;
+  type: 'logo' | 'watermark' | 'badge' | 'promotional-text';
+  location: string;
+  bounds?: SpatialBounds;
+  isPartOfPackaging: boolean;
+  action: 'remove' | 'preserve' | 'inpaint';
+}
+
+export interface ProtectedArea {
+  id: string;
+  reason: string;
+  bounds?: SpatialBounds;
+  description: string;
+}
+
+export interface SpatialAnalysis {
+  textZones?: TextZone[];
+  productZones?: ProductZone[];
+  overlayElements?: OverlayElement[];
+  protectedAreas?: ProtectedArea[];
 }
 
 export interface AnalysisResult {
@@ -65,6 +113,7 @@ export interface AnalysisResult {
   status: 'PASS' | 'FAIL';
   mainImageAnalysis?: MainImageAnalysis;
   contentConsistency?: ContentConsistency;
+  spatialAnalysis?: SpatialAnalysis; // Zone mapping for AI editing
   violations: Violation[];
   fixRecommendations: string[];
   generativePrompt?: string;
@@ -76,17 +125,23 @@ export interface ComponentScores {
   compliance: number;
   quality: number;
   noNewIssues: number;
+  textLayout?: number; // NEW: Text/layout preservation score
+  noAdditions?: number; // NEW: No new elements added score
 }
 
 export interface VerificationResult {
   score: number;
   isSatisfactory: boolean;
   productMatch: boolean;
+  textPreserved?: boolean; // NEW: Were all text zones preserved?
+  noElementsAdded?: boolean; // NEW: Were no new elements added?
   componentScores?: ComponentScores;
   critique: string;
   improvements: string[];
   passedChecks: string[];
   failedChecks: string[];
+  textIssues?: string[]; // NEW: Specific text/callouts that were damaged
+  addedElements?: string[]; // NEW: Elements that were incorrectly added
   thinkingSteps?: string[]; // AI's step-by-step reasoning for live display
 }
 
