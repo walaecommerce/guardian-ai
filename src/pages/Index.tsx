@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Header } from '@/components/Header';
-import { ImageUploader } from '@/components/ImageUploader';
+import { ImageUploader, MaxImagesOption } from '@/components/ImageUploader';
 import { AnalysisResults } from '@/components/AnalysisResults';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
@@ -63,8 +63,10 @@ const Index = () => {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   };
 
-  const handleImportFromAmazon = async () => {
+  const handleImportFromAmazon = async (maxImages: MaxImagesOption = '20') => {
     if (!amazonUrl) return;
+    
+    const maxCount = maxImages === 'all' ? Infinity : parseInt(maxImages, 10);
     
     setIsImporting(true);
     addLog('processing', 'Starting Amazon import...');
@@ -73,7 +75,9 @@ const Index = () => {
       const product = await scrapeAmazonProduct(amazonUrl);
       if (!product) throw new Error('Failed to scrape product');
 
-      addLog('success', `Found ${product.images.length} images for ASIN: ${product.asin}`);
+      // Apply max images limit
+      const imagesToProcess = product.images.slice(0, maxCount);
+      addLog('success', `Found ${product.images.length} images for ASIN: ${product.asin}${maxCount < product.images.length ? ` (importing first ${maxCount})` : ''}`);
       setProductAsin(product.asin);
       
       if (product.title) {
@@ -89,7 +93,7 @@ const Index = () => {
           amazon_url: amazonUrl,
           product_asin: product.asin,
           listing_title: product.title || null,
-          total_images: product.images.length,
+          total_images: imagesToProcess.length,
           status: 'in_progress'
         }])
         .select()
@@ -112,7 +116,7 @@ const Index = () => {
       const seenContentHashes = new Set(assets.filter(a => a.contentHash).map(a => a.contentHash!));
       
       // Import stats for summary logging
-      let foundCount = product.images.length;
+      let foundCount = imagesToProcess.length;
       let downloadedCount = 0;
       let skippedDuplicateUrl = 0;
       let skippedDuplicateContent = 0;
@@ -120,8 +124,8 @@ const Index = () => {
 
       addLog('processing', '🤖 AI classification enabled - analyzing image types...');
 
-      for (let i = 0; i < product.images.length; i++) {
-        const imageData = product.images[i];
+      for (let i = 0; i < imagesToProcess.length; i++) {
+        const imageData = imagesToProcess[i];
         const canonicalKey = getCanonicalImageKey(imageData.url);
         
         // Skip if we've already seen this canonical URL
@@ -132,7 +136,7 @@ const Index = () => {
         }
         seenCanonicalKeys.add(canonicalKey);
 
-        addLog('processing', `Downloading image ${i + 1}/${product.images.length}...`);
+        addLog('processing', `Downloading image ${i + 1}/${imagesToProcess.length}...`);
         const file = await downloadImage(imageData.url);
         
         if (!file) {
@@ -217,7 +221,7 @@ const Index = () => {
         });
 
         // Small delay between classifications to avoid rate limiting
-        if (i < product.images.length - 1) {
+        if (i < imagesToProcess.length - 1) {
           await new Promise(r => setTimeout(r, 300));
         }
       }

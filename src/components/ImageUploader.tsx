@@ -5,9 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ImageAsset, AssetType, FailedDownload } from '@/types';
 import { ImageCropper } from '@/components/ImageCropper';
 import { SortableImageCard } from '@/components/SortableImageCard';
+import { AmazonGalleryPreview } from '@/components/AmazonGalleryPreview';
 import {
   DndContext,
   closestCenter,
@@ -16,6 +18,8 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -23,6 +27,8 @@ import {
   sortableKeyboardCoordinates,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
+
+export type MaxImagesOption = '20' | '50' | 'all';
 
 interface ImageUploaderProps {
   assets: ImageAsset[];
@@ -32,7 +38,7 @@ interface ImageUploaderProps {
   onAssetsChange: (assets: ImageAsset[]) => void;
   onListingTitleChange: (title: string) => void;
   onAmazonUrlChange: (url: string) => void;
-  onImportFromAmazon: () => void;
+  onImportFromAmazon: (maxImages: MaxImagesOption) => void;
   onRunAudit: () => void;
   isAnalyzing: boolean;
   failedDownloads?: FailedDownload[];
@@ -58,6 +64,8 @@ export function ImageUploader({
   const [isDragging, setIsDragging] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [assetToCrop, setAssetToCrop] = useState<ImageAsset | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [maxImages, setMaxImages] = useState<MaxImagesOption>('20');
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -135,8 +143,13 @@ export function ImageUploader({
     setAssetToCrop(null);
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveId(null);
 
     if (over && active.id !== over.id) {
       const oldIndex = assets.findIndex((a) => a.id === active.id);
@@ -153,6 +166,8 @@ export function ImageUploader({
       onAssetsChange(updatedAssets);
     }
   };
+
+  const activeAsset = activeId ? assets.find(a => a.id === activeId) : null;
 
   return (
     <div className="space-y-4">
@@ -172,8 +187,18 @@ export function ImageUploader({
               onChange={(e) => onAmazonUrlChange(e.target.value)}
               className="flex-1"
             />
+            <Select value={maxImages} onValueChange={(v) => setMaxImages(v as MaxImagesOption)}>
+              <SelectTrigger className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="20">20 max</SelectItem>
+                <SelectItem value="50">50 max</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+              </SelectContent>
+            </Select>
             <Button 
-              onClick={onImportFromAmazon}
+              onClick={() => onImportFromAmazon(maxImages)}
               disabled={!amazonUrl || isImporting}
               variant="secondary"
             >
@@ -259,6 +284,9 @@ export function ImageUploader({
         </CardContent>
       </Card>
 
+      {/* Amazon Gallery Preview */}
+      <AmazonGalleryPreview assets={assets} />
+
       {/* Image Grid Preview with Drag & Drop */}
       {assets.length > 0 && (
         <Card>
@@ -274,6 +302,7 @@ export function ImageUploader({
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >
               <SortableContext
@@ -292,6 +321,21 @@ export function ImageUploader({
                   ))}
                 </div>
               </SortableContext>
+              
+              {/* Drag Overlay - follows the cursor */}
+              <DragOverlay>
+                {activeAsset ? (
+                  <div className="w-32">
+                    <SortableImageCard
+                      asset={activeAsset}
+                      index={0}
+                      onRemove={() => {}}
+                      onCrop={() => {}}
+                      isOverlay
+                    />
+                  </div>
+                ) : null}
+              </DragOverlay>
             </DndContext>
           </CardContent>
         </Card>
