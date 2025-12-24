@@ -17,26 +17,24 @@ serve(async (req) => {
       generativePrompt,
       mainImageBase64,
       previousCritique,
-      previousGeneratedImage, // Previous failed attempt for comparison
+      previousGeneratedImage,
       productTitle,
       productAsin,
-      customPrompt // User-provided custom prompt override
+      customPrompt
     } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GOOGLE_GEMINI_API_KEY) {
+      throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
     }
 
     const isMain = imageType === 'MAIN';
     
     // Build comprehensive prompt based on image type
-    // Use custom prompt if provided, otherwise use generative prompt or default
     let prompt: string;
     
     if (customPrompt) {
-      // User provided a custom prompt - use it directly
       prompt = customPrompt;
       console.log("[Guardian] Using custom prompt from user");
     } else if (isMain) {
@@ -183,50 +181,72 @@ This ensures listing coherence across all images.`;
 
     console.log(`[Guardian] Generating ${imageType} fix...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
 
-    // Build content array with images
-    const content: any[] = [
-      { type: "text", text: prompt },
-      { type: "text", text: "=== ORIGINAL IMAGE (fix this while preserving product identity) ===" },
-      { type: "image_url", image_url: { url: imageBase64 } }
-    ];
+    // Helper to extract base64 data from data URL
+    const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
+      if (dataUrl.startsWith('data:')) {
+        const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          return { mimeType: match[1], data: match[2] };
+        }
+      }
+      // Assume JPEG if no data URL prefix
+      return { mimeType: 'image/jpeg', data: dataUrl };
+    };
+
+    // Build parts array for Google's API format
+    const parts: any[] = [{ text: prompt }];
+    
+    // Add original image
+    const originalImage = extractBase64(imageBase64);
+    parts.push({ text: "=== ORIGINAL IMAGE (fix this while preserving product identity) ===" });
+    parts.push({
+      inline_data: {
+        mime_type: originalImage.mimeType,
+        data: originalImage.data
+      }
+    });
 
     // Add previous generated image for comparison if provided
     if (previousGeneratedImage) {
-      content.push(
-        { type: "text", text: "=== MY PREVIOUS ATTEMPT (analyze where I went wrong and fix it) ===" },
-        { type: "image_url", image_url: { url: previousGeneratedImage } }
-      );
+      const prevImage = extractBase64(previousGeneratedImage);
+      parts.push({ text: "=== MY PREVIOUS ATTEMPT (analyze where I went wrong and fix it) ===" });
+      parts.push({
+        inline_data: {
+          mime_type: prevImage.mimeType,
+          data: prevImage.data
+        }
+      });
     }
 
     // Add main image reference for secondary images
     if (!isMain && mainImageBase64) {
-      content.push(
-        { type: "text", text: "MAIN PRODUCT REFERENCE IMAGE (your output must show this exact product):" },
-        { type: "image_url", image_url: { url: mainImageBase64 } }
-      );
+      const mainImage = extractBase64(mainImageBase64);
+      parts.push({ text: "MAIN PRODUCT REFERENCE IMAGE (your output must show this exact product):" });
+      parts.push({
+        inline_data: {
+          mime_type: mainImage.mimeType,
+          data: mainImage.data
+        }
+      });
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [
-          { role: "user", content }
-        ],
-        modalities: ["image", "text"],
-        imageConfig: {
-          aspectRatio: "1:1"
+        contents: [{ parts }],
+        generationConfig: {
+          responseModalities: ["image", "text"],
+          responseMimeType: "image/png"
         }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[Guardian] AI Gateway error:", response.status, errorText);
+      console.error("[Guardian] Google Gemini API error:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ 
@@ -238,24 +258,37 @@ This ensures listing coherence across all images.`;
         });
       }
       
-      if (response.status === 402) {
+      if (response.status === 403) {
         return new Response(JSON.stringify({ 
-          error: "Not enough AI credits. Please add credits to your Lovable workspace in Settings → Workspace → Usage.",
-          errorType: "payment_required"
+          error: "API key invalid or quota exceeded. Please check your Google Gemini API key.",
+          errorType: "auth_error"
         }), {
-          status: 402,
+          status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error(`Google Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const generatedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    
+    // Extract image from Google's response format
+    let generatedImage: string | null = null;
+    const candidates = data.candidates;
+    
+    if (candidates && candidates[0]?.content?.parts) {
+      for (const part of candidates[0].content.parts) {
+        if (part.inlineData) {
+          const mimeType = part.inlineData.mimeType || 'image/png';
+          generatedImage = `data:${mimeType};base64,${part.inlineData.data}`;
+          break;
+        }
+      }
+    }
     
     if (!generatedImage) {
-      console.error("[Guardian] No image in response");
+      console.error("[Guardian] No image in response:", JSON.stringify(data).substring(0, 500));
       throw new Error("No image generated");
     }
 

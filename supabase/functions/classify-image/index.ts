@@ -5,8 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-
 interface ClassificationResult {
   category: string;
   confidence: number;
@@ -29,18 +27,15 @@ serve(async (req) => {
       );
     }
 
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
+    const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+
+    if (!GOOGLE_GEMINI_API_KEY) {
+      console.error('GOOGLE_GEMINI_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'AI service not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Prepare the image URL for the vision model
-    const imageUrl = imageBase64.startsWith('data:') 
-      ? imageBase64 
-      : `data:image/jpeg;base64,${imageBase64}`;
 
     const contextInfo = productTitle ? `Product: "${productTitle}"` : '';
     const asinInfo = asin ? `ASIN: ${asin}` : '';
@@ -70,32 +65,47 @@ ${asinInfo}
 
 Analyze the image and determine which category it belongs to based on its visual characteristics.`;
 
-    console.log('Calling Lovable AI for image classification...');
+    console.log('Calling Google Gemini API for image classification...');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Extract base64 data from data URL
+    const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
+      if (dataUrl.startsWith('data:')) {
+        const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          return { mimeType: match[1], data: match[2] };
+        }
+      }
+      return { mimeType: 'image/jpeg', data: dataUrl };
+    };
+
+    const imageData = extractBase64(imageBase64);
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-pro-preview',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: userPrompt },
-              { type: 'image_url', image_url: { url: imageUrl } }
-            ]
-          }
-        ],
+        system_instruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        contents: [{
+          parts: [
+            { text: userPrompt },
+            {
+              inline_data: {
+                mime_type: imageData.mimeType,
+                data: imageData.data
+              }
+            }
+          ]
+        }]
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
+      console.error('Google Gemini API error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -103,10 +113,10 @@ Analyze the image and determine which category it belongs to based on its visual
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (response.status === 403) {
         return new Response(
-          JSON.stringify({ error: 'AI credits exhausted' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'API key invalid or quota exceeded' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
@@ -117,7 +127,7 @@ Analyze the image and determine which category it belongs to based on its visual
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
     console.log('AI response:', content);
 
