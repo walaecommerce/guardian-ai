@@ -77,13 +77,92 @@ const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = MA
   throw lastError || new Error('Max retries exceeded');
 };
 
+// Helper function to verify product claims via real-time search
+const verifyProductClaims = async (claims: string[], productTitle?: string, asin?: string): Promise<{
+  verifiedClaims: Map<string, { verified: boolean; details: string }>;
+  allValid: boolean;
+}> => {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.log("[Guardian] Supabase not configured, skipping claim verification");
+      return { verifiedClaims: new Map(), allValid: true };
+    }
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/verify-product-claims`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({ claims, productTitle, asin }),
+    });
+
+    if (!response.ok) {
+      console.log("[Guardian] Claim verification failed, proceeding without it");
+      return { verifiedClaims: new Map(), allValid: true };
+    }
+
+    const data = await response.json();
+    const verifiedClaims = new Map<string, { verified: boolean; details: string }>();
+    
+    for (const claim of (data.claims || [])) {
+      verifiedClaims.set(claim.claim, {
+        verified: claim.verified,
+        details: claim.details
+      });
+    }
+
+    return { verifiedClaims, allValid: data.overallValid };
+  } catch (error) {
+    console.error("[Guardian] Claim verification error:", error);
+    return { verifiedClaims: new Map(), allValid: true };
+  }
+};
+
+// Helper function to extract product claims from text
+const extractProductClaims = (text: string): string[] => {
+  const claims: string[] = [];
+  
+  // Extract phone model patterns (iPhone XX, Galaxy SXX, Pixel X, etc.)
+  const phonePatterns = [
+    /iPhone\s*\d+\s*(Pro|Pro Max|Plus|Mini)?/gi,
+    /Galaxy\s*[SAZ]\d+\s*(Ultra|Plus|\+)?/gi,
+    /Pixel\s*\d+\s*(Pro|a)?/gi,
+    /OnePlus\s*\d+\s*(Pro|T)?/gi,
+  ];
+  
+  for (const pattern of phonePatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      claims.push(...matches.map(m => m.trim()));
+    }
+  }
+  
+  // Extract year claims (2024, 2025, etc.)
+  const yearMatches = text.match(/\b20\d{2}\s*(model|edition|version|release)?\b/gi);
+  if (yearMatches) {
+    claims.push(...yearMatches.map(m => m.trim()));
+  }
+  
+  // Extract "new" or "latest" claims
+  const newPatterns = text.match(/\b(new|latest|newest|just released|brand new)\s+\w+/gi);
+  if (newPatterns) {
+    claims.push(...newPatterns.map(m => m.trim()));
+  }
+  
+  return [...new Set(claims)]; // Remove duplicates
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { imageBase64, imageType, listingTitle } = await req.json();
+    const { imageBase64, imageType, listingTitle, productAsin } = await req.json();
     const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     
     if (!GOOGLE_GEMINI_API_KEY) {
@@ -302,10 +381,96 @@ Execute full analysis protocol and return comprehensive JSON assessment.`;
       throw new Error("Could not parse analysis result");
     }
     
-    const analysis = JSON.parse(jsonMatch[0]);
+    let analysis = JSON.parse(jsonMatch[0]);
     
-    console.log(`[Guardian] Analysis complete. Score: ${analysis.overallScore}%, Status: ${analysis.status}`);
+    console.log(`[Guardian] Initial analysis complete. Score: ${analysis.overallScore}%, Status: ${analysis.status}`);
     console.log(`[Guardian] Found ${analysis.violations?.length || 0} violations`);
+
+    // Phase 6: Real-time product claim verification
+    // Extract product claims from detected text and listing title
+    const allDetectedText = [
+      listingTitle || '',
+      analysis.contentConsistency?.packagingTextDetected || '',
+      ...(analysis.mainImageAnalysis?.textOverlayCheck?.detectedText || [])
+    ].join(' ');
+    
+    const productClaims = extractProductClaims(allDetectedText);
+    
+    if (productClaims.length > 0) {
+      console.log(`[Guardian] Phase 6: Verifying ${productClaims.length} product claims via real-time search...`);
+      console.log(`[Guardian] Claims to verify: ${productClaims.join(', ')}`);
+      
+      const { verifiedClaims, allValid } = await verifyProductClaims(productClaims, listingTitle, productAsin);
+      
+      // Filter out false positive violations about "unreleased" products that are actually released
+      if (analysis.violations && analysis.violations.length > 0) {
+        const originalViolationCount = analysis.violations.length;
+        
+        analysis.violations = analysis.violations.filter((violation: any) => {
+          const violationText = `${violation.message || ''} ${violation.recommendation || ''}`.toLowerCase();
+          
+          // Check if this violation is about unreleased/deceptive product claims
+          const isUnreleasedClaim = violationText.includes('unreleased') || 
+                                    violationText.includes('not released') ||
+                                    violationText.includes('deceptive') ||
+                                    violationText.includes('doesn\'t exist') ||
+                                    violationText.includes('does not exist') ||
+                                    violationText.includes('fake product');
+          
+          if (isUnreleasedClaim) {
+            // Check if any verified claim contradicts this violation
+            for (const [claim, verification] of verifiedClaims) {
+              if (violationText.includes(claim.toLowerCase()) && verification.verified) {
+                console.log(`[Guardian] Removing false positive: "${violation.message}" - Product "${claim}" is verified as released`);
+                return false; // Filter out this violation
+              }
+            }
+            
+            // Also check if the claim pattern matches any verified product
+            for (const [claim, verification] of verifiedClaims) {
+              if (verification.verified) {
+                const claimLower = claim.toLowerCase();
+                // Check for partial matches (e.g., "iPhone 17" in violation about "iPhone 17 Pro")
+                if (productClaims.some(pc => violationText.includes(pc.toLowerCase()))) {
+                  console.log(`[Guardian] Removing false positive violation - verified product exists`);
+                  return false;
+                }
+              }
+            }
+          }
+          
+          return true; // Keep this violation
+        });
+        
+        const removedCount = originalViolationCount - analysis.violations.length;
+        if (removedCount > 0) {
+          console.log(`[Guardian] Removed ${removedCount} false positive violations after real-time verification`);
+          
+          // Recalculate score if violations were removed
+          if (analysis.violations.length === 0 && analysis.status === 'FAIL') {
+            // If no violations remain that caused failure, might need to pass
+            const criticalViolations = analysis.violations.filter((v: any) => v.severity === 'critical');
+            if (criticalViolations.length === 0) {
+              // Boost score since we removed false positives
+              analysis.overallScore = Math.min(100, analysis.overallScore + (removedCount * 10));
+              if (analysis.overallScore >= 70) {
+                analysis.status = 'PASS';
+              }
+            }
+          }
+        }
+      }
+      
+      // Add verification info to the analysis
+      analysis.productVerification = {
+        claimsChecked: productClaims,
+        verificationResults: Object.fromEntries(verifiedClaims),
+        allClaimsValid: allValid,
+        verifiedAt: new Date().toISOString()
+      };
+    }
+    
+    console.log(`[Guardian] Final analysis. Score: ${analysis.overallScore}%, Status: ${analysis.status}`);
 
     return new Response(JSON.stringify(analysis), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

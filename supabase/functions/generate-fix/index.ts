@@ -135,7 +135,8 @@ serve(async (req) => {
       previousGeneratedImage,
       productTitle,
       productAsin,
-      customPrompt
+      customPrompt,
+      verifiedProductClaims // NEW: Pass verified claims to prevent incorrect modifications
     } = await req.json();
     
     const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
@@ -281,6 +282,27 @@ ${productTitle ? `Product: "${productTitle}"` : ''}
 ${productAsin ? `Amazon ASIN: ${productAsin}` : ''}
 The output image MUST show THIS EXACT product. Do NOT generate a different or generic product.
 Preserve ALL visible branding, model numbers, and product-specific features.`;
+    }
+
+    // Add verified product claims to prevent incorrect modifications
+    if (verifiedProductClaims && Object.keys(verifiedProductClaims).length > 0) {
+      const verifiedList = Object.entries(verifiedProductClaims)
+        .filter(([_, v]: [string, any]) => v.verified)
+        .map(([claim, v]: [string, any]) => `- "${claim}": ${v.details || 'Verified as released/real product'}`)
+        .join('\n');
+      
+      if (verifiedList) {
+        prompt += `
+
+## ✅ VERIFIED PRODUCT CLAIMS - DO NOT MODIFY:
+The following product claims have been verified as ACCURATE through real-time market research.
+DO NOT change, "correct", or remove these claims - they are factually correct:
+
+${verifiedList}
+
+CRITICAL: If the image shows any of these products/claims, keep them EXACTLY as shown.
+Do NOT replace with older models or "safer" alternatives. The claims are verified accurate.`;
+      }
     }
 
     // Add cross-reference instruction for secondary images
