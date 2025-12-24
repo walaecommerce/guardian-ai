@@ -5,6 +5,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to convert base64 to ArrayBuffer
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  // Remove data URL prefix if present
+  const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+  const binaryString = atob(base64Data);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer as ArrayBuffer;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -180,26 +192,27 @@ This ensures listing coherence across all images.`;
 
     console.log(`[Guardian] Generating ${imageType} fix using OpenAI gpt-image-1...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
 
-    // Build the prompt with image context for OpenAI
-    let fullPrompt = prompt;
+    // Convert base64 image to ArrayBuffer for FormData
+    const imageBuffer = base64ToArrayBuffer(imageBase64);
     
-    // Note: OpenAI's image generation API takes the source image directly
-    // We'll edit the provided image based on the prompt
+    // Create FormData for the API request
+    const formData = new FormData();
+    
+    // Create a Blob from the image buffer
+    const imageBlob = new Blob([imageBuffer], { type: 'image/png' });
+    formData.append('image', imageBlob, 'image.png');
+    formData.append('prompt', prompt);
+    formData.append('model', 'gpt-image-1');
+    formData.append('n', '1');
+    formData.append('size', '1024x1024');
 
     const response = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
+        // Don't set Content-Type - fetch will set it automatically with boundary for FormData
       },
-      body: JSON.stringify({
-        model: "gpt-image-1",
-        image: imageBase64,
-        prompt: fullPrompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "high"
-      }),
+      body: formData,
     });
 
     if (!response.ok) {
