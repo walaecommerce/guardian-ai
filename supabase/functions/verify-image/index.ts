@@ -170,7 +170,7 @@ CRITICAL: Be strict. Amazon will reject images with issues. Better to flag for r
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-pro-preview",
         messages,
       }),
     });
