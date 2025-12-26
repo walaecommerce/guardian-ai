@@ -49,3 +49,6 @@ verify_jwt = false
 
 [functions.verify-product-claims]
 verify_jwt = false
+
+[functions.cleanup-cache]
+verify_jwt = false
