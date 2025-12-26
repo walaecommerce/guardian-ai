@@ -336,7 +336,11 @@ RETRY MODE: Compare with previous attempt and fix mistakes.`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          contents: [{ parts }]
+          contents: [{ parts }],
+          // Force an image response (prevents text-only "apology" outputs)
+          generationConfig: {
+            responseModalities: ["IMAGE"],
+          },
         }),
       }
     );
@@ -364,29 +368,48 @@ RETRY MODE: Compare with previous attempt and fix mistakes.`;
     
     if (candidates && candidates[0]?.content?.parts) {
       for (const part of candidates[0].content.parts) {
-        if (part.inlineData) {
-          const mimeType = part.inlineData.mimeType || 'image/png';
-          generatedImage = `data:${mimeType};base64,${part.inlineData.data}`;
+        const inline = part.inlineData || part.inline_data;
+        if (inline) {
+          const mimeType = inline.mimeType || inline.mime_type || 'image/png';
+          generatedImage = `data:${mimeType};base64,${inline.data}`;
           break;
         }
       }
     }
     
     if (!generatedImage) {
-      // Check for content filtering or other issues
       const finishReason = candidates?.[0]?.finishReason;
+
       if (finishReason === 'SAFETY') {
-        return new Response(JSON.stringify({ 
+        return new Response(JSON.stringify({
           error: "Image generation was blocked by safety filters. Please try a different image.",
-          errorType: "safety_block"
+          errorType: "safety_block",
         }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
+
+      if (finishReason === 'IMAGE_RECITATION') {
+        return new Response(JSON.stringify({
+          error: "The AI refused to return an image (IMAGE_RECITATION). Try Smart Regenerate or a simpler custom prompt focusing on background/overlay removal only.",
+          errorType: "image_recitation",
+        }), {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Sometimes the model returns text-only even for image tasks.
       console.error("[Guardian] No image in response:", JSON.stringify(data).substring(0, 500));
-      throw new Error("No image generated - the AI could not process this request");
+      return new Response(JSON.stringify({
+        error: "No image was returned by the AI for this request. Please retry (Smart Regenerate) or simplify the prompt.",
+        errorType: "no_image_returned",
+        finishReason: finishReason || null,
+      }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("[Guardian] Image fix generated successfully");
