@@ -199,171 +199,63 @@ serve(async (req) => {
       prompt = customPrompt;
       console.log("[Guardian] Using custom prompt from user");
     } else if (isMain) {
-      prompt = generativePrompt || `Transform this product image into an Amazon MAIN image that is 100% compliant:
+      prompt = generativePrompt || `Edit this product photo for e-commerce use:
 
-## CRITICAL REQUIREMENTS - MUST FOLLOW EXACTLY:
+TASK: Make minimal edits to create a clean product photo.
 
-### 1. BACKGROUND TRANSFORMATION
-- Replace ENTIRE background with PURE WHITE: RGB(255,255,255)
-- This means EVERY pixel that is not the product must be #FFFFFF
-- Remove ALL shadows, gradients, or off-white tones
-- Create clean, crisp edges between product and background
-- NO gray areas, NO subtle shadows, NO gradient falloffs
+EDITS NEEDED:
+1. BACKGROUND: Change background to pure white (#FFFFFF). Keep product edges clean.
+2. REMOVE: Any promotional badges, stickers, or overlay graphics (not part of actual product packaging).
+3. FRAMING: Product centered, filling most of frame.
 
-### 2. PRODUCT PRESERVATION (HIGHEST PRIORITY)
-- The product must remain EXACTLY as it appears in the original
-- Preserve ALL product labels, text, and branding PRECISELY
-- Maintain exact colors, shapes, and proportions
-- Keep all product details sharp and unchanged
-- DO NOT alter, enhance, or "improve" the product itself
+PRESERVE EXACTLY:
+- The product itself unchanged
+- All text/labels that are physically ON the product packaging
+- Product colors, shape, proportions
 
-### 3. PROHIBITED ELEMENTS - REMOVE COMPLETELY
-- "Best Seller" badges or ribbons
-- "Amazon's Choice" labels
-- Star ratings or review counts
-- "Prime" logos (unless on actual packaging)
-- "Deal" or "Sale" tags
-- ANY promotional overlays
-- Watermarks or third-party logos
-
-### 4. FRAMING & COMPOSITION
-- Product should occupy 85% of the frame
-- Center the product perfectly
-- Square 1:1 aspect ratio
-- No cropping of product edges
-- Professional studio lighting appearance
-
-### 5. QUALITY STANDARDS
-- High resolution output
-- Sharp focus throughout
-- No compression artifacts
-- Professional appearance`;
+OUTPUT: Clean product photo on white background, professional quality.`;
     } else {
-      // SECONDARY IMAGE - Zone-aware editing with strict constraints
-      prompt = `## ⚠️ CRITICAL CONSTRAINTS - READ BEFORE DOING ANYTHING:
+      // SECONDARY IMAGE - simplified prompt to avoid IMAGE_RECITATION
+      prompt = `Edit this product image by making ONLY these changes:
 
-### ABSOLUTE RULES (VIOLATION = FAILURE):
-1. **NEVER ADD ELEMENTS** - Do NOT add product images, icons, shapes, or ANY new objects
-2. **NEVER COVER TEXT** - All existing text, callouts, and infographics must remain 100% visible and readable
-3. **NEVER CHANGE LAYOUT** - The composition, arrangement, and spacing must stay IDENTICAL
-4. **THIS IS REMOVAL-ONLY EDITING** - You are ONLY removing prohibited overlays, NOT redesigning
+TASK: Remove promotional overlays while keeping everything else identical.
 
-### YOUR SPECIFIC TASK:
-Edit this SECONDARY Amazon product image to REMOVE ONLY prohibited overlays while PRESERVING everything else.
+REMOVE (if present):
+- Award badges or "best seller" ribbons
+- Star rating overlays
+- "Prime" logos (unless printed on actual product)
+- Promotional text like "Sale" or "Deal"
+- Third-party watermarks
 
-${protectedZonesText ? `
-## 🛡️ PROTECTED ZONES - THESE ARE UNTOUCHABLE:
-${protectedZonesText}
+PRESERVE EXACTLY (do not modify):
+- The product and its packaging
+- All text that is physically printed on the product
+- The background scene/setting
+- Any informational graphics or size callouts
+- The overall composition and layout
 
-⚠️ ANY modification to these zones will cause AUTOMATIC FAILURE. Do not add anything on top of them, do not move them, do not alter them in any way.
-` : ''}
+${protectedZonesText ? `PROTECTED AREAS (do not touch):\n${protectedZonesText}\n` : ''}
+${removalInstructions ? `SPECIFIC REMOVALS:\n${removalInstructions}\n` : ''}
 
-${removalInstructions ? `
-## 🗑️ ELEMENTS TO REMOVE (via clean inpainting):
-${removalInstructions}
-
-HOW TO REMOVE:
-- Use INPAINTING to seamlessly fill the area where the overlay was
-- Match the surrounding background texture, color, and lighting exactly
-- The removal should be INVISIBLE - as if the overlay was never there
-- Do NOT replace removed elements with product images or new graphics
-` : `
-## COMPLIANCE CHECK:
-If there are no prohibited overlays visible, make minimal adjustments for quality only.
-Maintain the image exactly as-is if already compliant.
-`}
-
-## WHAT TO PRESERVE (must remain identical):
-- The lifestyle background/scene EXACTLY as is
-- All infographic text and feature callouts
-- Dimension and size annotations
-- Comparison charts or tables
-- Product demonstration context
-- The product itself (same position, same appearance)
-- ALL existing text and labels
-
-## WHAT IS ALLOWED TO REMOVE:
-- "Best Seller" badges (gold/orange ribbon style)
-- "Amazon's Choice" labels (dark orange/black)
-- "#1 Best Seller" or ranking overlays
-- Star ratings added as overlays (NOT on packaging)
-- "Prime" logos added as overlays (NOT on packaging)
-- Promotional text like "30% OFF", "Deal of the Day"
-- Third-party watermarks or logos (NOT brand logos on product)
-
-## QUALITY REQUIREMENTS:
-- Seamless removal with NO visible editing artifacts
-- Maintain original resolution and sharpness
-- No blur or smudging around removal areas
-- Professional, clean appearance`;
+OUTPUT: Same image with only prohibited overlays removed via clean inpainting.`;
     }
 
-    // Add previous critique for retry attempts
+    // Add previous critique for retry attempts (simplified to avoid IMAGE_RECITATION)
     if (previousCritique) {
       prompt += `
 
-## ⚠️ PREVIOUS ATTEMPT FAILED - FIX THESE SPECIFIC ISSUES:
-${previousCritique}
-
-CRITICAL: Your previous attempt had problems. Address EACH issue above.
-Common mistakes to avoid:
-- DO NOT add product images that weren't in the original
-- DO NOT place elements over existing text
-- DO NOT change the product or its packaging
-- DO NOT alter the layout structure`;
+ISSUES TO FIX: ${previousCritique}`;
     }
 
-    // Add error-aware regeneration when previous generated image is provided
+    // Add error-aware regeneration (simplified)
     if (previousGeneratedImage) {
       prompt += `
 
-## 🔄 REGENERATION MODE - LEARN FROM PREVIOUS MISTAKE:
-I am providing your PREVIOUS ATTEMPT that failed verification.
-
-CRITICAL COMPARISON:
-- Look at what you generated before
-- Identify where you went wrong (did you add something? cover text? change product?)
-- Generate a NEW version that:
-  1. Fixes those specific mistakes
-  2. Stays MORE faithful to the original
-  3. ONLY removes prohibited overlays without adding anything`;
+RETRY MODE: Compare with previous attempt and fix mistakes.`;
     }
 
-    // Add product context to ensure correct product identity
-    if (productTitle || productAsin) {
-      prompt += `
-
-## 📦 PRODUCT IDENTITY (MUST MATCH):
-${productTitle ? `Product: "${productTitle}"` : ''}
-${productAsin ? `Amazon ASIN: ${productAsin}` : ''}
-The output MUST show THIS EXACT product. Do NOT generate a different product.`;
-    }
-
-    // Add verified product claims to prevent incorrect modifications
-    if (verifiedProductClaims && Object.keys(verifiedProductClaims).length > 0) {
-      const verifiedList = Object.entries(verifiedProductClaims)
-        .filter(([_, v]: [string, any]) => v.verified)
-        .map(([claim, v]: [string, any]) => `- "${claim}": ${v.details || 'Verified product'}`)
-        .join('\n');
-      
-      if (verifiedList) {
-        prompt += `
-
-## ✅ VERIFIED CLAIMS - DO NOT MODIFY:
-${verifiedList}
-
-These claims are factually correct. Keep them exactly as shown.`;
-      }
-    }
-
-    // Add cross-reference instruction for secondary images
-    if (!isMain && mainImageBase64) {
-      prompt += `
-
-## 🔗 PRODUCT REFERENCE:
-The MAIN product image is provided as reference.
-Your output must show the SAME product with SAME branding and colors.`;
-    }
+    // Skip product title/ASIN and verified claims - they trigger IMAGE_RECITATION
+    // The image itself contains the product identity
 
     console.log(`[Guardian] Generating ${imageType} fix...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
 
