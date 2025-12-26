@@ -52,3 +52,9 @@ verify_jwt = false
 
 [functions.cleanup-cache]
 verify_jwt = false
+
+[functions.enhance-analyze-image]
+verify_jwt = false
+
+[functions.generate-enhancement]
+verify_jwt = false
