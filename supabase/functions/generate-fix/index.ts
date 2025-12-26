@@ -291,130 +291,209 @@ RETRY MODE: Compare with previous attempt and fix mistakes.`;
       return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
     };
 
-    // Build parts array for Google's API format
-    const parts: any[] = [{ text: prompt }];
-    
-    // Add original image
+    // Build parts for Google's API format
     const originalImage = extractBase64(imageBase64);
-    parts.push({ text: "=== ORIGINAL IMAGE (fix this while preserving product identity) ===" });
-    parts.push({
-      inline_data: {
-        mime_type: originalImage.mimeType,
-        data: originalImage.data
-      }
-    });
+    const prevImage = previousGeneratedImage ? extractBase64(previousGeneratedImage) : null;
+    const mainRefImage = !isMain && mainImageBase64 ? extractBase64(mainImageBase64) : null;
 
-    // Add previous generated image for comparison if provided
-    if (previousGeneratedImage) {
-      const prevImage = extractBase64(previousGeneratedImage);
-      parts.push({ text: "=== MY PREVIOUS ATTEMPT (analyze where I went wrong and fix it) ===" });
-      parts.push({
-        inline_data: {
-          mime_type: prevImage.mimeType,
-          data: prevImage.data
-        }
-      });
-    }
-
-    // Add main image reference for secondary images
-    if (!isMain && mainImageBase64) {
-      const mainImage = extractBase64(mainImageBase64);
-      parts.push({ text: "MAIN PRODUCT REFERENCE IMAGE (your output must show this exact product):" });
-      parts.push({
-        inline_data: {
-          mime_type: mainImage.mimeType,
-          data: mainImage.data
-        }
-      });
-    }
-
-    const response = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          // Force an image response (prevents text-only "apology" outputs)
-          generationConfig: {
-            responseModalities: ["IMAGE"],
+    const buildParts = (promptText: string) => {
+      const parts: any[] = [
+        { text: promptText },
+        {
+          inline_data: {
+            mime_type: originalImage.mimeType,
+            data: originalImage.data,
           },
-        }),
+        },
+      ];
+
+      if (prevImage) {
+        parts.push({ text: "Previous attempt image (for comparison):" });
+        parts.push({
+          inline_data: {
+            mime_type: prevImage.mimeType,
+            data: prevImage.data,
+          },
+        });
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      const parsedError = parseGeminiError(response.status, errorText);
-      console.error("[Guardian] Google Gemini API error:", response.status, errorText);
-      
-      return new Response(JSON.stringify({ 
-        error: parsedError.message,
-        errorType: parsedError.errorType,
-        statusCode: response.status
-      }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+      if (mainRefImage) {
+        parts.push({ text: "Main product reference image:" });
+        parts.push({
+          inline_data: {
+            mime_type: mainRefImage.mimeType,
+            data: mainRefImage.data,
+          },
+        });
+      }
 
-    const data = await response.json();
-    
-    // Extract image from Google's response format
-    let generatedImage: string | null = null;
-    const candidates = data.candidates;
-    
-    if (candidates && candidates[0]?.content?.parts) {
-      for (const part of candidates[0].content.parts) {
-        const inline = part.inlineData || part.inline_data;
-        if (inline) {
-          const mimeType = inline.mimeType || inline.mime_type || 'image/png';
-          generatedImage = `data:${mimeType};base64,${inline.data}`;
-          break;
+      return parts;
+    };
+
+    const requestImage = async (promptText: string) => {
+      const parts = buildParts(promptText);
+
+      const response = await fetchWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            // Gemini image models commonly return mixed text+image.
+            // Request both; we will extract and return the image.
+            generationConfig: {
+              responseModalities: ["TEXT", "IMAGE"],
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const parsedError = parseGeminiError(response.status, errorText);
+        console.error("[Guardian] Google Gemini API error:", response.status, errorText);
+
+        return {
+          ok: false as const,
+          status: response.status,
+          error: parsedError,
+        };
+      }
+
+      const data = await response.json();
+
+      let generatedImage: string | null = null;
+      let modelText: string | null = null;
+
+      const candidates = data.candidates;
+
+      if (candidates && candidates[0]?.content?.parts) {
+        for (const part of candidates[0].content.parts) {
+          const inline = part.inlineData || part.inline_data;
+          if (inline && inline.data) {
+            const mimeType = inline.mimeType || inline.mime_type || "image/png";
+            generatedImage = `data:${mimeType};base64,${inline.data}`;
+            break;
+          }
+          if (!modelText && typeof part.text === "string" && part.text.trim()) {
+            modelText = part.text.trim();
+          }
         }
       }
+
+      const finishReason = candidates?.[0]?.finishReason ?? null;
+
+      return {
+        ok: true as const,
+        generatedImage,
+        finishReason,
+        modelText,
+        raw: data,
+      };
+    };
+
+    // Primary attempt (uses full prompt + optional critique)
+    const primary = await requestImage(prompt);
+
+    if (!primary.ok) {
+      return new Response(
+        JSON.stringify({
+          error: primary.error.message,
+          errorType: primary.error.errorType,
+          statusCode: primary.status,
+        }),
+        {
+          status: primary.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
-    
-    if (!generatedImage) {
-      const finishReason = candidates?.[0]?.finishReason;
 
-      if (finishReason === 'SAFETY') {
-        return new Response(JSON.stringify({
-          error: "Image generation was blocked by safety filters. Please try a different image.",
-          errorType: "safety_block",
-        }), {
-          status: 400,
+    const shouldFallback =
+      !primary.generatedImage &&
+      primary.finishReason !== "SAFETY";
+
+    // If no image, try one ultra-minimal fallback prompt (helps when the model replies text-only)
+    const fallbackPrompt = isMain
+      ? `Edit the provided product photo with MINIMAL changes.\n\nGOAL: Create an Amazon-style MAIN image.\n- Background must be pure white (#FFFFFF).\n- Remove ONLY promotional overlays/badges/watermarks that are NOT printed on the product packaging.\n- Preserve the product, packaging text, shape, colors, and lighting exactly.\n- Do NOT generate a different product.\n\nReturn an IMAGE (do not reply with text-only).`
+      : `Edit the provided image with MINIMAL inpainting-only changes.\n\nGOAL: Remove ONLY promotional overlays/badges/star ratings/watermarks that are NOT part of the real product packaging.\n- Preserve everything else exactly (product, packaging text, background scene, layout, infographics).\n- Do NOT regenerate the product.\n\nReturn an IMAGE (do not reply with text-only).`;
+
+    const finalAttempt = shouldFallback
+      ? await requestImage(fallbackPrompt)
+      : primary;
+
+    if (!finalAttempt.ok) {
+      return new Response(
+        JSON.stringify({
+          error: finalAttempt.error.message,
+          errorType: finalAttempt.error.errorType,
+          statusCode: finalAttempt.status,
+        }),
+        {
+          status: finalAttempt.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        }
+      );
+    }
+
+    if (!finalAttempt.generatedImage) {
+      const finishReason = finalAttempt.finishReason;
+
+      if (finishReason === "SAFETY") {
+        return new Response(
+          JSON.stringify({
+            error: "Image generation was blocked by safety filters. Please try a different image.",
+            errorType: "safety_block",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
 
-      if (finishReason === 'IMAGE_RECITATION') {
-        return new Response(JSON.stringify({
-          error: "The AI refused to return an image (IMAGE_RECITATION). Try Smart Regenerate or a simpler custom prompt focusing on background/overlay removal only.",
-          errorType: "image_recitation",
-        }), {
-          status: 422,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (finishReason === "IMAGE_RECITATION") {
+        return new Response(
+          JSON.stringify({
+            error:
+              "The AI refused to return an image (IMAGE_RECITATION). Try Smart Regenerate or a simpler custom prompt focusing on background/overlay removal only.",
+            errorType: "image_recitation",
+          }),
+          {
+            status: 422,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
 
-      // Sometimes the model returns text-only even for image tasks.
-      console.error("[Guardian] No image in response:", JSON.stringify(data).substring(0, 500));
-      return new Response(JSON.stringify({
-        error: "No image was returned by the AI for this request. Please retry (Smart Regenerate) or simplify the prompt.",
-        errorType: "no_image_returned",
-        finishReason: finishReason || null,
-      }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error(
+        "[Guardian] No image in response:",
+        JSON.stringify(finalAttempt.raw).substring(0, 500)
+      );
+
+      return new Response(
+        JSON.stringify({
+          error:
+            "No image was returned by the AI for this request. Please retry (Smart Regenerate) or simplify the prompt.",
+          errorType: "no_image_returned",
+          finishReason: finishReason || null,
+          modelTextSnippet: finalAttempt.modelText
+            ? finalAttempt.modelText.slice(0, 240)
+            : null,
+        }),
+        {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     console.log("[Guardian] Image fix generated successfully");
 
-    return new Response(JSON.stringify({ fixedImage: generatedImage }), {
+    return new Response(JSON.stringify({ fixedImage: finalAttempt.generatedImage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
