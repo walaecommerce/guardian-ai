@@ -1,7 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Header } from '@/components/Header';
+import { HeroSection } from '@/components/HeroSection';
 import { ImageUploader, MaxImagesOption } from '@/components/ImageUploader';
 import { AnalysisResults } from '@/components/AnalysisResults';
+import { ComplianceReportCard } from '@/components/ComplianceReportCard';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
@@ -15,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import { uploadImage } from '@/services/imageStorage';
+import { loadDemoImages, DEMO_PRODUCT } from '@/components/DemoImages';
 
 // Map to track asset ID -> session_image ID for updates
 type AssetSessionMap = Map<string, string>;
@@ -35,7 +38,10 @@ const Index = () => {
   const [fixProgress, setFixProgress] = useState<FixProgressState | null>(null);
   const [failedDownloads, setFailedDownloads] = useState<FailedDownload[]>([]);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [showHero, setShowHero] = useState(true);
   const { toast } = useToast();
+  
+  const uploadSectionRef = useRef<HTMLDivElement>(null);
 
   const addLog = useCallback((level: LogEntry['level'], message: string) => {
     setLogs(prev => [...prev, {
@@ -63,9 +69,76 @@ const Index = () => {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   };
 
+  // Load demo images for hackathon demo
+  const handleLoadDemo = async () => {
+    setShowHero(false);
+    setIsImporting(true);
+    addLog('processing', '🎯 Loading demo images with intentional violations...');
+    
+    try {
+      const { files, product } = await loadDemoImages();
+      
+      setAmazonUrl(product.url);
+      setListingTitle(product.title);
+      setProductAsin(product.asin);
+      
+      addLog('success', `📦 Demo product: ${product.title}`);
+      addLog('info', `🔍 These images contain known violations for demonstration`);
+      
+      const newAssets: ImageAsset[] = [];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const base64 = await fileToBase64(file);
+        
+        addLog('processing', `🔍 Classifying demo image ${i + 1}/${files.length}...`);
+        const classification = await classifyImage(base64, product.title, product.asin);
+        
+        const aiCategory = classification.category as ImageCategory;
+        addLog('info', `   └─ Detected: ${aiCategory} (${classification.confidence}% confidence)`);
+        
+        const assetId = Math.random().toString(36).substring(2, 9);
+        
+        newAssets.push({
+          id: assetId,
+          file,
+          preview: URL.createObjectURL(file),
+          type: i === 0 ? 'MAIN' : 'SECONDARY',
+          name: `${aiCategory}_demo_${i + 1}.jpg`,
+          contentHash: await computeContentHash(file),
+        });
+        
+        await new Promise(r => setTimeout(r, 300));
+      }
+      
+      setAssets(newAssets);
+      addLog('success', `✅ Loaded ${newAssets.length} demo images`);
+      addLog('info', '💡 Click "Run Audit" to see Guardian detect the violations');
+      
+      toast({
+        title: 'Demo Images Loaded',
+        description: 'Pre-loaded images with intentional violations ready for audit'
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to load demo';
+      addLog('error', msg);
+      toast({ title: 'Demo Load Failed', description: msg, variant: 'destructive' });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleScrollToUpload = () => {
+    setShowHero(false);
+    setTimeout(() => {
+      uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
   const handleImportFromAmazon = async (maxImages: MaxImagesOption = '20') => {
     if (!amazonUrl) return;
     
+    setShowHero(false);
     const maxCount = maxImages === 'all' ? Infinity : parseInt(maxImages, 10);
     
     setIsImporting(true);
@@ -801,10 +874,18 @@ const Index = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
+      {/* Hero Section - shown only when no assets loaded */}
+      {showHero && assets.length === 0 && (
+        <HeroSection 
+          onTryDemo={handleLoadDemo}
+          onScrollToUpload={handleScrollToUpload}
+        />
+      )}
+      
       <main className="flex-1 container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
           {/* Left Panel - Input */}
-          <div className="lg:col-span-4 space-y-4">
+          <div className="lg:col-span-4 space-y-4" ref={uploadSectionRef}>
             <ImageUploader
               assets={assets}
               listingTitle={listingTitle}
@@ -820,6 +901,15 @@ const Index = () => {
               isRetrying={isRetrying}
               onRetryFailedDownloads={handleRetryFailedDownloads}
             />
+            
+            {/* Compliance Report Card - shown during/after analysis */}
+            {(assets.some(a => a.analysisResult) || isAnalyzing) && (
+              <ComplianceReportCard 
+                assets={assets} 
+                isAnalyzing={isAnalyzing}
+              />
+            )}
+            
             <ActivityLog logs={logs} />
             <SessionHistory currentSessionId={currentSessionId || undefined} />
           </div>
@@ -847,6 +937,7 @@ const Index = () => {
                   onViewDetails={handleViewDetails}
                   onBatchFix={handleBatchFix}
                   isBatchFixing={isBatchFixing}
+                  productAsin={productAsin || undefined}
                 />
               </TabsContent>
               <TabsContent value="comparison">

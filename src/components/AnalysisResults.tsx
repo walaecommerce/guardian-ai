@@ -13,6 +13,7 @@ interface AnalysisResultsProps {
   onViewDetails: (asset: ImageAsset) => void;
   onBatchFix?: () => void;
   isBatchFixing?: boolean;
+  productAsin?: string;
 }
 
 function ScoreGauge({ score, size = 80 }: { score: number; size?: number }) {
@@ -307,7 +308,8 @@ export function AnalysisResults({
   onRequestFix, 
   onViewDetails,
   onBatchFix,
-  isBatchFixing 
+  isBatchFixing,
+  productAsin
 }: AnalysisResultsProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult || a.isAnalyzing);
 
@@ -363,7 +365,7 @@ export function AnalysisResults({
                   )}
                 </Button>
               )}
-              <ExportButton assets={assets} listingTitle={listingTitle} />
+              <ExportButton assets={assets} listingTitle={listingTitle} productAsin={productAsin} />
             </div>
           </div>
         </CardHeader>
