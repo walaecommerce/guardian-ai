@@ -217,3 +217,61 @@ export interface FailedDownload {
   reason: string;
   timestamp: Date;
 }
+
+// Enhancement Analysis Types
+export interface ProductVisibilityAnalysis {
+  score: number;
+  isProductClearlyVisible: boolean;
+  productBounds: SpatialBounds | null;
+  issues: string[];
+}
+
+export interface MainImageComparison {
+  sameProductDetected: boolean;
+  productMatchScore: number;
+  missingElements: string[];
+}
+
+export interface ContentQualityAnalysis {
+  lifestyleContextAppropriate: boolean;
+  infographicTextReadable: boolean;
+  featureHighlightsPresent: boolean;
+  callToActionStrength: number;
+  overallQuality: number;
+}
+
+export interface EnhancementSuggestion {
+  id: string;
+  type: string;
+  priority: 'high' | 'medium' | 'low';
+  description: string;
+  expectedImprovement: string;
+}
+
+export interface EnhancementAnalysis {
+  imageCategory: ImageCategory;
+  productVisibility: ProductVisibilityAnalysis;
+  comparisonWithMain: MainImageComparison;
+  contentQuality: ContentQualityAnalysis;
+  enhancementOpportunities: EnhancementSuggestion[];
+  recommendedPresets: string[];
+}
+
+// Enhancement Request Types
+export interface EnhancementRequest {
+  originalImage: string;
+  mainProductImage: string;
+  imageCategory: ImageCategory;
+  enhancementType: string;
+  targetImprovements: string[];
+  preserveElements: string[];
+  customPrompt?: string;
+}
+
+export interface EnhancementResult {
+  enhancedImage: string;
+  enhancementApplied: string[];
+  qualityScoreBefore: number;
+  qualityScoreAfter: number;
+  productConsistency: boolean;
+}
