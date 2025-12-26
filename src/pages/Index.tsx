@@ -548,17 +548,18 @@ const Index = () => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
 
-    // Get main image for cross-reference (for secondary images)
-    const mainAsset = assets.find(a => a.type === 'MAIN' && a.id !== assetId);
-    let mainImageBase64: string | undefined;
-    
-    if (asset.type === 'SECONDARY' && mainAsset) {
-      mainImageBase64 = await fileToBase64(mainAsset.fixedImage ? 
-        await fetch(mainAsset.fixedImage).then(r => r.blob()).then(b => new File([b], 'main.jpg')) : 
-        mainAsset.file
-      );
-      addLog('info', `🔗 Cross-referencing with MAIN product image`);
-    }
+    try {
+      // Get main image for cross-reference (for secondary images)
+      const mainAsset = assets.find(a => a.type === 'MAIN' && a.id !== assetId);
+      let mainImageBase64: string | undefined;
+      
+      if (asset.type === 'SECONDARY' && mainAsset) {
+        mainImageBase64 = await fileToBase64(mainAsset.fixedImage ? 
+          await fetch(mainAsset.fixedImage).then(r => r.blob()).then(b => new File([b], 'main.jpg')) : 
+          mainAsset.file
+        );
+        addLog('info', `🔗 Cross-referencing with MAIN product image`);
+      }
 
     setAssets(prev => prev.map(a => 
       a.id === assetId ? { ...a, isGeneratingFix: true } : a
@@ -623,10 +624,24 @@ const Index = () => {
         });
 
         if (genError) {
-          // Check for specific error types
           const errorContext = (genError as any)?.context;
-          if (errorContext?.status === 402 || genData?.errorType === 'payment_required') {
-            const creditError = 'Not enough AI credits. Please add credits in Settings → Workspace → Usage.';
+          const status = errorContext?.status as number | undefined;
+
+          let body: any = undefined;
+          if (errorContext?.body) {
+            try {
+              body = typeof errorContext.body === 'string' ? JSON.parse(errorContext.body) : errorContext.body;
+            } catch {
+              body = undefined;
+            }
+          }
+
+          const serverMsg: string | undefined = body?.error || body?.message;
+          const serverType: string | undefined = body?.errorType;
+
+          // Credits / rate-limit handling
+          if (status === 402 || serverType === 'payment_required') {
+            const creditError = serverMsg || 'Not enough AI credits. Please add credits in Settings → Workspace → Usage.';
             addLog('error', `❌ ${creditError}`);
             setAssets(prev => prev.map(a => 
               a.id === assetId ? { ...a, isGeneratingFix: false } : a
@@ -635,12 +650,22 @@ const Index = () => {
             toast({ title: 'AI Credits Required', description: creditError, variant: 'destructive' });
             return;
           }
-          if (errorContext?.status === 429 || genData?.errorType === 'rate_limit') {
-            const rateError = 'Rate limit exceeded. Please wait a moment and try again.';
+
+          if (status === 429 || serverType === 'rate_limit') {
+            const rateError = serverMsg || 'Rate limit exceeded. Please wait a moment and try again.';
             addLog('warning', `⏳ ${rateError}`);
-            await new Promise(r => setTimeout(r, 5000)); // Wait before retry
+            await new Promise(r => setTimeout(r, 5000));
             throw new Error(rateError);
           }
+
+          // Show actionable backend error messages (e.g. no_image_returned / image_recitation)
+          if (serverMsg) {
+            if (body?.modelTextSnippet) {
+              addLog('info', `🤖 Model note: ${String(body.modelTextSnippet).substring(0, 140)}`);
+            }
+            throw new Error(serverMsg);
+          }
+
           throw genError;
         }
         if (genData?.error) {
@@ -831,8 +856,16 @@ const Index = () => {
       addLog('success', `🎉 Fix complete for ${asset.name}`);
       toast({ title: 'Fix Generated', description: 'AI-corrected image is ready and saved' });
     }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Fix failed';
+    addLog('error', `❌ Fix failed: ${msg}`);
+    setAssets(prev => prev.map(a => 
+      a.id === assetId ? { ...a, isGeneratingFix: false } : a
+    ));
+    setFixProgress(null);
+    toast({ title: 'Fix Failed', description: msg, variant: 'destructive' });
+  }
   };
-
   const handleBatchFix = async () => {
     const failedAssets = assets.filter(a => a.analysisResult?.status === 'FAIL' && !a.fixedImage);
     if (failedAssets.length === 0) return;
