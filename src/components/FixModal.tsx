@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Download, CheckCircle, XCircle, ArrowRight, Loader2, RefreshCw, SlidersHorizontal, Sparkles, Eye, PenLine, Wand2, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Download, CheckCircle, XCircle, ArrowRight, Loader2, RefreshCw, SlidersHorizontal, Sparkles, Eye, PenLine, Wand2, ChevronDown, ChevronUp, ImagePlus, Palette, Zap, Mountain, Camera } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Card, CardContent } from '@/components/ui/card';
 import { ImageAsset, FixProgressState, FixAttempt, OptimizeMode } from '@/types';
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
 import { FixActivityLog } from '@/components/FixActivityLog';
@@ -23,12 +24,87 @@ interface FixModalProps {
   mode?: OptimizeMode;
 }
 
+// Marketing upgrade presets for lifestyle backgrounds
+const MARKETING_PRESETS = [
+  {
+    id: 'white_studio',
+    label: 'Pure White Studio',
+    icon: Zap,
+    description: 'Amazon-compliant white background',
+    prompt: 'Pure white studio background (RGB 255,255,255). Professional product photography lighting. Sharp shadows eliminated. Product centered and occupying 85% of frame.'
+  },
+  {
+    id: 'lifestyle_kitchen',
+    label: 'Kitchen Counter',
+    icon: Camera,
+    description: 'Modern kitchen lifestyle shot',
+    prompt: 'Place product on elegant marble kitchen counter. Soft natural lighting from window. Blurred modern kitchen background. Lifestyle product photography style.'
+  },
+  {
+    id: 'lifestyle_nature',
+    label: 'Natural Setting',
+    icon: Mountain,
+    description: 'Outdoor/nature backdrop',
+    prompt: 'Product in natural outdoor setting with soft bokeh greenery background. Golden hour lighting. Organic, eco-friendly aesthetic. Professional lifestyle photography.'
+  },
+  {
+    id: 'lifestyle_minimal',
+    label: 'Minimalist Surface',
+    icon: Palette,
+    description: 'Clean minimalist backdrop',
+    prompt: 'Product on clean matte surface with subtle gradient background. Scandinavian aesthetic. Soft diffused studio lighting. High-end product catalog style.'
+  }
+];
+
+// Progress step definitions for real-time display
+const PROGRESS_STEPS = {
+  generating: [
+    { id: 'init', label: 'Initializing AI pipeline', icon: '🚀' },
+    { id: 'analyze', label: 'Analyzing original image', icon: '🔍' },
+    { id: 'detect', label: 'Detecting compliance issues', icon: '🎯' },
+    { id: 'prepare', label: 'Preparing edit instructions', icon: '📝' },
+    { id: 'generate', label: 'Generating fixed version', icon: '🎨' },
+  ],
+  verifying: [
+    { id: 'identity', label: 'Checking product identity', icon: '🔗' },
+    { id: 'background', label: 'Validating background', icon: '⬜' },
+    { id: 'compliance', label: 'Compliance verification', icon: '✓' },
+    { id: 'quality', label: 'Quality assessment', icon: '📊' },
+    { id: 'final', label: 'Final validation', icon: '🏁' },
+  ],
+  retrying: [
+    { id: 'critique', label: 'Analyzing previous attempt', icon: '💭' },
+    { id: 'adjust', label: 'Adjusting parameters', icon: '🔧' },
+    { id: 'retry', label: 'Preparing retry', icon: '🔄' },
+  ],
+};
+
 export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixProgress, mode = 'fix' }: FixModalProps) {
   const [selectedAttemptIndex, setSelectedAttemptIndex] = useState<number | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'live' | 'compare'>('live');
   const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
   const [isPromptExpanded, setIsPromptExpanded] = useState(false);
+  const [showMarketingPresets, setShowMarketingPresets] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [currentProgressStep, setCurrentProgressStep] = useState(0);
+
+  // Animate progress steps
+  useEffect(() => {
+    if (!fixProgress?.currentStep || fixProgress.currentStep === 'complete') {
+      setCurrentProgressStep(0);
+      return;
+    }
+    
+    const steps = PROGRESS_STEPS[fixProgress.currentStep as keyof typeof PROGRESS_STEPS];
+    if (!steps) return;
+
+    const interval = setInterval(() => {
+      setCurrentProgressStep(prev => (prev + 1) % steps.length);
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [fixProgress?.currentStep]);
 
   // Default prompts based on image type
   const getDefaultPrompt = (type: string) => {
@@ -56,6 +132,7 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
   useEffect(() => {
     if (asset) {
       setCustomPrompt(asset.analysisResult?.generativePrompt || getDefaultPrompt(asset.type));
+      setSelectedPreset(null);
     }
   }, [asset?.id]);
 
@@ -90,12 +167,32 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
     onRetryFix(asset.id, undefined, customPrompt);
   };
 
+  const handlePresetSelect = (presetId: string) => {
+    const preset = MARKETING_PRESETS.find(p => p.id === presetId);
+    if (preset) {
+      setSelectedPreset(presetId);
+      setCustomPrompt(preset.prompt);
+      setIsPromptExpanded(true);
+    }
+  };
+
+  const handleGenerateWithPreset = () => {
+    const preset = MARKETING_PRESETS.find(p => p.id === selectedPreset);
+    if (preset) {
+      onRetryFix(asset.id, undefined, preset.prompt);
+    }
+  };
+
   const selectedAttempt = selectedAttemptIndex !== undefined && fixProgress?.attempts[selectedAttemptIndex];
   const displayImage = selectedAttempt?.generatedImage || fixProgress?.intermediateImage || asset.fixedImage;
 
   // Component scores for display
   const componentScores = selectedAttempt?.verification?.componentScores || 
     fixProgress?.attempts[fixProgress.attempts.length - 1]?.verification?.componentScores;
+
+  // Get current progress info
+  const currentStepInfo = fixProgress?.currentStep && 
+    PROGRESS_STEPS[fixProgress.currentStep as keyof typeof PROGRESS_STEPS]?.[currentProgressStep];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -118,6 +215,65 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
 
         <ScrollArea className="max-h-[calc(95vh-120px)]">
           <div className="space-y-4 pr-4">
+            {/* Real-time Progress Indicator */}
+            {isGenerating && fixProgress && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="py-4">
+                  <div className="space-y-3">
+                    {/* Progress bar */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="font-medium">
+                            Attempt {fixProgress.attempt}/{fixProgress.maxAttempts}
+                          </span>
+                          <span className="text-muted-foreground capitalize">
+                            {fixProgress.currentStep.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <Progress 
+                          value={(fixProgress.attempt / fixProgress.maxAttempts) * 100} 
+                          className="h-2"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Current step with animation */}
+                    {currentStepInfo && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border">
+                        <div className="text-2xl animate-pulse">{currentStepInfo.icon}</div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{currentStepInfo.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {fixProgress.currentStep === 'generating' && 'AI is creating your optimized image...'}
+                            {fixProgress.currentStep === 'verifying' && 'Checking compliance with Amazon standards...'}
+                            {fixProgress.currentStep === 'retrying' && 'Learning from previous attempt...'}
+                          </p>
+                        </div>
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      </div>
+                    )}
+
+                    {/* Step progress dots */}
+                    <div className="flex justify-center gap-2">
+                      {(PROGRESS_STEPS[fixProgress.currentStep as keyof typeof PROGRESS_STEPS] || []).map((step, i) => (
+                        <div 
+                          key={step.id}
+                          className={`w-2 h-2 rounded-full transition-all ${
+                            i === currentProgressStep 
+                              ? 'bg-primary w-4' 
+                              : i < currentProgressStep 
+                                ? 'bg-primary/60' 
+                                : 'bg-muted'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Main Image Comparison Area */}
             <div className="grid grid-cols-2 gap-4">
               {/* Left: Original Image */}
@@ -175,9 +331,12 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                     </>
                   ) : isGenerating ? (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground">
-                        {fixProgress?.currentStep === 'generating' ? 'Generating image...' : 'Starting...'}
+                      <div className="relative">
+                        <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                        <Sparkles className="w-6 h-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                      </div>
+                      <p className="text-sm text-muted-foreground text-center">
+                        {currentStepInfo?.label || 'Generating...'}
                       </p>
                     </div>
                   ) : (
@@ -185,7 +344,7 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                       <div className="w-12 h-12 rounded-full bg-muted-foreground/10 flex items-center justify-center">
                         <ArrowRight className="w-6 h-6 text-muted-foreground" />
                       </div>
-                      <p className="text-sm text-muted-foreground">Click "Generate Fix" below</p>
+                      <p className="text-sm text-muted-foreground">Click a button below to generate</p>
                     </div>
                   )}
                 </div>
@@ -283,6 +442,56 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
               <AnalysisDetails result={result} />
             )}
 
+            {/* Marketing Upgrade Presets - for SECONDARY images */}
+            {asset.type === 'SECONDARY' && !isGenerating && (
+              <Collapsible open={showMarketingPresets} onOpenChange={setShowMarketingPresets}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-between bg-gradient-to-r from-primary/5 to-transparent">
+                    <span className="flex items-center gap-2">
+                      <ImagePlus className="w-4 h-4 text-primary" />
+                      <span className="font-medium">Marketing Upgrade Mode</span>
+                      <Badge variant="outline" className="text-xs">NEW</Badge>
+                    </span>
+                    {showMarketingPresets ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Generate professional lifestyle backgrounds for your secondary images:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {MARKETING_PRESETS.map(preset => (
+                      <button
+                        key={preset.id}
+                        onClick={() => handlePresetSelect(preset.id)}
+                        className={`p-3 rounded-lg border text-left transition-all ${
+                          selectedPreset === preset.id 
+                            ? 'border-primary bg-primary/10' 
+                            : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <preset.icon className={`w-4 h-4 ${selectedPreset === preset.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                          <span className="font-medium text-sm">{preset.label}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{preset.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedPreset && (
+                    <Button 
+                      className="w-full mt-3" 
+                      onClick={handleGenerateWithPreset}
+                      disabled={isGenerating}
+                    >
+                      <Wand2 className="w-4 h-4 mr-2" />
+                      Generate {MARKETING_PRESETS.find(p => p.id === selectedPreset)?.label}
+                    </Button>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
             {/* Prompt Editor Section */}
             <Collapsible open={isPromptExpanded} onOpenChange={setIsPromptExpanded}>
               <CollapsibleTrigger asChild>
@@ -307,7 +516,10 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => setCustomPrompt(getDefaultPrompt(asset.type))}
+                      onClick={() => {
+                        setCustomPrompt(getDefaultPrompt(asset.type));
+                        setSelectedPreset(null);
+                      }}
                       disabled={isGenerating}
                     >
                       Reset to Default
@@ -336,7 +548,7 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                   className="flex-1"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Generate Fix
+                  Generate Compliant Version
                 </Button>
               )}
 
@@ -357,7 +569,7 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
               {isGenerating && (
                 <Button disabled className="flex-1">
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
+                  {currentStepInfo?.label || 'Processing...'}
                 </Button>
               )}
 
