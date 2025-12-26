@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Download, CheckCircle, XCircle, ArrowRight, Loader2, RefreshCw, SlidersHorizontal, Sparkles, Eye, PenLine, Wand2, ChevronDown, ChevronUp, ImagePlus, Palette, Zap, Mountain, Camera } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { X, Download, CheckCircle, XCircle, ArrowRight, Loader2, RefreshCw, SlidersHorizontal, Sparkles, Eye, PenLine, Wand2, ChevronDown, ChevronUp, ImagePlus, Palette, Zap, Mountain, Camera, Wrench, TrendingUp } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,10 +9,11 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Card, CardContent } from '@/components/ui/card';
-import { ImageAsset, FixProgressState, FixAttempt, OptimizeMode } from '@/types';
+import { ImageAsset, FixProgressState, FixAttempt, OptimizeMode, ImageCategory } from '@/types';
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
 import { FixActivityLog } from '@/components/FixActivityLog';
 import { FixAttemptHistory } from '@/components/FixAttemptHistory';
+import { getPresetsForCategory, ENHANCEMENT_PRESETS, EnhancementPreset } from '@/data/amazonGuidelines';
 
 interface FixModalProps {
   asset: ImageAsset | null;
@@ -22,9 +23,23 @@ interface FixModalProps {
   onDownload: (imageUrl: string, filename: string) => void;
   fixProgress?: FixProgressState;
   mode?: OptimizeMode;
+  mainProductImage?: string; // Main product image for reference
 }
 
-// Marketing upgrade presets for lifestyle backgrounds
+// Icon mapping for enhancement presets
+const PRESET_ICONS: Record<string, React.ReactNode> = {
+  '🎯': <Zap className="w-4 h-4" />,
+  '🖼️': <ImagePlus className="w-4 h-4" />,
+  '📦': <ImagePlus className="w-4 h-4" />,
+  '✨': <Sparkles className="w-4 h-4" />,
+  '📐': <SlidersHorizontal className="w-4 h-4" />,
+  '⚡': <Zap className="w-4 h-4" />,
+  '✅': <CheckCircle className="w-4 h-4" />,
+  '↔️': <ArrowRight className="w-4 h-4" />,
+  '🌟': <Sparkles className="w-4 h-4" />,
+};
+
+// Marketing upgrade presets for lifestyle backgrounds (legacy, keeping for backward compat)
 const MARKETING_PRESETS = [
   {
     id: 'white_studio',
@@ -79,7 +94,7 @@ const PROGRESS_STEPS = {
   ],
 };
 
-export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixProgress, mode = 'fix' }: FixModalProps) {
+export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixProgress, mode = 'fix', mainProductImage }: FixModalProps) {
   const [selectedAttemptIndex, setSelectedAttemptIndex] = useState<number | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'live' | 'compare'>('live');
   const [showPromptEditor, setShowPromptEditor] = useState(false);
@@ -88,6 +103,20 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
   const [showMarketingPresets, setShowMarketingPresets] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [currentProgressStep, setCurrentProgressStep] = useState(0);
+  const [activeMode, setActiveMode] = useState<'fix' | 'enhance'>(mode);
+  const [showEnhancementPresets, setShowEnhancementPresets] = useState(false);
+  const [selectedEnhancementPreset, setSelectedEnhancementPreset] = useState<EnhancementPreset | null>(null);
+
+  // Get category-specific enhancement presets
+  const detectedCategory: ImageCategory = (asset?.analysisResult?.spatialAnalysis?.productZones?.[0]?.type === 'lifestyle-shot' 
+    ? 'LIFESTYLE' 
+    : asset?.type === 'MAIN' 
+      ? 'PRODUCT_SHOT' 
+      : 'INFOGRAPHIC') as ImageCategory;
+  
+  const applicablePresets = useMemo(() => {
+    return getPresetsForCategory(detectedCategory);
+  }, [detectedCategory]);
 
   // Animate progress steps
   useEffect(() => {
@@ -133,6 +162,9 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
     if (asset) {
       setCustomPrompt(asset.analysisResult?.generativePrompt || getDefaultPrompt(asset.type));
       setSelectedPreset(null);
+      setSelectedEnhancementPreset(null);
+      // Default to enhance mode for passed images, fix mode for failed
+      setActiveMode(asset.analysisResult?.status === 'PASS' ? 'enhance' : 'fix');
     }
   }, [asset?.id]);
 
@@ -183,6 +215,18 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
     }
   };
 
+  const handleEnhancementPresetSelect = (preset: EnhancementPreset) => {
+    setSelectedEnhancementPreset(preset);
+    setCustomPrompt(preset.promptTemplate);
+    setIsPromptExpanded(true);
+  };
+
+  const handleGenerateWithEnhancementPreset = () => {
+    if (selectedEnhancementPreset) {
+      onRetryFix(asset.id, undefined, selectedEnhancementPreset.promptTemplate);
+    }
+  };
+
   const selectedAttempt = selectedAttemptIndex !== undefined && fixProgress?.attempts[selectedAttemptIndex];
   const displayImage = selectedAttempt?.generatedImage || fixProgress?.intermediateImage || asset.fixedImage;
 
@@ -198,23 +242,123 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <span>AI Image Optimization</span>
-            <Badge variant={asset.type === 'MAIN' ? 'default' : 'secondary'}>
-              {asset.type}
-            </Badge>
-            {isGenerating && (
-              <Badge variant="outline" className="animate-pulse">
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                Processing...
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <span>AI Image Optimization</span>
+              <Badge variant={asset.type === 'MAIN' ? 'default' : 'secondary'}>
+                {asset.type}
               </Badge>
-            )}
+              <Badge variant="outline" className="text-xs">
+                {detectedCategory}
+              </Badge>
+              {isGenerating && (
+                <Badge variant="outline" className="animate-pulse">
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  Processing...
+                </Badge>
+              )}
+            </div>
+            
+            {/* Mode Toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-muted">
+              <Button
+                variant={activeMode === 'fix' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveMode('fix')}
+                className="h-7 px-3"
+                disabled={isGenerating}
+              >
+                <Wrench className="w-3.5 h-3.5 mr-1.5" />
+                Compliance Fix
+              </Button>
+              <Button
+                variant={activeMode === 'enhance' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveMode('enhance')}
+                className="h-7 px-3"
+                disabled={isGenerating}
+              >
+                <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
+                Enhance Quality
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
         <ScrollArea className="max-h-[calc(95vh-120px)]">
           <div className="space-y-4 pr-4">
+            {/* Mode Description Banner */}
+            <div className={`p-3 rounded-lg border ${activeMode === 'fix' ? 'bg-orange-500/5 border-orange-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+              <div className="flex items-center gap-2">
+                {activeMode === 'fix' ? (
+                  <>
+                    <Wrench className="w-4 h-4 text-orange-500" />
+                    <div>
+                      <p className="text-sm font-medium text-orange-600">Compliance Fix Mode</p>
+                      <p className="text-xs text-muted-foreground">Fix Amazon guideline violations: background, badges, text overlays</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <TrendingUp className="w-4 h-4 text-emerald-500" />
+                    <div>
+                      <p className="text-sm font-medium text-emerald-600">Quality Enhancement Mode</p>
+                      <p className="text-xs text-muted-foreground">Improve product visibility, add callouts, enhance graphics</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Enhancement Presets - Only shown in enhance mode */}
+            {activeMode === 'enhance' && applicablePresets.length > 0 && !isGenerating && (
+              <Card className="border-emerald-500/20 bg-emerald-500/5">
+                <CardContent className="py-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-emerald-500" />
+                        <span className="font-medium text-sm">Category-Specific Enhancements</span>
+                        <Badge variant="outline" className="text-xs">{detectedCategory}</Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      {applicablePresets.slice(0, 6).map(preset => (
+                        <button
+                          key={preset.id}
+                          onClick={() => handleEnhancementPresetSelect(preset)}
+                          className={`p-3 rounded-lg border text-left transition-all ${
+                            selectedEnhancementPreset?.id === preset.id
+                              ? 'border-emerald-500 bg-emerald-500/10'
+                              : 'border-border hover:border-emerald-500/50 hover:bg-muted/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-lg">{preset.icon}</span>
+                            <span className="font-medium text-sm">{preset.label}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{preset.description}</p>
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {selectedEnhancementPreset && (
+                      <Button 
+                        className="w-full bg-emerald-600 hover:bg-emerald-700" 
+                        onClick={handleGenerateWithEnhancementPreset}
+                        disabled={isGenerating}
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Generate: {selectedEnhancementPreset.label}
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Real-time Progress Indicator */}
             {isGenerating && fixProgress && (
               <Card className="border-primary/30 bg-primary/5">
@@ -540,29 +684,47 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
 
             {/* Actions */}
             <div className="flex gap-3 pt-4 border-t border-border">
-              {/* Show Generate Fix for failed images without a fix */}
-              {!hasFixedImage && result?.status === 'FAIL' && !isGenerating && (
-                <Button
-                  onClick={() => onRetryFix(asset.id)}
-                  disabled={isGenerating}
-                  className="flex-1"
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Generate Compliant Version
-                </Button>
-              )}
-
-              {/* Show Enhance/Optimize for PASSED images or as alternative */}
-              {isPassed && !hasFixedImage && !isGenerating && (
-                <Button
-                  variant="secondary"
-                  onClick={handleGenerateWithPrompt}
-                  disabled={isGenerating}
-                  className="flex-1"
-                >
-                  <Wand2 className="w-4 h-4 mr-2" />
-                  Enhance Image
-                </Button>
+              {/* Mode-specific primary action */}
+              {!hasFixedImage && !isGenerating && (
+                <>
+                  {activeMode === 'fix' && result?.status === 'FAIL' && (
+                    <Button
+                      onClick={() => onRetryFix(asset.id)}
+                      disabled={isGenerating}
+                      className="flex-1"
+                    >
+                      <Wrench className="w-4 h-4 mr-2" />
+                      Fix Compliance Issues
+                    </Button>
+                  )}
+                  
+                  {activeMode === 'enhance' && (
+                    <Button
+                      onClick={selectedEnhancementPreset ? handleGenerateWithEnhancementPreset : handleGenerateWithPrompt}
+                      disabled={isGenerating}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      {selectedEnhancementPreset ? `Apply: ${selectedEnhancementPreset.label}` : 'Enhance Image Quality'}
+                    </Button>
+                  )}
+                  
+                  {/* Show fix button in enhance mode for failed images */}
+                  {activeMode === 'enhance' && result?.status === 'FAIL' && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setActiveMode('fix');
+                        onRetryFix(asset.id);
+                      }}
+                      disabled={isGenerating}
+                      className="flex-1"
+                    >
+                      <Wrench className="w-4 h-4 mr-2" />
+                      Fix First
+                    </Button>
+                  )}
+                </>
               )}
 
               {/* Loading state */}
@@ -583,7 +745,7 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                     className="flex-1"
                   >
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Smart Regenerate
+                    Regenerate
                   </Button>
                   {hasFixedImage && (
                     <Button onClick={handleDownload} className="flex-1">
