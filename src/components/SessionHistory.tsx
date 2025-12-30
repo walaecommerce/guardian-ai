@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,8 @@ import {
   XCircle, 
   Wrench,
   ChevronRight,
-  Package
+  Package,
+  ArrowRight
 } from 'lucide-react';
 
 interface SessionImage {
@@ -57,6 +59,7 @@ interface SessionHistoryProps {
 }
 
 export function SessionHistory({ currentSessionId, onLoadSession }: SessionHistoryProps) {
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState<EnhancementSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSession, setSelectedSession] = useState<EnhancementSession | null>(null);
@@ -391,11 +394,16 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
 
               {/* Actions */}
               <div className="flex gap-3 mt-6 pt-4 border-t">
-                {onLoadSession && (
-                  <Button onClick={handleLoadSession} className="flex-1">
-                    Continue This Session
-                  </Button>
-                )}
+                <Button 
+                  onClick={() => {
+                    setShowDetailDialog(false);
+                    navigate(`/session/${selectedSession.id}`);
+                  }} 
+                  className="flex-1"
+                >
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Open Full Session
+                </Button>
                 <Button 
                   variant="outline" 
                   onClick={() => setShowDetailDialog(false)}
