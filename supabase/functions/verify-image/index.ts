@@ -286,7 +286,11 @@ Be STRICT. Better to flag for retry than pass a flawed image.`;
       return mt;
     };
 
-    const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
+    const extractBase64 = (dataUrl: string | undefined | null): { data: string; mimeType: string } => {
+      if (!dataUrl) {
+        console.warn("[Guardian] extractBase64 received empty/undefined input");
+        return { mimeType: 'image/jpeg', data: '' };
+      }
       if (dataUrl.startsWith('data:')) {
         const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
         if (match) {
