@@ -319,18 +319,18 @@ const Session = () => {
 
           const { data: verifyData, error: verifyError } = await supabase.functions.invoke('verify-image', {
             body: { 
-              originalBase64, 
-              generatedBase64: genData.fixedImage,
+              originalImageBase64: originalBase64,
+              generatedImageBase64: genData.fixedImage,
               imageType: asset.type,
-              productTitle: listingTitle || undefined,
-              productAsin: productAsin || undefined
+              mainImageBase64,
+              spatialAnalysis: asset.analysisResult?.spatialAnalysis,
             }
           });
 
           if (verifyError) throw verifyError;
 
           const score = verifyData?.score || 0;
-          const passed = verifyData?.passed === true;
+          const passed = verifyData?.isSatisfactory === true;
 
           setFixProgress(prev => {
             if (!prev) return prev;
