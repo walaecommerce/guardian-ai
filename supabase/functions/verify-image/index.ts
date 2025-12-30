@@ -302,12 +302,26 @@ Be STRICT. Better to flag for retry than pass a flawed image.`;
       return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
     };
 
+    // Validate required images before proceeding
+    const originalImage = extractBase64(originalImageBase64);
+    const generatedImage = extractBase64(generatedImageBase64);
+    
+    if (!originalImage.data || !generatedImage.data) {
+      console.error("[Guardian] Missing required image data - original:", !!originalImage.data, "generated:", !!generatedImage.data);
+      return new Response(JSON.stringify({ 
+        error: "Missing required image data. Both original and generated images are required for verification.",
+        errorType: "missing_images"
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const parts: any[] = [
       { text: `Verify this ${imageType} AI-generated image against Amazon compliance requirements.` },
       { text: "=== ORIGINAL IMAGE (source with violations) ===" }
     ];
 
-    const originalImage = extractBase64(originalImageBase64);
     parts.push({
       inline_data: {
         mime_type: originalImage.mimeType,
@@ -316,7 +330,6 @@ Be STRICT. Better to flag for retry than pass a flawed image.`;
     });
 
     parts.push({ text: "=== GENERATED IMAGE (AI-corrected, needs verification) ===" });
-    const generatedImage = extractBase64(generatedImageBase64);
     parts.push({
       inline_data: {
         mime_type: generatedImage.mimeType,
