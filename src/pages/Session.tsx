@@ -443,6 +443,72 @@ const Session = () => {
     toast({ title: 'Batch Fix Complete', description: `Fixed ${failedAssets.length} images` });
   };
 
+  const handleReverify = async (assetId: string) => {
+    const asset = assets.find(a => a.id === assetId);
+    if (!asset || !asset.fixedImage) return;
+
+    setAssets(prev => prev.map(a => 
+      a.id === assetId ? { ...a, isGeneratingFix: true } : a
+    ));
+    addLog('processing', `🔍 Re-verifying fixed image: ${asset.name}...`);
+
+    try {
+      const originalBase64 = await fileToBase64(asset.file);
+      
+      // Get main image for cross-reference
+      const mainAsset = assets.find(a => a.type === 'MAIN' && a.id !== assetId);
+      let mainImageBase64: string | undefined;
+      if (asset.type === 'SECONDARY' && mainAsset) {
+        mainImageBase64 = await fileToBase64(mainAsset.fixedImage ? 
+          await fetch(mainAsset.fixedImage).then(r => r.blob()).then(b => new File([b], 'main.jpg')) : 
+          mainAsset.file
+        );
+      }
+
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('verify-image', {
+        body: { 
+          originalImageBase64: originalBase64,
+          generatedImageBase64: asset.fixedImage,
+          imageType: asset.type,
+          mainImageBase64,
+          spatialAnalysis: asset.analysisResult?.spatialAnalysis,
+        }
+      });
+
+      if (verifyError) throw verifyError;
+
+      const score = verifyData?.score || 0;
+      const passed = verifyData?.isSatisfactory === true;
+      
+      addLog(passed ? 'success' : 'warning', `${passed ? '✅' : '⚠️'} Re-verification: ${score}% - ${passed ? 'PASS' : 'FAIL'}`);
+      
+      if (verifyData?.passedChecks?.length > 0) {
+        verifyData.passedChecks.slice(0, 3).forEach((check: string) => 
+          addLog('info', `   ✓ ${check}`)
+        );
+      }
+      if (verifyData?.failedChecks?.length > 0) {
+        verifyData.failedChecks.slice(0, 3).forEach((check: string) => 
+          addLog('warning', `   ✗ ${check}`)
+        );
+      }
+      
+      toast({ 
+        title: passed ? 'Verification Passed' : 'Verification Issues Found',
+        description: `Score: ${score}% - ${verifyData?.critique || (passed ? 'Image meets standards' : 'Some improvements needed')}`,
+        variant: passed ? 'default' : 'destructive'
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Verification failed';
+      addLog('error', `❌ Re-verification failed: ${msg}`);
+      toast({ title: 'Verification Failed', description: msg, variant: 'destructive' });
+    } finally {
+      setAssets(prev => prev.map(a => 
+        a.id === assetId ? { ...a, isGeneratingFix: false } : a
+      ));
+    }
+  };
+
   const handleViewDetails = (asset: ImageAsset) => {
     setSelectedAsset(asset);
     setShowFixModal(true);
@@ -652,6 +718,7 @@ const Session = () => {
                   listingTitle={listingTitle}
                   onRequestFix={(id) => handleRequestFix(id)}
                   onViewDetails={handleViewDetails}
+                  onReverify={handleReverify}
                   onBatchFix={handleBatchFix}
                   isBatchFixing={isBatchFixing}
                   productAsin={productAsin || undefined}

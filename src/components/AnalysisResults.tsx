@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ interface AnalysisResultsProps {
   listingTitle: string;
   onRequestFix: (assetId: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
+  onReverify?: (assetId: string) => void;
   onBatchFix?: () => void;
   isBatchFixing?: boolean;
   productAsin?: string;
@@ -126,10 +127,12 @@ function AssetResultCard({
   asset,
   onRequestFix,
   onViewDetails,
+  onReverify,
 }: {
   asset: ImageAsset;
   onRequestFix: (id: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
+  onReverify?: (id: string) => void;
 }) {
   const result = asset.analysisResult;
 
@@ -262,7 +265,24 @@ function AssetResultCard({
           >
             Details
           </Button>
-          {result.status === 'FAIL' ? (
+          {asset.fixedImage && onReverify ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="flex-1"
+              onClick={() => onReverify(asset.id)}
+              disabled={asset.isGeneratingFix}
+            >
+              {asset.isGeneratingFix ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <RotateCcw className="w-4 h-4 mr-1" />
+                  Re-verify
+                </>
+              )}
+            </Button>
+          ) : result.status === 'FAIL' ? (
             <Button
               size="sm"
               className="flex-1"
@@ -307,6 +327,7 @@ export function AnalysisResults({
   listingTitle, 
   onRequestFix, 
   onViewDetails,
+  onReverify,
   onBatchFix,
   isBatchFixing,
   productAsin
@@ -402,6 +423,7 @@ export function AnalysisResults({
             asset={asset}
             onRequestFix={onRequestFix}
             onViewDetails={onViewDetails}
+            onReverify={onReverify}
           />
         ))}
       </div>
