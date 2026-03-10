@@ -156,7 +156,7 @@ export function exportToPDF(data: ExportData): void {
   currentY += 8;
   
   const tableData = data.assets.map(asset => [
-    asset.name.length > 25 ? asset.name.substring(0, 22) + '...' : asset.name,
+    asset.filename.length > 25 ? asset.filename.substring(0, 22) + '...' : asset.filename,
     asset.type,
     `${asset.score}%`,
     asset.status,
