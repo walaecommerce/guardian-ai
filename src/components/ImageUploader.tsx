@@ -360,25 +360,41 @@ export function ImageUploader({
         </CardContent>
       </Card>
 
-      {/* Run Audit Button */}
-      <Button
-        onClick={onRunAudit}
-        disabled={assets.length === 0 || isAnalyzing}
-        className="w-full h-12 text-base font-semibold"
-        size="lg"
-      >
-        {isAnalyzing ? (
-          <>
-            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-            Analyzing...
-          </>
+      {/* Run Audit Button - Sticky */}
+      <div className="sticky bottom-0 z-10 bg-background pt-2 pb-1 -mx-1 px-1">
+        {auditComplete ? (
+          <div className="w-full h-12 flex items-center justify-center rounded-md bg-muted text-sm font-semibold text-foreground animate-fade-in">
+            ✅ Audit Complete — {auditComplete.passed} passed, {auditComplete.failed} failed
+          </div>
         ) : (
-          <>
-            <Shield className="w-5 h-5 mr-2" />
-            Run Batch Audit
-          </>
+          <Button
+            onClick={onRunAudit}
+            disabled={assets.length === 0 || isAnalyzing}
+            className="w-full h-12 text-base font-semibold"
+            size="lg"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Analyzing {analyzingProgress ? `${analyzingProgress.current} of ${analyzingProgress.total}` : ''}...
+              </>
+            ) : (
+              <>
+                <Shield className="w-5 h-5 mr-2" />
+                Run Batch Audit
+              </>
+            )}
+          </Button>
         )}
-      </Button>
+        {isAnalyzing && analyzingProgress && (
+          <div className="mt-2 w-full bg-muted rounded-full h-2 overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-500 ease-out rounded-full"
+              style={{ width: `${(analyzingProgress.current / analyzingProgress.total) * 100}%` }}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Image Cropper Modal */}
       {assetToCrop && (
