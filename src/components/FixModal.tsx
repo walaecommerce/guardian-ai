@@ -185,7 +185,11 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
 
   const handleDownload = () => {
     if (asset.fixedImage) {
-      onDownload(asset.fixedImage, `fixed-${asset.name}`);
+      // Extract base64 data for direct download
+      const link = document.createElement('a');
+      link.href = asset.fixedImage;
+      link.download = `guardian-fixed-${Date.now()}.png`;
+      link.click();
     }
   };
 
