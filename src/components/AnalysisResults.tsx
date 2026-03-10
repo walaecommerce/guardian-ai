@@ -286,7 +286,7 @@ function AssetResultCard({
         {sortedViolations.length > 0 && (
           <div className="max-h-32 overflow-y-auto space-y-2">
             {sortedViolations.slice(0, 2).map((v, i) => (
-              <ViolationItem key={i} violation={v} index={i} />
+              <ViolationItem key={i} violation={v} index={i} matchingUpdate={getMatchingPolicyUpdate?.(v.message, v.category)} />
             ))}
             {sortedViolations.length > 2 && (
               <p className="text-xs text-muted-foreground py-1">
