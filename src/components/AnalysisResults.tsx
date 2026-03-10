@@ -21,6 +21,7 @@ interface AnalysisResultsProps {
   isBatchFixing?: boolean;
   batchFixProgress?: { current: number; total: number } | null;
   productAsin?: string;
+  competitorData?: CompetitorData | null;
 }
 
 // ── Score Gauge with animated counter + circular ring ──
