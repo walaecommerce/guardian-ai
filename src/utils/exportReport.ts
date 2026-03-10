@@ -122,10 +122,10 @@ export function exportToPDF(data: ExportData): void {
   doc.setFont('helvetica', 'normal');
   
   const summaryItems = [
-    { label: 'Total Images', value: data.summary.totalAssets.toString() },
-    { label: 'Passed', value: data.summary.passCount.toString(), color: [34, 139, 34] },
-    { label: 'Failed', value: data.summary.failCount.toString(), color: [220, 53, 69] },
-    { label: 'Avg Score', value: `${data.summary.averageScore}%` },
+    { label: 'Total Images', value: data.summary.total_images.toString() },
+    { label: 'Passed', value: data.summary.passed.toString(), color: [34, 139, 34] },
+    { label: 'Failed', value: data.summary.failed.toString(), color: [220, 53, 69] },
+    { label: 'Avg Score', value: `${data.summary.average_score}%` },
   ];
   
   let xPos = 20;
