@@ -3,12 +3,10 @@ import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MAX_RETRIES = 3;
-const INITIAL_DELAY_MS = 1000;
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ── System prompt ────────────────────────────────────────────────
 
@@ -283,54 +281,6 @@ EMOTIONAL APPEAL SCORING (SECONDARY images only):
 - 20: Unappealing or clinical
 - 0: Actively off-putting`;
 
-// ── Error parser ─────────────────────────────────────────────────
-
-const parseGeminiError = (status: number, errorText: string): { message: string; errorType: string; retryable: boolean } => {
-  try {
-    const errorJson = JSON.parse(errorText);
-    const apiMessage = errorJson?.error?.message || '';
-    if (status === 429) return { message: "Rate limit exceeded. Please wait a moment and try again.", errorType: "rate_limit", retryable: true };
-    if (status === 403) return { message: "API key invalid or quota exceeded.", errorType: "auth_error", retryable: false };
-    if (status === 400) {
-      if (apiMessage.includes('MIME type')) return { message: `Invalid image format: ${apiMessage}`, errorType: "invalid_image", retryable: false };
-      if (apiMessage.includes('safety')) return { message: "Image was blocked by safety filters.", errorType: "safety_block", retryable: false };
-      return { message: `Invalid request: ${apiMessage}`, errorType: "bad_request", retryable: false };
-    }
-    if (status >= 500) return { message: "Google AI service temporarily unavailable. Retrying...", errorType: "server_error", retryable: true };
-    return { message: apiMessage || `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
-  } catch {
-    return { message: `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
-  }
-};
-
-// ── Fetch with retry ─────────────────────────────────────────────
-
-const fetchWithRetry = async (url: string, options: RequestInit): Promise<Response> => {
-  let lastError: Error | null = null;
-  let delay = INITIAL_DELAY_MS;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.ok) return response;
-      const errorText = await response.text();
-      const parsed = parseGeminiError(response.status, errorText);
-      console.log(`[analyze-image] Attempt ${attempt}/${MAX_RETRIES}: ${parsed.message}`);
-      if (!parsed.retryable || attempt === MAX_RETRIES) {
-        return new Response(errorText, { status: response.status, headers: response.headers });
-      }
-      await sleep(delay);
-      delay *= 2;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`[analyze-image] Attempt ${attempt}/${MAX_RETRIES} failed:`, lastError.message);
-      if (attempt === MAX_RETRIES) throw lastError;
-      await sleep(delay);
-      delay *= 2;
-    }
-  }
-  throw lastError || new Error('Max retries exceeded');
-};
-
 // ── Image helpers ────────────────────────────────────────────────
 
 const guessImageMimeType = (b64: string): string => {
@@ -349,15 +299,21 @@ const normalizeMimeType = (raw: string, b64: string): string => {
   return allowed.has(mt) ? mt : guessImageMimeType(b64);
 };
 
-const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
+const toDataUrl = (dataUrl: string): string => {
   if (dataUrl.startsWith('data:')) {
     const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
     if (match) {
-      const data = (match[2] || '').trim();
-      return { mimeType: normalizeMimeType(match[1], data), data };
+      const rawMime = match[1];
+      const b64 = match[2];
+      const normalizedMime = normalizeMimeType(rawMime, b64);
+      if (rawMime !== normalizedMime) {
+        return `data:${normalizedMime};base64,${b64}`;
+      }
     }
+    return dataUrl;
   }
-  return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
+  const mimeType = guessImageMimeType(dataUrl);
+  return `data:${mimeType};base64,${dataUrl}`;
 };
 
 // ── Build category-aware prompt ─────────────────────────────────
@@ -391,67 +347,72 @@ serve(async (req) => {
   try {
     const { imageBase64, imageType, listingTitle, forcedCategory } = await req.json();
 
-    const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GOOGLE_GEMINI_API_KEY) {
-      throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const isMain = imageType === 'MAIN';
     const titleRef = listingTitle || 'No listing title provided — skip content consistency check.';
 
-    console.log(`[analyze-image] using model: ${MODELS.analysis}`);
+    console.log(`[analyze-image] using model: ${MODELS.analysis} via Lovable AI gateway`);
     console.log(`[analyze-image] Analyzing ${imageType} image with category detection...`);
 
-    const imageData = extractBase64(imageBase64);
     const systemPrompt = buildAnalysisPrompt(isMain, titleRef, forcedCategory || undefined);
+    const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}`;
 
-    const requestBody = {
-      model: MODELS.analysis,
-      contents: [{
-        parts: [
-          { text: systemPrompt },
-          { inline_data: { mime_type: imageData.mimeType, data: imageData.data } },
-          { text: `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}` },
-        ],
-      }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        thinkingConfig: { thinkingLevel: "High" },
+    const response = await fetch(GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
-    };
+      body: JSON.stringify({
+        model: MODELS.analysis,
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: userPrompt },
+              { type: "image_url", image_url: { url: toDataUrl(imageBase64) } },
+            ],
+          },
+        ],
+      }),
+    });
 
-    const response = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.analysis}:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      }
-    );
+    // Handle rate limit / payment errors
+    if (response.status === 429) {
+      console.error("[analyze-image] Rate limited");
+      return new Response(JSON.stringify({ error: "Rate limit exceeded. Please wait a moment and try again.", errorType: "rate_limit" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (response.status === 402) {
+      console.error("[analyze-image] Payment required");
+      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
+        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      const parsed = parseGeminiError(response.status, errorText);
-      console.error("[analyze-image] API error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: parsed.message, errorType: parsed.errorType }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.error("[analyze-image] Gateway error:", response.status, errorText);
+      return new Response(JSON.stringify({ error: `AI gateway error (${response.status})`, errorType: "gateway_error" }), {
+        status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
 
-    const textBlock = (data.candidates?.[0]?.content?.parts || [])
-      .filter((p: any) => !p.thought && p.text)
-      .map((p: any) => p.text)
-      .join("");
-
-    if (!textBlock) {
-      console.error("[analyze-image] No text content in response");
-      throw new Error("No text content returned from analysis model");
+    if (!content) {
+      console.error("[analyze-image] No content in response");
+      throw new Error("No content returned from analysis model");
     }
 
-    const clean = textBlock.replace(/```json|```/g, "").trim();
+    const clean = content.replace(/```json|```/g, "").trim();
 
     let rawResult: any;
     try {
@@ -465,8 +426,7 @@ serve(async (req) => {
           errorType: "parse_error",
           rawSnippet: clean.substring(0, 240),
         }), {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       rawResult = JSON.parse(jsonMatch[0]);
@@ -526,8 +486,7 @@ serve(async (req) => {
       error: error instanceof Error ? error.message : "Analysis failed",
       errorType: "analysis_failed",
     }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

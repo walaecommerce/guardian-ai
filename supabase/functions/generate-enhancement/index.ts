@@ -3,79 +3,51 @@ import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MAX_RETRIES = 3;
-const INITIAL_DELAY_MS = 1000;
+const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// ── Image helpers ────────────────────────────────────────────────
 
-const parseGeminiError = (status: number, errorText: string): { message: string; errorType: string; retryable: boolean } => {
-  try {
-    const errorJson = JSON.parse(errorText);
-    const apiMessage = errorJson?.error?.message || '';
-    
-    if (status === 429) {
-      return { message: "Rate limit exceeded. Please wait a moment and try again.", errorType: "rate_limit", retryable: true };
-    }
-    if (status === 403) {
-      return { message: "API key invalid or quota exceeded.", errorType: "auth_error", retryable: false };
-    }
-    if (status === 400) {
-      if (apiMessage.includes('safety')) {
-        return { message: "Image was blocked by safety filters.", errorType: "safety_block", retryable: false };
-      }
-      return { message: `Invalid request: ${apiMessage}`, errorType: "bad_request", retryable: false };
-    }
-    if (status >= 500) {
-      return { message: "Google AI service temporarily unavailable. Retrying...", errorType: "server_error", retryable: true };
-    }
-    return { message: apiMessage || `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
-  } catch {
-    return { message: `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
-  }
+const guessImageMimeType = (b64: string): string => {
+  const d = (b64 || '').trim();
+  if (d.startsWith('/9j/')) return 'image/jpeg';
+  if (d.startsWith('iVBOR')) return 'image/png';
+  if (d.startsWith('R0lGOD')) return 'image/gif';
+  if (d.startsWith('UklGR')) return 'image/webp';
+  return 'image/jpeg';
 };
 
-const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = MAX_RETRIES): Promise<Response> => {
-  let lastError: Error | null = null;
-  let delay = INITIAL_DELAY_MS;
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.ok) return response;
-      
-      const errorText = await response.text();
-      const parsedError = parseGeminiError(response.status, errorText);
-      
-      console.log(`[Enhancement Gen] Attempt ${attempt}/${maxRetries}: ${parsedError.message}`);
-      
-      if (!parsedError.retryable || attempt === maxRetries) {
-        return new Response(errorText, { status: response.status, headers: response.headers });
-      }
-      
-      await sleep(delay);
-      delay *= 2;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      if (attempt === maxRetries) throw lastError;
-      await sleep(delay);
-      delay *= 2;
+const normalizeMimeType = (raw: string, b64: string): string => {
+  const mt = (raw || '').toLowerCase().trim();
+  if (mt === 'image/jpg') return 'image/jpeg';
+  const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+  return allowed.has(mt) ? mt : guessImageMimeType(b64);
+};
+
+const toDataUrl = (dataUrl: string): string => {
+  if (dataUrl.startsWith('data:')) {
+    const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      const rawMime = match[1];
+      const b64 = match[2];
+      const normalizedMime = normalizeMimeType(rawMime, b64);
+      if (rawMime !== normalizedMime) return `data:${normalizedMime};base64,${b64}`;
     }
+    return dataUrl;
   }
-  
-  throw lastError || new Error('Max retries exceeded');
+  return `data:${guessImageMimeType(dataUrl)};base64,${dataUrl}`;
 };
 
 // Category-specific enhancement prompts
 const getCategoryEnhancementPrompt = (
-  category: string, 
+  category: string,
   enhancementType: string,
   targetImprovements: string[],
   preserveElements: string[]
 ): string => {
-  const preserveSection = preserveElements.length > 0 
+  const preserveSection = preserveElements.length > 0
     ? `\n\nCRITICAL - PRESERVE EXACTLY:\n${preserveElements.map(e => `- ${e}`).join('\n')}`
     : '';
 
@@ -83,7 +55,6 @@ const getCategoryEnhancementPrompt = (
     ? `\n\nTARGET IMPROVEMENTS:\n${targetImprovements.map(e => `- ${e}`).join('\n')}`
     : '';
 
-  // Base prompts by category
   const categoryPrompts: Record<string, string> = {
     'LIFESTYLE': `Enhance this LIFESTYLE product image:
 
@@ -185,7 +156,7 @@ serve(async (req) => {
   }
 
   try {
-    const { 
+    const {
       originalImage,
       mainProductImage,
       imageCategory,
@@ -195,16 +166,14 @@ serve(async (req) => {
       customPrompt
     } = await req.json();
 
-    const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    
-    if (!GOOGLE_GEMINI_API_KEY) {
-      throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`[generate-enhancement] using model: ${MODELS.imageGen}`);
+    console.log(`[generate-enhancement] using model: ${MODELS.imageGen} via Lovable AI gateway`);
     console.log(`[Enhancement Gen] Generating ${enhancementType} enhancement for ${imageCategory} image...`);
 
-    // Build the enhancement prompt
     const prompt = customPrompt || getCategoryEnhancementPrompt(
       imageCategory,
       enhancementType,
@@ -212,150 +181,82 @@ serve(async (req) => {
       preserveElements || []
     );
 
-    // Helper functions
-    const guessImageMimeType = (base64DataRaw: string): string => {
-      const base64Data = (base64DataRaw || '').trim();
-      if (base64Data.startsWith('/9j/')) return 'image/jpeg';
-      if (base64Data.startsWith('iVBOR')) return 'image/png';
-      if (base64Data.startsWith('R0lGOD')) return 'image/gif';
-      if (base64Data.startsWith('UklGR')) return 'image/webp';
-      return 'image/jpeg';
-    };
-
-    const normalizeMimeType = (mimeTypeRaw: string, base64Data: string): string => {
-      const mt = (mimeTypeRaw || '').toLowerCase().trim();
-      if (mt === 'image/jpg') return 'image/jpeg';
-      const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-      if (!allowed.has(mt)) return guessImageMimeType(base64Data);
-      return mt;
-    };
-
-    const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
-      if (dataUrl.startsWith('data:')) {
-        const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-        if (match) {
-          const data = (match[2] || '').trim();
-          const mimeType = normalizeMimeType(match[1], data);
-          return { mimeType, data };
-        }
-      }
-      return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
-    };
-
-    const originalImageData = extractBase64(originalImage);
-    const mainImageData = mainProductImage ? extractBase64(mainProductImage) : null;
-
-    // Build parts
-    const parts: any[] = [
-      { text: prompt },
-      {
-        inline_data: {
-          mime_type: originalImageData.mimeType,
-          data: originalImageData.data
-        }
-      }
+    // Build content parts
+    const contentParts: any[] = [
+      { type: "text", text: prompt },
+      { type: "image_url", image_url: { url: toDataUrl(originalImage) } },
     ];
 
-    if (mainImageData) {
-      parts.push({ text: "Main product reference image (use for product consistency):" });
-      parts.push({
-        inline_data: {
-          mime_type: mainImageData.mimeType,
-          data: mainImageData.data
-        }
+    if (mainProductImage) {
+      contentParts.push({ type: "text", text: "Main product reference image (use for product consistency):" });
+      contentParts.push({ type: "image_url", image_url: { url: toDataUrl(mainProductImage) } });
+    }
+
+    const response = await fetch(GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODELS.imageGen,
+        messages: [{ role: "user", content: contentParts }],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (response.status === 429) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded.", errorType: "rate_limit" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (response.status === 402) {
+      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
+        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Request image generation
-    const response = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.imageGen}:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"],
-          },
-        }),
-      }
-    );
-
     if (!response.ok) {
       const errorText = await response.text();
-      const parsedError = parseGeminiError(response.status, errorText);
-      console.error("[Enhancement Gen] API error:", response.status, errorText);
-      
-      return new Response(JSON.stringify({ 
-        error: parsedError.message,
-        errorType: parsedError.errorType 
-      }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.error("[Enhancement Gen] Gateway error:", response.status, errorText);
+      return new Response(JSON.stringify({ error: `AI gateway error (${response.status})`, errorType: "gateway_error" }), {
+        status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
 
-    let generatedImage: string | null = null;
-    let modelText: string | null = null;
+    // Extract image from gateway response
+    const imageResult = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    const candidates = data.candidates;
+    if (!imageResult) {
+      const textContent = data.choices?.[0]?.message?.content || '';
+      const finishReason = data.choices?.[0]?.finish_reason ?? null;
 
-    if (candidates && candidates[0]?.content?.parts) {
-      for (const part of candidates[0].content.parts) {
-        const inline = part.inlineData || part.inline_data;
-        if (inline && inline.data) {
-          const mimeType = inline.mimeType || inline.mime_type || "image/png";
-          generatedImage = `data:${mimeType};base64,${inline.data}`;
-          break;
-        }
-        if (!modelText && typeof part.text === "string" && part.text.trim()) {
-          modelText = part.text.trim();
-        }
-      }
-    }
-
-    const finishReason = candidates?.[0]?.finishReason ?? null;
-
-    if (!generatedImage) {
-      if (finishReason === "SAFETY") {
+      if (finishReason === "content_filter") {
         return new Response(JSON.stringify({
           error: "Image generation was blocked by safety filters.",
           errorType: "safety_block",
         }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      if (finishReason === "IMAGE_RECITATION") {
-        return new Response(JSON.stringify({
-          error: "The AI could not generate an enhanced version. Try a different enhancement or custom prompt.",
-          errorType: "image_recitation",
-        }), {
-          status: 422,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      console.error(`[Enhancement Gen] No image in gateway response. Text: ${textContent.slice(0, 200)}`);
 
-      console.error("[Enhancement Gen] No image in response:", JSON.stringify(data).substring(0, 500));
-      
       return new Response(JSON.stringify({
         error: "No enhanced image was generated. Please try again or use a different enhancement preset.",
         errorType: "no_image_returned",
-        finishReason: finishReason || null,
-        modelTextSnippet: modelText ? modelText.slice(0, 240) : null,
+        modelTextSnippet: textContent.slice(0, 240) || null,
       }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log("[Enhancement Gen] Enhanced image generated successfully");
+    console.log("[Enhancement Gen] ✅ Enhanced image generated successfully via Lovable AI gateway");
 
-    return new Response(JSON.stringify({ 
-      enhancedImage: generatedImage,
+    return new Response(JSON.stringify({
+      enhancedImage: imageResult,
       enhancementType,
       imageCategory,
     }), {
@@ -364,11 +265,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("[Enhancement Gen] Error:", error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : "Enhancement generation failed" 
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : "Enhancement generation failed"
     }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
