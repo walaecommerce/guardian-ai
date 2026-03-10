@@ -296,6 +296,13 @@ function AssetResultCard({
           <ScoreGauge score={result.overallScore} size={60} />
         </div>
 
+        {/* Scoring Rationale */}
+        {result.scoringRationale && (
+          <p className="text-xs text-muted-foreground italic leading-relaxed border-l-2 border-primary/30 pl-2">
+            {result.scoringRationale}
+          </p>
+        )}
+
         {/* Violations sorted by severity with stagger */}
         {sortedViolations.length > 0 && (
           <div className="max-h-32 overflow-y-auto space-y-2">
