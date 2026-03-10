@@ -1338,6 +1338,8 @@ const Index = () => {
                   isImporting={isImportingCompetitor}
                   importProgress={competitorProgress}
                   onImportCompetitor={handleImportCompetitor}
+                  aiComparison={aiComparison}
+                  isLoadingAIComparison={isLoadingAIComparison}
                 />
               </TabsContent>
               <TabsContent value="history">
