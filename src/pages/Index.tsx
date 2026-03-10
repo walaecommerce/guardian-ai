@@ -57,6 +57,8 @@ const Index = () => {
   const [competitorData, setCompetitorData] = useState<CompetitorData | null>(null);
   const [isImportingCompetitor, setIsImportingCompetitor] = useState(false);
   const [competitorProgress, setCompetitorProgress] = useState<{ current: number; total: number } | null>(null);
+  const [aiComparison, setAiComparison] = useState<AIComparisonResult | null>(null);
+  const [isLoadingAIComparison, setIsLoadingAIComparison] = useState(false);
   const { toast } = useToast();
   const { data: policyData, loading: policyLoading, highImpactUpdates, getMatchingUpdate, refresh: refreshPolicy } = usePolicyUpdates();
   const [bannerDismissed, setBannerDismissed] = useState(false);
