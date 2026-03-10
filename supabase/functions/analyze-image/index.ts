@@ -16,17 +16,67 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const SYSTEM_PROMPT = `You are Guardian, an Amazon FBA compliance officer with forensic image analysis capabilities. Analyze product images with pixel-level precision and return ONLY valid JSON with no markdown, no preamble, no explanation outside the JSON structure.`;
 
 const MAIN_IMAGE_RULES = `MAIN IMAGE RULES (apply strictly):
-- Background: MUST be pure white RGB(255,255,255). Any shadow, gradient, or off-white tone = CRITICAL violation
-- Text overlays: ZERO tolerance. No badges, watermarks, promotional text, Best Seller, Amazon's Choice = CRITICAL violation
-- Product occupancy: must fill 85%+ of frame. Under 70% = HIGH violation
-- Image quality: must be sharp, high-res, professionally lit. Blur or grain = MEDIUM violation
-- Props: only if they clarify product use. Lifestyle props = HIGH violation`;
+
+BACKGROUND:
+- MUST be pure white RGB(255,255,255). Any shadow, gradient, or off-white tone = CRITICAL violation
+- No environmental backgrounds — countertops, tables, wooden surfaces, kitchen settings = CRITICAL violation (white background required)
+
+TEXT & BADGES:
+- ZERO tolerance for overlays. No badges, watermarks, promotional text, "Best Seller", "Amazon's Choice" = CRITICAL violation
+
+PRODUCT PRESENTATION:
+- Product must fill 85%+ of frame. Under 70% = HIGH violation
+- Product must face forward with primary label readable. Sideways or back-facing = HIGH violation
+- No hands holding the product = MEDIUM violation
+- No props like bowls, plates, serving suggestions, utensils = MEDIUM violation
+- Expiry dates, lot codes, or date stamps visible on packaging = MEDIUM violation (should be hidden or not visible in hero shot)
+
+IMAGE QUALITY:
+- Must be sharp, high-res, professionally lit. Blur or grain = MEDIUM violation
+
+FOOD PRODUCT CHECKS (if product is food/snack/beverage):
+- Net weight/quantity on packaging must match listing title exactly. Mismatch = CRITICAL violation
+- Flavor name on packaging must match listing title. Mismatch = CRITICAL violation
+- Health claims on packaging ("Non-GMO", "Gluten Free", "Keto", "Organic", "Vegan") must match claims in listing title. Mismatch = HIGH violation`;
 
 const SECONDARY_IMAGE_RULES = `SECONDARY IMAGE RULES (relaxed):
-- Background: lifestyle and textured backgrounds are ALLOWED — do NOT flag these
-- Text: infographic text and callouts are ALLOWED and expected — do NOT flag these
-- Prohibited: Best Seller badges, Amazon's Choice badges, competitor logos = CRITICAL violation
-- Quality: must be readable and clear`;
+
+ALLOWED & ENCOURAGED:
+- Lifestyle backgrounds, textured backgrounds, kitchen settings — do NOT flag these
+- Infographic text, callouts, nutritional highlights, macro breakdowns — do NOT flag these
+- Lifestyle images showing food in use (eating, serving, cooking) — ALLOWED and GOOD
+- Infographic callouts showing macros, ingredients, or nutritional benefits — ALLOWED and GOOD
+- Comparison images showing size reference or product scale — ALLOWED
+- Multiple product variants or flavors shown together — ALLOWED
+
+PROHIBITED (still enforced):
+- "Best Seller" badges, "Amazon's Choice" badges, competitor brand logos = CRITICAL violation
+- Competitor product comparisons using their actual brand names/logos = HIGH violation
+
+IMAGE QUALITY:
+- Must be readable and clear. Blurry or pixelated = MEDIUM violation
+
+FOOD PRODUCT CHECKS (if product is food/snack/beverage):
+- Nutrition facts panel: must be legible if shown. Blurry or unreadable nutrition panel = LOW violation
+- Allergen information: should be visible and readable if shown
+- Net weight/quantity on packaging must match listing title exactly. Mismatch = CRITICAL violation
+- Flavor name on packaging must match listing title. Mismatch = CRITICAL violation
+- Health claims on packaging ("Non-GMO", "Gluten Free", "Keto", "Organic", "Vegan") must match claims in listing title. Mismatch = HIGH violation`;
+
+const OCR_INSTRUCTIONS = `OCR EXTRACTION (perform on every image):
+For food/snack/beverage products, extract ALL of the following from visible packaging text:
+1. Product/brand name
+2. Flavor name (e.g., "Sea Salt", "Tangy Dijon Mustard")
+3. Net weight or quantity (e.g., "5 Oz", "Pack of 6")
+4. Serving size and servings per container
+5. Key health/diet claims (e.g., "Gluten Free", "Non-GMO", "Keto Friendly", "Vegan", "Dairy Free")
+6. Allergen statements (e.g., "Contains: Wheat")
+
+CROSS-REFERENCE RULES (critical for food products):
+- Compare extracted FLAVOR NAME against listing title — mismatch is CRITICAL (e.g., package says "Cheddar" but title says "Sea Salt")
+- Compare extracted NET WEIGHT against listing title — mismatch is CRITICAL (e.g., package shows "4.5 oz" but title says "5 Oz")
+- Compare extracted QUANTITY/PACK SIZE against listing title — mismatch is CRITICAL (e.g., single bag shown but title says "Pack of 6")
+- Compare extracted HEALTH CLAIMS against listing title claims — missing or contradicting claims = HIGH violation`;
 
 const OUTPUT_SCHEMA = `
 Return this EXACT JSON structure:
@@ -43,7 +93,14 @@ Return this EXACT JSON structure:
     }
   ],
   "content_consistency": {
-    "packaging_text_detected": "<all text read from product>",
+    "packaging_text_detected": "<all text read from product packaging>",
+    "extracted_details": {
+      "flavor": "<detected flavor or null>",
+      "net_weight": "<detected weight or null>",
+      "pack_size": "<detected pack size or null>",
+      "health_claims": ["<claim1>", "<claim2>"],
+      "allergens": "<detected allergen statement or null>"
+    },
     "listing_title": "<the listing title provided>",
     "discrepancies": ["<mismatch 1>", "<mismatch 2>"]
   },
@@ -164,9 +221,9 @@ serve(async (req) => {
       model: MODELS.analysis,
       contents: [{
         parts: [
-          { text: `${SYSTEM_PROMPT}\n\n${rules}\n\n${OUTPUT_SCHEMA}` },
+          { text: `${SYSTEM_PROMPT}\n\n${rules}\n\n${OCR_INSTRUCTIONS}\n\n${OUTPUT_SCHEMA}` },
           { inline_data: { mime_type: imageData.mimeType, data: imageData.data } },
-          { text: `Analyze this image against the rules above. Listing title for OCR cross-reference: ${titleRef}` },
+          { text: `Analyze this ${imageType} image against all rules above. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}` },
         ],
       }],
       generationConfig: {
