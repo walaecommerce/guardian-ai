@@ -111,6 +111,7 @@ export interface SpatialAnalysis {
 export interface AnalysisResult {
   overallScore: number;
   status: 'PASS' | 'FAIL';
+  productCategory?: string;
   mainImageAnalysis?: MainImageAnalysis;
   contentConsistency?: ContentConsistency;
   spatialAnalysis?: SpatialAnalysis; // Zone mapping for AI editing
