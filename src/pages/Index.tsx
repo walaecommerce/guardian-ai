@@ -1374,6 +1374,8 @@ const Index = () => {
               onRetryFailedDownloads={handleRetryFailedDownloads}
               titlePulse={titlePulse}
               assetGridRef={assetGridRef}
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
             />
 
             {/* Competitor URL Input */}
