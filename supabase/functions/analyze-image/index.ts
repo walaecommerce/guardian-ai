@@ -362,16 +362,21 @@ const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
 
 // ── Build category-aware prompt ─────────────────────────────────
 
-const buildAnalysisPrompt = (isMain: boolean, listingTitle: string): string => {
+const buildAnalysisPrompt = (isMain: boolean, listingTitle: string, forcedCategory?: string): string => {
   const universalRules = isMain ? MAIN_IMAGE_RULES : SECONDARY_IMAGE_RULES;
+  const categoryBlock = forcedCategory
+    ? `--- FORCED CATEGORY: ${forcedCategory} — apply ONLY this category's rules ---`
+    : '--- CATEGORY-SPECIFIC RULES (apply the matching set after detection) ---';
   return [
     SYSTEM_PROMPT,
     universalRules,
-    '--- CATEGORY-SPECIFIC RULES (apply the matching set after detection) ---',
+    categoryBlock,
     FOOD_RULES,
     PET_RULES,
     SUPPLEMENT_RULES,
     GENERAL_RULES,
+    BEAUTY_RULES,
+    ELECTRONICS_RULES,
     OUTPUT_SCHEMA,
   ].join('\n\n');
 };
