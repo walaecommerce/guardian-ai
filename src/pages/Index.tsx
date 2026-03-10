@@ -518,7 +518,11 @@ const Index = () => {
 
     addLog('success', '🎯 Guardian batch audit complete');
     setIsAnalyzing(false);
+    setAnalyzingProgress(undefined);
+    setAuditComplete({ passed: passedCount, failed: failedCount });
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
+    // Reset completion message after 3 seconds
+    setTimeout(() => setAuditComplete(null), 3000);
   };
 
   const handleSaveReport = async () => {
