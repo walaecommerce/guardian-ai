@@ -12,6 +12,7 @@ import { SessionHistory } from '@/components/SessionHistory';
 import { ComplianceHistory, saveAuditToHistory, AuditHistoryEntry } from '@/components/ComplianceHistory';
 import { BulkUrlImport } from '@/components/BulkUrlImport';
 import { CompetitorAudit, CompetitorData, buildComparisonReport } from '@/components/CompetitorAudit';
+import { ListingScoreCard } from '@/components/ListingScoreCard';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
