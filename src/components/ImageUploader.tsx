@@ -66,6 +66,8 @@ export function ImageUploader({
   failedDownloads = [],
   isRetrying = false,
   onRetryFailedDownloads,
+  titlePulse = false,
+  assetGridRef,
 }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
