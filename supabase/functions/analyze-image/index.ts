@@ -8,18 +8,26 @@ const corsHeaders = {
 
 const MAX_RETRIES = 3;
 const INITIAL_DELAY_MS = 1000;
-
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ── System prompt ────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are Guardian, an Amazon FBA compliance officer with forensic image analysis capabilities. Analyze product images with pixel-level precision and return ONLY valid JSON with no markdown, no preamble, no explanation outside the JSON structure.`;
+const SYSTEM_PROMPT = `You are Guardian, an Amazon FBA compliance officer with forensic image analysis capabilities. Analyze product images with pixel-level precision and return ONLY valid JSON with no markdown, no preamble, no explanation outside the JSON structure.
 
-const MAIN_IMAGE_RULES = `MAIN IMAGE RULES (apply strictly):
+STEP 1 — CATEGORY DETECTION (do this first):
+Examine the product image and determine the category:
+- FOOD: packaged food, snacks, beverages, cooking ingredients, condiments
+- PET: pet food, pet treats, pet supplements
+- SUPPLEMENT: dietary supplements, vitamins, protein powders, health capsules
+- GENERAL: electronics, clothing, home goods, tools, toys, beauty, everything else
+
+Apply the category-specific rules below in addition to the universal rules.`;
+
+const MAIN_IMAGE_RULES = `UNIVERSAL MAIN IMAGE RULES (apply to ALL categories):
 
 BACKGROUND:
 - MUST be pure white RGB(255,255,255). Any shadow, gradient, or off-white tone = CRITICAL violation
-- No environmental backgrounds — countertops, tables, wooden surfaces, kitchen settings = CRITICAL violation (white background required)
+- No environmental backgrounds — countertops, tables, wooden surfaces, kitchen settings = CRITICAL violation
 
 TEXT & BADGES:
 - ZERO tolerance for overlays. No badges, watermarks, promotional text, "Best Seller", "Amazon's Choice" = CRITICAL violation
@@ -27,25 +35,15 @@ TEXT & BADGES:
 PRODUCT PRESENTATION:
 - Product must fill 85%+ of frame. Under 70% = HIGH violation
 - Product must face forward with primary label readable. Sideways or back-facing = HIGH violation
-- No hands holding the product = MEDIUM violation
-- No props like bowls, plates, serving suggestions, utensils = MEDIUM violation
-- Expiry dates, lot codes, or date stamps visible on packaging = MEDIUM violation (should be hidden or not visible in hero shot)
 
 IMAGE QUALITY:
-- Must be sharp, high-res, professionally lit. Blur or grain = MEDIUM violation
+- Must be sharp, high-res, professionally lit. Blur or grain = MEDIUM violation`;
 
-FOOD PRODUCT CHECKS (if product is food/snack/beverage):
-- Net weight/quantity on packaging must match listing title exactly. Mismatch = CRITICAL violation
-- Flavor name on packaging must match listing title. Mismatch = CRITICAL violation
-- Health claims on packaging ("Non-GMO", "Gluten Free", "Keto", "Organic", "Vegan") must match claims in listing title. Mismatch = HIGH violation`;
-
-const SECONDARY_IMAGE_RULES = `SECONDARY IMAGE RULES (relaxed):
+const SECONDARY_IMAGE_RULES = `UNIVERSAL SECONDARY IMAGE RULES (apply to ALL categories):
 
 ALLOWED & ENCOURAGED:
-- Lifestyle backgrounds, textured backgrounds, kitchen settings — do NOT flag these
-- Infographic text, callouts, nutritional highlights, macro breakdowns — do NOT flag these
-- Lifestyle images showing food in use (eating, serving, cooking) — ALLOWED and GOOD
-- Infographic callouts showing macros, ingredients, or nutritional benefits — ALLOWED and GOOD
+- Lifestyle backgrounds, textured backgrounds — do NOT flag these
+- Infographic text, callouts, nutritional highlights — do NOT flag these
 - Comparison images showing size reference or product scale — ALLOWED
 - Multiple product variants or flavors shown together — ALLOWED
 
@@ -54,29 +52,109 @@ PROHIBITED (still enforced):
 - Competitor product comparisons using their actual brand names/logos = HIGH violation
 
 IMAGE QUALITY:
-- Must be readable and clear. Blurry or pixelated = MEDIUM violation
+- Must be readable and clear. Blurry or pixelated = MEDIUM violation`;
 
-FOOD PRODUCT CHECKS (if product is food/snack/beverage):
-- Nutrition facts panel: must be legible if shown. Blurry or unreadable nutrition panel = LOW violation
-- Allergen information: should be visible and readable if shown
-- Net weight/quantity on packaging must match listing title exactly. Mismatch = CRITICAL violation
-- Flavor name on packaging must match listing title. Mismatch = CRITICAL violation
-- Health claims on packaging ("Non-GMO", "Gluten Free", "Keto", "Organic", "Vegan") must match claims in listing title. Mismatch = HIGH violation`;
+const FOOD_RULES = `FOOD PRODUCT SPECIFIC RULES (apply when category is FOOD):
 
-const OCR_INSTRUCTIONS = `OCR EXTRACTION (perform on every image):
-For food/snack/beverage products, extract ALL of the following from visible packaging text:
+MAIN IMAGE:
+- No hands holding product = MEDIUM violation
+- No props (bowls, plates, serving suggestions, utensils) = MEDIUM violation
+- Product must face forward with label fully readable = HIGH violation if not
+- No environmental backgrounds (countertops, tables) = HIGH violation (covered by universal rules but doubly enforced)
+- Expiry dates, lot codes, or date stamps visible on packaging = MEDIUM violation (should be hidden or not visible in hero shot)
+
+SECONDARY IMAGES:
+- Lifestyle showing food being eaten or served = ALLOWED and POSITIVE
+- Infographic callouts showing macros, ingredients, claims = ALLOWED and POSITIVE
+- Size/scale reference images = ALLOWED
+- Multiple variants shown together = ALLOWED
+- Nutrition facts panel must be legible if shown = LOW violation if blurry
+
+OCR EXTRACTION for food products — extract ALL of these if visible:
 1. Product/brand name
-2. Flavor name (e.g., "Sea Salt", "Tangy Dijon Mustard")
-3. Net weight or quantity (e.g., "5 Oz", "Pack of 6")
+2. Flavor name (e.g. "Sea Salt", "Cheddar", "Original", "Tangy Dijon Mustard")
+3. Net weight or quantity (e.g. "5 Oz", "200g", "1lb")
 4. Serving size and servings per container
-5. Key health/diet claims (e.g., "Gluten Free", "Non-GMO", "Keto Friendly", "Vegan", "Dairy Free")
-6. Allergen statements (e.g., "Contains: Wheat")
+5. Key health/diet claims (e.g. "Gluten Free", "Non-GMO", "Keto Friendly", "Vegan", "Organic", "Dairy Free")
+6. Allergen statements (e.g. "Contains: Wheat, Soy")
+7. Pack count if visible (e.g. "Pack of 6", "Case of 12")
 
-CROSS-REFERENCE RULES (critical for food products):
-- Compare extracted FLAVOR NAME against listing title — mismatch is CRITICAL (e.g., package says "Cheddar" but title says "Sea Salt")
-- Compare extracted NET WEIGHT against listing title — mismatch is CRITICAL (e.g., package shows "4.5 oz" but title says "5 Oz")
-- Compare extracted QUANTITY/PACK SIZE against listing title — mismatch is CRITICAL (e.g., single bag shown but title says "Pack of 6")
-- Compare extracted HEALTH CLAIMS against listing title claims — missing or contradicting claims = HIGH violation`;
+CONTENT CONSISTENCY CHECKS for food:
+- Flavor name on packaging vs listing title = CRITICAL if mismatch (e.g. package says "Cheddar" but title says "Sea Salt")
+- Net weight on packaging vs listing title = CRITICAL if mismatch (e.g. package shows "4.5 oz" but title says "5 Oz")
+- Key claims on packaging must match claims in listing title — missing or contradicting claims = HIGH violation
+- Pack count (Pack of 6, Case of 12) must match listing title exactly = CRITICAL if mismatch (e.g. single bag shown but title says "Pack of 6")`;
+
+const PET_RULES = `PET PRODUCT SPECIFIC RULES (apply when category is PET):
+
+MAIN IMAGE:
+- No hands holding product = MEDIUM violation
+- Product must face forward with label fully readable = HIGH violation if not
+- No raw meat imagery on main image = MEDIUM violation
+- No environmental backgrounds = HIGH violation
+
+SECONDARY IMAGES:
+- Pet shown eating/enjoying the product = ALLOWED and POSITIVE
+- Feeding guidelines visible = POSITIVE signal
+- Ingredient callouts and nutritional info = ALLOWED and POSITIVE
+
+OCR EXTRACTION for pet products — extract ALL of these if visible:
+1. Product/brand name
+2. Protein source (e.g. "Chicken", "Beef", "Salmon", "Lamb")
+3. Net weight or count (e.g. "5 lb", "30 Count", "24 oz")
+4. Key claims ("Grain Free", "Made in USA", "All Natural", "No Artificial Flavors")
+5. Country of origin
+6. Life stage (e.g. "Puppy", "Adult", "Senior", "All Life Stages")
+
+CONTENT CONSISTENCY CHECKS for pet products:
+- Protein source on packaging vs listing title = CRITICAL if mismatch (e.g. package says "Chicken" but title says "Beef")
+- Weight/count of treats on packaging vs listing title = CRITICAL if mismatch
+- "Made in USA" or country of origin claims must be consistent between packaging and title = HIGH if mismatch
+- Life stage must match if specified = HIGH if mismatch`;
+
+const SUPPLEMENT_RULES = `SUPPLEMENT PRODUCT SPECIFIC RULES (apply when category is SUPPLEMENT):
+
+MAIN IMAGE:
+- No hands holding product = MEDIUM violation
+- Product must face forward with supplement facts panel NOT as primary visible face = preferred but not violation
+- No props (pills scattered, powder spilled) = MEDIUM violation
+
+SECONDARY IMAGES:
+- Supplement facts panel shown clearly = POSITIVE signal
+- Before/after imagery = HIGH violation (Amazon prohibits this)
+- Dosage/usage instructions visible = ALLOWED and POSITIVE
+
+OCR EXTRACTION for supplements — extract ALL of these if visible:
+1. Product/brand name
+2. Supplement type (e.g. "Vitamin D3", "Whey Protein", "Multivitamin")
+3. Serving size and servings per container
+4. Key claims ("Non-GMO", "Third Party Tested", "GMP Certified", "Vegan")
+5. Count/quantity (e.g. "120 Capsules", "2 lb", "30 Servings")
+6. Active ingredients and amounts
+
+CONTENT CONSISTENCY CHECKS for supplements:
+- Supplement type on packaging vs listing title = CRITICAL if mismatch
+- Count/quantity on packaging vs listing title = CRITICAL if mismatch
+- Key claims must match between packaging and title = HIGH if mismatch`;
+
+const GENERAL_RULES = `GENERAL MERCHANDISE RULES (apply when category is GENERAL):
+
+MAIN IMAGE:
+- No hands holding product = MEDIUM violation
+- No props or accessories not included in the sale = MEDIUM violation
+- Product must face forward showing primary features = HIGH violation if not
+
+SECONDARY IMAGES:
+- Dimensions/size reference images = ALLOWED and POSITIVE
+- Product in use / lifestyle context = ALLOWED
+- Feature callout infographics = ALLOWED
+
+OCR EXTRACTION for general products — extract if visible:
+1. Product/brand name
+2. Model number
+3. Key specs visible on packaging
+4. Country of origin
+5. Certifications (UL, CE, FCC, etc.)`;
 
 const OUTPUT_SCHEMA = `
 Return this EXACT JSON structure:
@@ -84,6 +162,7 @@ Return this EXACT JSON structure:
   "overall_score": <0-100>,
   "status": "PASS" or "FAIL",
   "severity": "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+  "product_category": "FOOD" | "PET" | "SUPPLEMENT" | "GENERAL",
   "violations": [
     {
       "rule": "<rule name>",
@@ -103,6 +182,23 @@ Return this EXACT JSON structure:
     },
     "listing_title": "<the listing title provided>",
     "discrepancies": ["<mismatch 1>", "<mismatch 2>"]
+  },
+  "category_specific_checks": {
+    "flavor_detected": "<string or null>",
+    "weight_detected": "<string or null>",
+    "claims_detected": ["<claim1>", "<claim2>"],
+    "pack_count_detected": "<string or null>",
+    "protein_source_detected": "<string or null — for PET>",
+    "supplement_type_detected": "<string or null — for SUPPLEMENT>",
+    "country_of_origin_detected": "<string or null>",
+    "category_violations": [
+      {
+        "rule": "<category-specific rule>",
+        "severity": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+        "description": "<what is wrong>",
+        "recommendation": "<how to fix>"
+      }
+    ]
   },
   "fix_recommendations": ["<ordered fix actions>"],
   "generative_prompt": "<detailed AI image generation prompt to fix all issues>"
@@ -192,6 +288,22 @@ const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
   return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
 };
 
+// ── Build category-aware prompt ─────────────────────────────────
+
+const buildAnalysisPrompt = (isMain: boolean, listingTitle: string): string => {
+  const universalRules = isMain ? MAIN_IMAGE_RULES : SECONDARY_IMAGE_RULES;
+  return [
+    SYSTEM_PROMPT,
+    universalRules,
+    '--- CATEGORY-SPECIFIC RULES (apply the matching set after detection) ---',
+    FOOD_RULES,
+    PET_RULES,
+    SUPPLEMENT_RULES,
+    GENERAL_RULES,
+    OUTPUT_SCHEMA,
+  ].join('\n\n');
+};
+
 // ── Main handler ─────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -200,7 +312,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, imageType, listingTitle, productAsin } = await req.json();
+    const { imageBase64, imageType, listingTitle } = await req.json();
 
     const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GOOGLE_GEMINI_API_KEY) {
@@ -208,29 +320,26 @@ serve(async (req) => {
     }
 
     const isMain = imageType === 'MAIN';
-    const rules = isMain ? MAIN_IMAGE_RULES : SECONDARY_IMAGE_RULES;
     const titleRef = listingTitle || 'No listing title provided — skip content consistency check.';
 
     console.log(`[analyze-image] using model: ${MODELS.analysis}`);
-    console.log(`[analyze-image] Analyzing ${imageType} image...`);
+    console.log(`[analyze-image] Analyzing ${imageType} image with category detection...`);
 
     const imageData = extractBase64(imageBase64);
+    const systemPrompt = buildAnalysisPrompt(isMain, titleRef);
 
-    // ── Build request per spec ──
     const requestBody = {
       model: MODELS.analysis,
       contents: [{
         parts: [
-          { text: `${SYSTEM_PROMPT}\n\n${rules}\n\n${OCR_INSTRUCTIONS}\n\n${OUTPUT_SCHEMA}` },
+          { text: systemPrompt },
           { inline_data: { mime_type: imageData.mimeType, data: imageData.data } },
-          { text: `Analyze this ${imageType} image against all rules above. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}` },
+          { text: `Analyze this ${imageType} image. First detect the product category (FOOD/PET/SUPPLEMENT/GENERAL), then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}` },
         ],
       }],
       generationConfig: {
         responseMimeType: "application/json",
-        thinkingConfig: {
-          thinkingLevel: "High",
-        },
+        thinkingConfig: { thinkingLevel: "High" },
       },
     };
 
@@ -255,7 +364,6 @@ serve(async (req) => {
 
     const data = await response.json();
 
-    // ── Parse response: skip thinking tokens, extract JSON ──
     const textBlock = (data.candidates?.[0]?.content?.parts || [])
       .filter((p: any) => !p.thought && p.text)
       .map((p: any) => p.text)
@@ -272,7 +380,6 @@ serve(async (req) => {
     try {
       rawResult = JSON.parse(clean);
     } catch {
-      // Fallback: try extracting JSON object
       const jsonMatch = clean.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         console.error("[analyze-image] Failed to parse JSON:", clean.substring(0, 300));
@@ -288,13 +395,16 @@ serve(async (req) => {
       rawResult = JSON.parse(jsonMatch[0]);
     }
 
-    console.log(`[analyze-image] Score: ${rawResult.overall_score}%, Status: ${rawResult.status}`);
+    const detectedCategory = rawResult.product_category || 'GENERAL';
+    console.log(`[analyze-image] Category: ${detectedCategory}, Score: ${rawResult.overall_score}%, Status: ${rawResult.status}`);
 
-    // ── Map snake_case API response to camelCase for frontend compatibility ──
+    // ── Map to camelCase for frontend ──
+    const categoryChecks = rawResult.category_specific_checks || {};
     const mappedResult = {
       overallScore: rawResult.overall_score ?? rawResult.overallScore ?? 0,
       status: rawResult.status || 'FAIL',
       severity: rawResult.severity || 'NONE',
+      productCategory: detectedCategory,
       violations: (rawResult.violations || []).map((v: any) => ({
         severity: v.severity || 'info',
         category: v.rule || 'general',
@@ -307,9 +417,23 @@ serve(async (req) => {
         discrepancies: rawResult.content_consistency.discrepancies || [],
         isConsistent: (rawResult.content_consistency.discrepancies || []).length === 0,
       } : undefined,
+      categorySpecificChecks: {
+        flavorDetected: categoryChecks.flavor_detected || null,
+        weightDetected: categoryChecks.weight_detected || null,
+        claimsDetected: categoryChecks.claims_detected || [],
+        packCountDetected: categoryChecks.pack_count_detected || null,
+        proteinSourceDetected: categoryChecks.protein_source_detected || null,
+        supplementTypeDetected: categoryChecks.supplement_type_detected || null,
+        countryOfOriginDetected: categoryChecks.country_of_origin_detected || null,
+        categoryViolations: (categoryChecks.category_violations || []).map((v: any) => ({
+          severity: v.severity || 'info',
+          category: v.rule || 'category-specific',
+          message: v.description || v.message || '',
+          recommendation: v.recommendation || '',
+        })),
+      },
       fixRecommendations: rawResult.fix_recommendations || rawResult.fixRecommendations || [],
       generativePrompt: rawResult.generative_prompt || rawResult.generativePrompt || '',
-      // Preserve spatial analysis if the model returns it
       spatialAnalysis: rawResult.spatialAnalysis || rawResult.spatial_analysis || undefined,
     };
 
