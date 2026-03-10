@@ -5,6 +5,7 @@ import { HeroSection } from '@/components/HeroSection';
 import { ImageUploader, MaxImagesOption } from '@/components/ImageUploader';
 import { AnalysisResults } from '@/components/AnalysisResults';
 import { ComplianceReportCard } from '@/components/ComplianceReportCard';
+import { Card, CardContent } from '@/components/ui/card';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
