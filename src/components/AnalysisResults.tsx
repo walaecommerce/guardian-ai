@@ -376,7 +376,9 @@ export function AnalysisResults({
 
   const completedAssets = analyzedAssets.filter(a => a.analysisResult);
   const passCount = completedAssets.filter(a => a.analysisResult?.status === 'PASS').length;
+  const warningCount = completedAssets.filter(a => a.analysisResult?.status === 'WARNING').length;
   const failCount = completedAssets.filter(a => a.analysisResult?.status === 'FAIL').length;
+  const fixableCount = failCount + warningCount;
   const avgScore = completedAssets.length > 0
     ? Math.round(completedAssets.reduce((sum, a) => sum + (a.analysisResult?.overallScore || 0), 0) / completedAssets.length)
     : 0;
