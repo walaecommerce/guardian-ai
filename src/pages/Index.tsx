@@ -14,6 +14,7 @@ import { BulkUrlImport } from '@/components/BulkUrlImport';
 import { CompetitorAudit, CompetitorData, buildComparisonReport } from '@/components/CompetitorAudit';
 import { ListingScoreCard } from '@/components/ListingScoreCard';
 import { AIRecommendations } from '@/components/AIRecommendations';
+import { ClientReportGenerator } from '@/components/ClientReportGenerator';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
@@ -1280,10 +1281,13 @@ const Index = () => {
                   <TabsTrigger value="history">History</TabsTrigger>
                 </TabsList>
                 {assets.some(a => a.analysisResult) && (
-                  <Button onClick={handleSaveReport} variant="outline" size="sm">
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Report
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <ClientReportGenerator assets={assets} listingTitle={listingTitle} productAsin={productAsin} />
+                    <Button onClick={handleSaveReport} variant="outline" size="sm">
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Report
+                    </Button>
+                  </div>
                 )}
               </div>
               <TabsContent value="results">
