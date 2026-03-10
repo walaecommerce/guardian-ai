@@ -186,11 +186,11 @@ export function ComplianceReportCard({ assets, isAnalyzing }: ComplianceReportCa
 
   const getQualityCheck = () => {
     const qualityViolations = analyzedAssets.flatMap(a => 
-      a.analysisResult?.violations.filter(v => 
+      (a.analysisResult?.violations || []).filter(v => 
         v.category.toLowerCase().includes('quality') ||
         v.category.toLowerCase().includes('blur') ||
         v.category.toLowerCase().includes('resolution')
-      ) || []
+      )
     );
     return qualityViolations.length === 0;
   };
