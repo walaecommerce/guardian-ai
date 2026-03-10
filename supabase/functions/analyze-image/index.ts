@@ -371,6 +371,7 @@ ${listingTitle ? `Listing Title: "${listingTitle}"` : 'No listing title provided
 
 Execute full analysis protocol and return comprehensive JSON assessment.`;
 
+    console.log(`[Guardian] 🔧 MODEL: ${MODELS.analysis}`);
     console.log(`[Guardian] Analyzing ${imageType} image...`);
     console.log(`[Guardian] Phase 1: Scanning background pixels...`);
     console.log(`[Guardian] Phase 2: Detecting badges and text overlays...`);
