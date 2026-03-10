@@ -157,7 +157,7 @@ export function exportToPDF(data: ExportData): void {
     asset.type,
     `${asset.score}%`,
     asset.status,
-    asset.violations.length.toString(),
+    (asset.violations || []).length.toString(),
   ]);
   
   doc.autoTable({
