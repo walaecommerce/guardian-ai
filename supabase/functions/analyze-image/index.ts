@@ -411,7 +411,7 @@ serve(async (req) => {
         parts: [
           { text: systemPrompt },
           { inline_data: { mime_type: imageData.mimeType, data: imageData.data } },
-          { text: `Analyze this ${imageType} image. First detect the product category (FOOD/PET/SUPPLEMENT/GENERAL), then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}` },
+          { text: `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}` },
         ],
       }],
       generationConfig: {
