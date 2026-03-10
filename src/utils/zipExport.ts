@@ -3,7 +3,7 @@ import { ImageAsset } from '@/types';
 // Simple ZIP file creator without external dependencies
 // Uses the built-in Compression API for deflate
 
-interface ZipEntry {
+export interface ZipEntry {
   name: string;
   data: Blob;
 }
