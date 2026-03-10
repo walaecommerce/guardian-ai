@@ -105,7 +105,7 @@ export function exportToPDF(data: ExportData): void {
   doc.setFont('helvetica', 'bold');
   doc.text('Listing:', 14, 55);
   doc.setFont('helvetica', 'normal');
-  const titleLines = doc.splitTextToSize(data.listingTitle, pageWidth - 50);
+  const titleLines = doc.splitTextToSize(data.listing_title, pageWidth - 50);
   doc.text(titleLines, 40, 55);
   
   // Summary section
