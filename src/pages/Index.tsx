@@ -1038,7 +1038,7 @@ const Index = () => {
               />
             )}
             
-            <ActivityLog logs={logs} />
+            <ActivityLog logs={logs} onClear={() => setLogs([])} />
             <SessionHistory currentSessionId={currentSessionId || undefined} />
           </div>
 
