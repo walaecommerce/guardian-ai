@@ -1312,6 +1312,7 @@ const Index = () => {
                   batchFixProgress={batchFixProgress}
                   productAsin={productAsin || undefined}
                   competitorData={competitorData}
+                  getMatchingPolicyUpdate={getMatchingUpdate}
                 />
               </TabsContent>
               <TabsContent value="recommendations">
