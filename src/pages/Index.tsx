@@ -32,6 +32,8 @@ const Index = () => {
   const [assetSessionMap, setAssetSessionMap] = useState<AssetSessionMap>(new Map());
   const [isImporting, setIsImporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzingProgress, setAnalyzingProgress] = useState<{ current: number; total: number } | undefined>(undefined);
+  const [auditComplete, setAuditComplete] = useState<{ passed: number; failed: number } | null>(null);
   const [isBatchFixing, setIsBatchFixing] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<ImageAsset | null>(null);
