@@ -1130,9 +1130,9 @@ const Index = () => {
         // Rate limiting
         if (i < imagesToProcess.length - 1) {
           await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
-          if ((i + 1) % RATE_LIMITS.batchSize === 0) {
-            await countdownCooldown(RATE_LIMITS.cooldownAfterBatch);
-          }
+        if ((i + 1) % RATE_LIMITS.batchCooldownEvery === 0) {
+          await countdownCooldown(RATE_LIMITS.batchCooldownDuration);
+        }
         }
       }
 
