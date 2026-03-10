@@ -235,21 +235,21 @@ function AssetResultCard({
               {asset.name}
             </p>
             <p className="text-xs text-muted-foreground">
-              {result.violations.length} issue{result.violations.length !== 1 ? 's' : ''} found
+              {(result.violations || []).length} issue{(result.violations || []).length !== 1 ? 's' : ''} found
             </p>
           </div>
           <ScoreGauge score={result.overallScore} size={60} />
         </div>
 
         {/* Violations Summary */}
-        {result.violations.length > 0 && (
+        {(result.violations || []).length > 0 && (
           <div className="max-h-32 overflow-y-auto">
-            {result.violations.slice(0, 2).map((v, i) => (
+            {(result.violations || []).slice(0, 2).map((v, i) => (
               <ViolationItem key={i} violation={v} />
             ))}
-            {result.violations.length > 2 && (
+            {(result.violations || []).length > 2 && (
               <p className="text-xs text-muted-foreground py-2">
-                +{result.violations.length - 2} more issues...
+                +{(result.violations || []).length - 2} more issues...
               </p>
             )}
           </div>
