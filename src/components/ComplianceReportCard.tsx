@@ -176,10 +176,10 @@ export function ComplianceReportCard({ assets, isAnalyzing }: ComplianceReportCa
 
   const getOccupancyCheck = () => {
     const occupancyViolations = analyzedAssets.flatMap(a => 
-      a.analysisResult?.violations.filter(v => 
+      (a.analysisResult?.violations || []).filter(v => 
         v.category.toLowerCase().includes('occupancy') ||
         v.category.toLowerCase().includes('frame')
-      ) || []
+      )
     );
     return occupancyViolations.length === 0;
   };
