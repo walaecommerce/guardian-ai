@@ -137,7 +137,12 @@ serve(async (req) => {
       productTitle,
       customPrompt,
       spatialAnalysis,
+      imageCategory,
     } = await req.json();
+
+    // Detect category for prompt selection
+    const fixCategory = detectFixCategory(imageCategory, productTitle);
+    console.log(`[generate-fix] Detected category: ${fixCategory} (from imageCategory=${imageCategory}, title=${productTitle?.slice(0, 40)})`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
