@@ -14,7 +14,7 @@ import { ComplianceHistory, saveAuditToHistory, AuditHistoryEntry } from '@/comp
 import { BulkUrlImport } from '@/components/BulkUrlImport';
 import { CompetitorAudit, CompetitorData, buildComparisonReport, AIComparisonResult } from '@/components/CompetitorAudit';
 import { ListingScoreCard } from '@/components/ListingScoreCard';
-import { AIRecommendations } from '@/components/AIRecommendations';
+import { RecommendationsPanel } from '@/components/recommendations/RecommendationsPanel';
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
 import { PolicyBanner, PolicySidebar } from '@/components/PolicyUpdates';
 import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
