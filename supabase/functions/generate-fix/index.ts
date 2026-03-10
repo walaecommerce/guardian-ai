@@ -258,15 +258,9 @@ OUTPUT: Return the edited image directly. Same image with only prohibited overla
       } else {
         // SECONDARY image: image-to-image edit
         if (mainRefImage) {
-          // Case 3: Secondary with main reference — main ref first, then image to fix
+          // Case 3: Secondary with main reference — image to fix first, then main ref
           parts.push({
-            text: `${promptText}\n\nEnsure the product in the edited image matches this reference main image.`,
-          });
-          parts.push({
-            inline_data: {
-              mime_type: mainRefImage.mimeType,
-              data: mainRefImage.data,
-            },
+            text: `${promptText}\n\nThe first image is the one to edit. The second image is a reference showing the correct product — ensure the product identity matches.`,
           });
           if (originalImage?.data) {
             parts.push({
@@ -275,6 +269,13 @@ OUTPUT: Return the edited image directly. Same image with only prohibited overla
                 data: originalImage.data,
               },
             });
+          }
+          parts.push({
+            inline_data: {
+              mime_type: mainRefImage.mimeType,
+              data: mainRefImage.data,
+            },
+          });
           }
         } else {
           // Case 2: Secondary without main reference — just prompt + image
