@@ -15,6 +15,8 @@ import { CompetitorAudit, CompetitorData, buildComparisonReport } from '@/compon
 import { ListingScoreCard } from '@/components/ListingScoreCard';
 import { AIRecommendations } from '@/components/AIRecommendations';
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
+import { PolicyBanner, PolicySidebar } from '@/components/PolicyUpdates';
+import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
