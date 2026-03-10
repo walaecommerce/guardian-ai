@@ -297,7 +297,7 @@ export function ImageUploader({
 
       {/* Image Grid Preview with Drag & Drop */}
       {assets.length > 0 && (
-        <Card>
+        <Card ref={assetGridRef as React.RefObject<HTMLDivElement>}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <span>Uploaded Assets ({assets.length})</span>
