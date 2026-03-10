@@ -1298,6 +1298,9 @@ const Index = () => {
                   competitorData={competitorData}
                 />
               </TabsContent>
+              <TabsContent value="scorecard">
+                <ListingScoreCard assets={assets} listingTitle={listingTitle} />
+              </TabsContent>
               <TabsContent value="comparison">
                 <BatchComparisonView
                   assets={assets}
