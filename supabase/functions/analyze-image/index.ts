@@ -163,6 +163,8 @@ Return this EXACT JSON structure:
   "status": "PASS" or "FAIL",
   "severity": "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
   "product_category": "FOOD" | "PET" | "SUPPLEMENT" | "GENERAL",
+  "text_readability_score": <0-100 — for SECONDARY images only, rate how readable any text/infographic content would be on a mobile phone screen. Consider font size, contrast, text density, legibility. For MAIN images return null>,
+  "emotional_appeal_score": <0-100 — for SECONDARY images only, rate the emotional appeal and aspirational quality. Consider: appetizing food, happy people, active lifestyle, professional photography, warm lighting. For MAIN images return null>,
   "violations": [
     {
       "rule": "<rule name>",
@@ -209,7 +211,23 @@ SCORING:
 - 85-99: Minor issues, likely passes
 - 70-84: Moderate issues, fix recommended
 - 50-69: Significant violations
-- 0-49: Critical failures`;
+- 0-49: Critical failures
+
+TEXT READABILITY SCORING (SECONDARY images only):
+- 100: All text is large, high-contrast, minimal density — perfect mobile readability
+- 80: Text is readable but some smaller elements
+- 60: Text is somewhat readable but dense or low contrast in places
+- 40: Difficult to read on mobile — too small or too much text
+- 20: Very poor readability — tiny text, low contrast
+- 0: Completely unreadable text
+
+EMOTIONAL APPEAL SCORING (SECONDARY images only):
+- 100: Highly aspirational — beautiful photography, evokes strong positive emotions
+- 80: Appealing presentation with good styling
+- 60: Adequate but generic
+- 40: Below average appeal
+- 20: Unappealing or clinical
+- 0: Actively off-putting`;
 
 // ── Error parser ─────────────────────────────────────────────────
 
