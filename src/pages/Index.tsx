@@ -1273,6 +1273,7 @@ const Index = () => {
               />
             )}
             
+            <PolicySidebar data={policyData} loading={policyLoading} onRefresh={refreshPolicy} />
             <ActivityLog logs={logs} onClear={() => setLogs([])} />
             <SessionHistory currentSessionId={currentSessionId || undefined} />
           </div>
