@@ -570,9 +570,9 @@ const Index = () => {
           await new Promise(r => setTimeout(r, 30000));
           return analyzeAsset(asset, attempt + 1);
         }
-        if (status === 502 && attempt < 2) {
-          addLog('warning', '⚠️ Gateway returned empty response — retrying in 5s...');
-          await new Promise(r => setTimeout(r, 5000));
+        if ((status === 502 || status === 503) && attempt < 2) {
+          addLog('warning', `⚠️ Gateway error (${status}) — retrying in 10s...`);
+          await new Promise(r => setTimeout(r, 10000));
           return analyzeAsset(asset, attempt + 1);
         }
         throw error;
