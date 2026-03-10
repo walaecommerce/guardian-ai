@@ -64,3 +64,9 @@ verify_jwt = false
 
 [functions.proxy-image]
 verify_jwt = false
+
+[functions.listing-suggestions]
+verify_jwt = false
+
+[functions.generate-suggested-image]
+verify_jwt = false

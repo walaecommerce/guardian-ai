@@ -13,6 +13,7 @@ import { ComplianceHistory, saveAuditToHistory, AuditHistoryEntry } from '@/comp
 import { BulkUrlImport } from '@/components/BulkUrlImport';
 import { CompetitorAudit, CompetitorData, buildComparisonReport } from '@/components/CompetitorAudit';
 import { ListingScoreCard } from '@/components/ListingScoreCard';
+import { AIRecommendations } from '@/components/AIRecommendations';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
@@ -1271,7 +1272,8 @@ const Index = () => {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <TabsList>
-                  <TabsTrigger value="results">Analysis Results</TabsTrigger>
+                  <TabsTrigger value="results">Results</TabsTrigger>
+                  <TabsTrigger value="recommendations">AI Recs</TabsTrigger>
                   <TabsTrigger value="scorecard">Score Card</TabsTrigger>
                   <TabsTrigger value="comparison">Before / After</TabsTrigger>
                   <TabsTrigger value="compare">Compare</TabsTrigger>
@@ -1297,6 +1299,9 @@ const Index = () => {
                   productAsin={productAsin || undefined}
                   competitorData={competitorData}
                 />
+              </TabsContent>
+              <TabsContent value="recommendations">
+                <AIRecommendations assets={assets} listingTitle={listingTitle} />
               </TabsContent>
               <TabsContent value="scorecard">
                 <ListingScoreCard assets={assets} listingTitle={listingTitle} />
