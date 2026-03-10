@@ -247,6 +247,17 @@ function AssetResultCard({
           </div>
         )}
 
+        {/* Product Category Badge (from analysis) */}
+        {result.productCategory && (() => {
+          const catKey = GEMINI_CATEGORY_MAP[result.productCategory] || result.productCategory;
+          const catRule = CATEGORY_RULES[catKey as ProductCategory];
+          return catRule ? (
+            <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-xs font-medium bg-card/90 text-foreground border border-border backdrop-blur-sm">
+              {catRule.icon} {catRule.name}
+            </div>
+          ) : null;
+        })()}
+
         {/* Status dot indicator */}
         <div className={`absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold ${
           result.status === 'PASS'
