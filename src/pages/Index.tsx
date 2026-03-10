@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { RATE_LIMITS } from '@/config/models';
 import { Header } from '@/components/Header';
 import { HeroSection } from '@/components/HeroSection';
