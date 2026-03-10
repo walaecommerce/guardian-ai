@@ -139,7 +139,7 @@ CONTENT CONSISTENCY CHECKS for supplements:
 - Count/quantity on packaging vs listing title = CRITICAL if mismatch
 - Key claims must match between packaging and title = HIGH if mismatch`;
 
-const GENERAL_RULES = `GENERAL MERCHANDISE RULES (apply when category is GENERAL):
+const GENERAL_RULES = `GENERAL MERCHANDISE RULES (apply when category is GENERAL_MERCHANDISE):
 
 MAIN IMAGE:
 - No hands holding product = MEDIUM violation
@@ -157,6 +157,58 @@ OCR EXTRACTION for general products — extract if visible:
 3. Key specs visible on packaging
 4. Country of origin
 5. Certifications (UL, CE, FCC, etc.)`;
+
+const BEAUTY_RULES = `BEAUTY & PERSONAL CARE RULES (apply when category is BEAUTY_PERSONAL_CARE):
+
+MAIN IMAGE:
+- Product must be clearly visible and centered = HIGH violation if not
+- No model wearing/using the product on main image = MEDIUM violation
+- No before/after imagery on main image = HIGH violation
+- Product label must face forward = HIGH violation if not
+
+SECONDARY IMAGES:
+- Model demonstrating product usage = ALLOWED and POSITIVE
+- Ingredient spotlight callouts = ALLOWED and POSITIVE
+- Skin type compatibility information = ALLOWED
+- Texture/consistency closeup shots = ALLOWED
+
+OCR EXTRACTION for beauty products — extract ALL of these if visible:
+1. Product/brand name
+2. Volume/weight (e.g. "1.7 oz", "50ml")
+3. Key ingredients listed on front label
+4. Skin type or hair type if specified
+5. SPF rating if applicable
+6. Certifications (cruelty-free, organic, dermatologist tested)
+
+CONTENT CONSISTENCY CHECKS for beauty:
+- Volume on packaging vs listing title = CRITICAL if mismatch
+- Key ingredient claims must match between packaging and title = HIGH if mismatch
+- SPF claims must be verifiable = CRITICAL if unsubstantiated`;
+
+const ELECTRONICS_RULES = `ELECTRONICS RULES (apply when category is ELECTRONICS):
+
+MAIN IMAGE:
+- Product should be shown out of box/packaging = MEDIUM violation if in box
+- No accessories not included in listing = MEDIUM violation
+- Product branding and model must be visible = HIGH violation if not
+
+SECONDARY IMAGES:
+- Product in use / lifestyle context = ALLOWED
+- Compatibility diagrams = ALLOWED and POSITIVE
+- Feature callout infographics = ALLOWED
+- What's in the box layout = ALLOWED and POSITIVE
+
+OCR EXTRACTION for electronics — extract ALL of these if visible:
+1. Product/brand name and model number
+2. Key specs (wattage, capacity, connectivity)
+3. Compatibility information
+4. Safety certifications (UL, CE, FCC)
+5. Voltage/power requirements
+
+CONTENT CONSISTENCY CHECKS for electronics:
+- Model number on product vs listing title = HIGH if mismatch
+- Compatibility claims must be accurate = HIGH if unverifiable
+- Safety certifications must be legitimate = CRITICAL if fake/misleading`;
 
 const OUTPUT_SCHEMA = `
 Return this EXACT JSON structure:
