@@ -187,7 +187,7 @@ export function exportToPDF(data: ExportData): void {
   currentY = doc.lastAutoTable.finalY + 15;
   
   data.assets.forEach(asset => {
-    if (asset.violations.length === 0) return;
+    if ((asset.violations || []).length === 0) return;
     
     // Check if we need a new page
     if (currentY > doc.internal.pageSize.getHeight() - 50) {
