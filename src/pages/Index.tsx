@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { RATE_LIMITS } from '@/config/models';
 import { Header } from '@/components/Header';
 import { HeroSection } from '@/components/HeroSection';
 import { ImageUploader, MaxImagesOption } from '@/components/ImageUploader';

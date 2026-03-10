@@ -201,6 +201,7 @@ serve(async (req) => {
       throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
     }
 
+    console.log(`[generate-enhancement] using model: ${MODELS.imageGen}`);
     console.log(`[Enhancement Gen] Generating ${enhancementType} enhancement for ${imageCategory} image...`);
 
     // Build the enhancement prompt

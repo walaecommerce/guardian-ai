@@ -85,6 +85,7 @@ serve(async (req) => {
       throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
     }
 
+    console.log(`[enhance-analyze-image] using model: ${MODELS.analysis}`);
     console.log(`[Enhancement] Deep analyzing ${imageCategory} image...`);
 
     const systemPrompt = `You are an expert Amazon product image analyst specializing in enhancement recommendations. Your job is to:
