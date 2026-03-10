@@ -115,6 +115,13 @@ export function generateExportData(
       competitor_weaknesses: comparison.competitorWeaknesses,
       recommendations: comparison.recommendations,
       image_count_advantage: comparison.imageCountAdvantage,
+      ai_intelligence: aiComparison ? {
+        score_comparison: aiComparison.score_comparison,
+        image_types_competitor_has_you_dont: aiComparison.image_types_competitor_has_you_dont,
+        competitor_violations: aiComparison.competitor_violations,
+        your_advantages: aiComparison.your_advantages,
+        priority_actions: aiComparison.priority_actions,
+      } : undefined,
     };
   }
 
