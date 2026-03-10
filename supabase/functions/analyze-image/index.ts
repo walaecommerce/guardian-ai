@@ -403,7 +403,7 @@ serve(async (req) => {
     console.log(`[analyze-image] Analyzing ${imageType} image with category detection...`);
 
     const imageData = extractBase64(imageBase64);
-    const systemPrompt = buildAnalysisPrompt(isMain, titleRef);
+    const systemPrompt = buildAnalysisPrompt(isMain, titleRef, forcedCategory || undefined);
 
     const requestBody = {
       model: MODELS.analysis,
