@@ -349,6 +349,7 @@ Be STRICT. Better to flag for retry than pass a flawed image.`;
 
     parts.push({ text: "Compare these images and return your verification JSON." });
 
+    console.log(`[Guardian] 🔧 MODEL: ${MODELS.verification}`);
     console.log(`[Guardian] Verifying ${imageType} image...`);
     console.log(`[Guardian] Check 1: Product identity verification...`);
     console.log(`[Guardian] Check 2: Compliance fixes verification...`);

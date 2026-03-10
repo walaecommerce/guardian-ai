@@ -221,6 +221,7 @@ OUTPUT: Same image with only prohibited overlays removed via clean inpainting.`;
       prompt += `\n\nRETRY MODE: Compare with previous attempt and fix mistakes.`;
     }
 
+    console.log(`[Guardian] 🔧 MODEL: ${MODELS.imageGen}`);
     console.log(`[Guardian] Generating ${imageType} fix...${previousCritique ? ' (retry with critique)' : ''}${previousGeneratedImage ? ' (comparing with previous attempt)' : ''}`);
 
     // --- Extract images ---
