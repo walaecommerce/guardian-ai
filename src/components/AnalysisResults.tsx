@@ -3,9 +3,12 @@ import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, Chevron
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ImageAsset, AnalysisResult } from '@/types';
 import { ExportButton } from '@/components/ExportButton';
+import { ScoreTrendBadge } from '@/components/ScoreTrendBadge';
+import { getScoreTrend } from '@/components/ComplianceHistory';
 
 interface AnalysisResultsProps {
   assets: ImageAsset[];
@@ -15,6 +18,7 @@ interface AnalysisResultsProps {
   onReverify?: (assetId: string) => void;
   onBatchFix?: () => void;
   isBatchFixing?: boolean;
+  batchFixProgress?: { current: number; total: number } | null;
   productAsin?: string;
 }
 
