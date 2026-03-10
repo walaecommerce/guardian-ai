@@ -34,8 +34,15 @@ serve(async (req) => {
       });
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const bytes = new Uint8Array(arrayBuffer);
+    // Chunk-based btoa to avoid stack overflow on large images
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64 = btoa(binary);
     const contentType = response.headers.get('content-type') || 'image/jpeg';
 
     return new Response(JSON.stringify({ base64, contentType }), {
