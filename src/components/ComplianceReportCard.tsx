@@ -145,7 +145,7 @@ export function ComplianceReportCard({ assets, isAnalyzing }: ComplianceReportCa
   // Aggregate violations by category
   const violationsByCategory = new Map<string, { count: number; critical: number }>();
   analyzedAssets.forEach(a => {
-    a.analysisResult?.violations.forEach(v => {
+    (a.analysisResult?.violations || []).forEach(v => {
       const existing = violationsByCategory.get(v.category) || { count: 0, critical: 0 };
       existing.count++;
       if (v.severity === 'critical') existing.critical++;
@@ -156,41 +156,41 @@ export function ComplianceReportCard({ assets, isAnalyzing }: ComplianceReportCa
   // Determine pass/fail for each compliance category
   const getBackgroundCheck = () => {
     const bgViolations = analyzedAssets.flatMap(a => 
-      a.analysisResult?.violations.filter(v => 
+      (a.analysisResult?.violations || []).filter(v => 
         v.category.toLowerCase().includes('background')
-      ) || []
+      )
     );
     return bgViolations.length === 0;
   };
 
   const getTextOverlayCheck = () => {
     const textViolations = analyzedAssets.flatMap(a => 
-      a.analysisResult?.violations.filter(v => 
+      (a.analysisResult?.violations || []).filter(v => 
         v.category.toLowerCase().includes('text') || 
         v.category.toLowerCase().includes('badge') ||
         v.category.toLowerCase().includes('watermark')
-      ) || []
+      )
     );
     return textViolations.length === 0;
   };
 
   const getOccupancyCheck = () => {
     const occupancyViolations = analyzedAssets.flatMap(a => 
-      a.analysisResult?.violations.filter(v => 
+      (a.analysisResult?.violations || []).filter(v => 
         v.category.toLowerCase().includes('occupancy') ||
         v.category.toLowerCase().includes('frame')
-      ) || []
+      )
     );
     return occupancyViolations.length === 0;
   };
 
   const getQualityCheck = () => {
     const qualityViolations = analyzedAssets.flatMap(a => 
-      a.analysisResult?.violations.filter(v => 
+      (a.analysisResult?.violations || []).filter(v => 
         v.category.toLowerCase().includes('quality') ||
         v.category.toLowerCase().includes('blur') ||
         v.category.toLowerCase().includes('resolution')
-      ) || []
+      )
     );
     return qualityViolations.length === 0;
   };

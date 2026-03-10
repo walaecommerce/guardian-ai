@@ -157,7 +157,7 @@ export function exportToPDF(data: ExportData): void {
     asset.type,
     `${asset.score}%`,
     asset.status,
-    asset.violations.length.toString(),
+    (asset.violations || []).length.toString(),
   ]);
   
   doc.autoTable({
@@ -187,7 +187,7 @@ export function exportToPDF(data: ExportData): void {
   currentY = doc.lastAutoTable.finalY + 15;
   
   data.assets.forEach(asset => {
-    if (asset.violations.length === 0) return;
+    if ((asset.violations || []).length === 0) return;
     
     // Check if we need a new page
     if (currentY > doc.internal.pageSize.getHeight() - 50) {
@@ -201,7 +201,7 @@ export function exportToPDF(data: ExportData): void {
     doc.text(`${asset.name} - Violations`, 14, currentY);
     currentY += 6;
     
-    const violationData = asset.violations.map(v => [
+    const violationData = (asset.violations || []).map(v => [
       v.severity.toUpperCase(),
       v.category,
       v.message.length > 50 ? v.message.substring(0, 47) + '...' : v.message,

@@ -259,13 +259,13 @@ function ComparisonCard({
         </div>
 
         {/* Violations summary */}
-        {result && result.violations.length > 0 && (
+        {result && (result.violations || []).length > 0 && (
           <div className="mt-4 pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground mb-2">
-              {result.violations.length} issue{result.violations.length !== 1 ? 's' : ''} found:
+              {(result.violations || []).length} issue{(result.violations || []).length !== 1 ? 's' : ''} found:
             </p>
             <div className="flex flex-wrap gap-1">
-              {result.violations.slice(0, 4).map((v, i) => (
+              {(result.violations || []).slice(0, 4).map((v, i) => (
                 <Badge 
                   key={i} 
                   variant={v.severity === 'critical' ? 'destructive' : 'secondary'}
@@ -274,9 +274,9 @@ function ComparisonCard({
                   {v.category}
                 </Badge>
               ))}
-              {result.violations.length > 4 && (
+              {(result.violations || []).length > 4 && (
                 <Badge variant="outline" className="text-xs">
-                  +{result.violations.length - 4} more
+                  +{(result.violations || []).length - 4} more
                 </Badge>
               )}
             </div>
