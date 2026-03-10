@@ -24,6 +24,7 @@ const App = () => (
           <Route path="/campaign" element={<CampaignAudit />} />
           <Route path="/studio" element={<Studio />} />
           <Route path="/tracker" element={<Tracker />} />
+          <Route path="/test-checklist" element={<TestChecklist />} />
           <Route path="/session/:sessionId" element={<Session />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
