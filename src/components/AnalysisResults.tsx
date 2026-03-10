@@ -346,6 +346,9 @@ export function AnalysisResults({
     ? Math.round(completedAssets.reduce((sum, a) => sum + (a.analysisResult?.overallScore || 0), 0) / completedAssets.length)
     : 0;
 
+  // FEATURE 3: Violation Trend Badges
+  const trend = getScoreTrend(listingTitle);
+
   return (
     <div className="space-y-4">
       <Card>
