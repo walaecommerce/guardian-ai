@@ -57,7 +57,6 @@ export function generateExportData(assets: ImageAsset[], listingTitle: string): 
     assets: analyzedAssets.map(asset => ({
       filename: asset.name,
       type: asset.type,
-      category: asset.category,
       score: asset.analysisResult?.overallScore || 0,
       status: asset.analysisResult?.status || 'UNKNOWN',
       violations: asset.analysisResult?.violations || [],
