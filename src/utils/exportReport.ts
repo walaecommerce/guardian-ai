@@ -30,6 +30,21 @@ export interface ExportReport {
     fixed: boolean;
     fixed_score: number | undefined;
   }[];
+  competitive_analysis?: {
+    competitor_title: string;
+    competitor_url: string;
+    your_score: number;
+    competitor_score: number;
+    your_image_count: number;
+    competitor_image_count: number;
+    max_allowed: number;
+    your_pass_rate: number;
+    competitor_pass_rate: number;
+    missing_categories: string[];
+    competitor_weaknesses: string[];
+    recommendations: string[];
+    image_count_advantage: 'yours' | 'competitor' | 'tied';
+  };
 }
 
 // Legacy compat alias
