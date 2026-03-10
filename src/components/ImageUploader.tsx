@@ -48,6 +48,8 @@ interface ImageUploaderProps {
   onRetryFailedDownloads?: () => void;
   titlePulse?: boolean;
   assetGridRef?: React.RefObject<HTMLDivElement>;
+  selectedCategory?: string;
+  onCategoryChange?: (category: string) => void;
 }
 
 export function ImageUploader({
