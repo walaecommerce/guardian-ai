@@ -14,6 +14,7 @@ import { BulkUrlImport } from '@/components/BulkUrlImport';
 import { CompetitorAudit, CompetitorData, buildComparisonReport } from '@/components/CompetitorAudit';
 import { ListingScoreCard } from '@/components/ListingScoreCard';
 import { AIRecommendations } from '@/components/AIRecommendations';
+import { ClientReportGenerator } from '@/components/ClientReportGenerator';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
