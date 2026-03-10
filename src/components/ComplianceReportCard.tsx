@@ -145,7 +145,7 @@ export function ComplianceReportCard({ assets, isAnalyzing }: ComplianceReportCa
   // Aggregate violations by category
   const violationsByCategory = new Map<string, { count: number; critical: number }>();
   analyzedAssets.forEach(a => {
-    a.analysisResult?.violations.forEach(v => {
+    (a.analysisResult?.violations || []).forEach(v => {
       const existing = violationsByCategory.get(v.category) || { count: 0, critical: 0 };
       existing.count++;
       if (v.severity === 'critical') existing.critical++;
