@@ -167,10 +167,14 @@ function AssetResultCard({
   onRequestFix,
   onViewDetails,
   onReverify,
+  getMatchingPolicyUpdate,
 }: {
   asset: ImageAsset;
   onRequestFix: (id: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
+  onReverify?: (assetId: string) => void;
+  getMatchingPolicyUpdate?: (message: string, category: string) => PolicyUpdate | null;
+}) {
   onReverify?: (id: string) => void;
 }) {
   const result = asset.analysisResult;
