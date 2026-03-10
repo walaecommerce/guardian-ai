@@ -93,27 +93,14 @@ serve(async (req) => {
         }
       }
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error('Firecrawl error:', data);
-        return new Response(
-          JSON.stringify({ success: false, error: data.error || 'Scraping failed' }),
-          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Prefer rawHtml as it preserves the Amazon inline JSON/scripts we need for gallery extraction
-      const html = data.data?.rawHtml || data.rawHtml || data.data?.html || data.html;
-      console.log(`Firecrawl scrape successful, HTML length: ${html?.length || 0}`);
-      
+      // All strategies failed
+      console.error('[scrape-amazon] All scraping strategies failed');
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          html: html,
-          markdown: data.data?.markdown || data.markdown
+          success: false, 
+          error: lastError || 'Amazon blocked the scraping request. Please use manual upload instead.' 
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
