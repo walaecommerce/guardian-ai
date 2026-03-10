@@ -16,10 +16,12 @@ const SYSTEM_PROMPT = `You are Guardian, an Amazon FBA compliance officer with f
 
 STEP 1 — CATEGORY DETECTION (do this first):
 Examine the product image and determine the category:
-- FOOD: packaged food, snacks, beverages, cooking ingredients, condiments
-- PET: pet food, pet treats, pet supplements
-- SUPPLEMENT: dietary supplements, vitamins, protein powders, health capsules
-- GENERAL: electronics, clothing, home goods, tools, toys, beauty, everything else
+- FOOD_BEVERAGE: packaged food, snacks, beverages, cooking ingredients, condiments
+- PET_SUPPLIES: pet food, pet treats, pet supplements, pet accessories
+- SUPPLEMENTS: dietary supplements, vitamins, protein powders, health capsules
+- BEAUTY_PERSONAL_CARE: skincare, haircare, cosmetics, personal hygiene products
+- ELECTRONICS: devices, gadgets, cables, chargers, tech accessories
+- GENERAL_MERCHANDISE: everything else (home goods, tools, toys, clothing, etc.)
 
 Apply the category-specific rules below in addition to the universal rules.`;
 
