@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -334,7 +335,7 @@ RETRY MODE: Compare with previous attempt and fix mistakes.`;
       const parts = buildParts(promptText);
 
       const response = await fetchWithRetry(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.imageGen}:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: {
@@ -342,10 +343,15 @@ RETRY MODE: Compare with previous attempt and fix mistakes.`;
           },
           body: JSON.stringify({
             contents: [{ parts }],
-            // Gemini image models commonly return mixed text+image.
-            // Request both; we will extract and return the image.
-            generationConfig: {
+            config: {
               responseModalities: ["TEXT", "IMAGE"],
+              imageConfig: {
+                aspectRatio: "1:1",
+                imageSize: "2K",
+              },
+              thinkingConfig: {
+                thinkingLevel: "High",
+              },
             },
           }),
         }
