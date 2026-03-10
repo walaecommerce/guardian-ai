@@ -21,7 +21,7 @@ interface ExportButtonProps {
   disabled?: boolean;
 }
 
-export function ExportButton({ assets, listingTitle, productAsin, disabled }: ExportButtonProps) {
+export function ExportButton({ assets, listingTitle, productAsin, competitorData, disabled }: ExportButtonProps) {
   const { toast } = useToast();
   
   const analyzedAssets = assets.filter(a => a.analysisResult);
@@ -30,7 +30,7 @@ export function ExportButton({ assets, listingTitle, productAsin, disabled }: Ex
 
   const handleExportJSON = () => {
     try {
-      const data = generateExportData(assets, listingTitle);
+      const data = generateExportData(assets, listingTitle, competitorData);
       exportToJSON(data);
       toast({ title: 'Export Complete', description: 'JSON report downloaded successfully' });
     } catch {
