@@ -14,37 +14,6 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const systemPrompt = `You are an Amazon marketplace policy researcher. Search for the latest Amazon product image requirements, Seller Central announcements, and listing guideline updates from the last 30 days.
-
-Focus on changes that affect:
-- Main image requirements (background, occupancy, text overlays)
-- Secondary image rules (lifestyle, infographic, A+ content)
-- Prohibited content (badges, watermarks, promotional text)
-- New badge or label restrictions
-- Image quality or dimension requirements
-- Category-specific image rules
-
-Return ONLY valid JSON matching this exact schema:
-{
-  "updates": [
-    {
-      "date": "YYYY-MM-DD",
-      "policy_area": "string — e.g. Main Image, Secondary Images, Prohibited Content, Image Quality",
-      "change_description": "string — concise description of what changed",
-      "impact": "HIGH or MEDIUM or LOW",
-      "keywords": ["string"] 
-    }
-  ],
-  "last_checked": "ISO date string",
-  "source_summary": "string — brief note on where this info was found"
-}
-
-Rules:
-- keywords array should contain 2-4 terms that would match violation categories (e.g. "background", "text overlay", "badge", "watermark")
-- If no recent changes found, return updates as empty array
-- Only include confirmed, verifiable policy changes — no speculation
-- Date should be the date the policy was announced or took effect`;
-
     const response = await fetch(GATEWAY_URL, {
       method: "POST",
       headers: {
@@ -54,13 +23,65 @@ Rules:
       body: JSON.stringify({
         model: "google/gemini-3.1-pro-preview",
         messages: [
-          { role: "system", content: systemPrompt },
+          {
+            role: "system",
+            content: `You are an Amazon marketplace policy researcher with access to web search. Search for the most recent Amazon Seller Central image requirements and product listing policy updates from the last 60 days. Focus on: main image requirements, secondary image rules, prohibited content updates, new badge restrictions, A+ content rules.`,
+          },
           {
             role: "user",
-            content: `Today is ${new Date().toISOString().split('T')[0]}. Search for any Amazon product image policy changes, Seller Central announcements, or listing requirement updates published in the last 30 days. Include any changes to image guidelines, prohibited content rules, or new compliance requirements. Return the JSON.`,
+            content: `Today is ${new Date().toISOString().split("T")[0]}. Search for any Amazon product image policy changes, Seller Central announcements, or listing requirement updates published in the last 60 days. Include any changes to image guidelines, prohibited content rules, or new compliance requirements.`,
           },
         ],
         temperature: 0.2,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "return_policy_updates",
+              description: "Return structured Amazon policy update data.",
+              parameters: {
+                type: "object",
+                properties: {
+                  last_checked: { type: "string", description: "ISO date string of when this check was performed" },
+                  source_summary: { type: "string", description: "Brief note on where this info was found" },
+                  updates: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        date: { type: "string", description: "YYYY-MM-DD date the policy was announced or took effect" },
+                        policy_area: { type: "string", description: "e.g. Main Image, Secondary Images, Prohibited Content, Image Quality" },
+                        change_description: { type: "string", description: "Concise description of what changed" },
+                        impact: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
+                        source_url: { type: "string", description: "URL of the source announcement or documentation" },
+                        keywords: {
+                          type: "array",
+                          items: { type: "string" },
+                          description: "2-4 terms that match violation categories (e.g. background, text overlay, badge, watermark)",
+                        },
+                      },
+                      required: ["date", "policy_area", "change_description", "impact", "keywords"],
+                      additionalProperties: false,
+                    },
+                  },
+                  current_rules_summary: {
+                    type: "object",
+                    properties: {
+                      main_image: { type: "array", items: { type: "string" } },
+                      secondary_image: { type: "array", items: { type: "string" } },
+                      prohibited_content: { type: "array", items: { type: "string" } },
+                    },
+                    required: ["main_image", "secondary_image", "prohibited_content"],
+                    additionalProperties: false,
+                  },
+                },
+                required: ["last_checked", "updates", "current_rules_summary"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "return_policy_updates" } },
       }),
     });
 
@@ -81,6 +102,17 @@ Rules:
     }
 
     const aiResult = await response.json();
+
+    // Try tool call first
+    const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall) {
+      const parsed = JSON.parse(toolCall.function.arguments);
+      return new Response(JSON.stringify(parsed), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Fallback: parse content
     const content = aiResult.choices?.[0]?.message?.content || "";
     const cleaned = content.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(cleaned);
@@ -94,6 +126,7 @@ Rules:
       error: e instanceof Error ? e.message : "Unknown error",
       updates: [],
       last_checked: new Date().toISOString(),
+      current_rules_summary: { main_image: [], secondary_image: [], prohibited_content: [] },
     }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

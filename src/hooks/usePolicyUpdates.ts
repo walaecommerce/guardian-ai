@@ -6,13 +6,21 @@ export interface PolicyUpdate {
   policy_area: string;
   change_description: string;
   impact: 'HIGH' | 'MEDIUM' | 'LOW';
+  source_url?: string;
   keywords: string[];
+}
+
+export interface CurrentRulesSummary {
+  main_image: string[];
+  secondary_image: string[];
+  prohibited_content: string[];
 }
 
 export interface PolicyData {
   updates: PolicyUpdate[];
   last_checked: string;
   source_summary?: string;
+  current_rules_summary?: CurrentRulesSummary;
 }
 
 const CACHE_KEY = 'guardian_policy_updates';
