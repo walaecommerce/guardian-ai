@@ -156,9 +156,9 @@ export function ComplianceReportCard({ assets, isAnalyzing }: ComplianceReportCa
   // Determine pass/fail for each compliance category
   const getBackgroundCheck = () => {
     const bgViolations = analyzedAssets.flatMap(a => 
-      a.analysisResult?.violations.filter(v => 
+      (a.analysisResult?.violations || []).filter(v => 
         v.category.toLowerCase().includes('background')
-      ) || []
+      )
     );
     return bgViolations.length === 0;
   };
