@@ -11,16 +11,17 @@ declare module 'jspdf' {
 }
 
 export interface ExportData {
-  listingTitle: string;
-  exportDate: string;
+  timestamp: string;
+  listing_title: string;
+  overall_status: 'PASS' | 'FAIL';
   summary: {
-    totalAssets: number;
-    passCount: number;
-    failCount: number;
-    averageScore: number;
+    total_images: number;
+    passed: number;
+    failed: number;
+    average_score: number;
   };
   assets: {
-    name: string;
+    filename: string;
     type: string;
     score: number;
     status: string;
@@ -41,18 +42,20 @@ export function generateExportData(assets: ImageAsset[], listingTitle: string): 
   const avgScore = analyzedAssets.length > 0
     ? Math.round(analyzedAssets.reduce((sum, a) => sum + (a.analysisResult?.overallScore || 0), 0) / analyzedAssets.length)
     : 0;
+  const overallStatus = failCount > 0 ? 'FAIL' : 'PASS';
 
   return {
-    listingTitle: listingTitle || 'Untitled Listing',
-    exportDate: new Date().toISOString(),
+    timestamp: new Date().toISOString(),
+    listing_title: listingTitle || 'Untitled Listing',
+    overall_status: overallStatus,
     summary: {
-      totalAssets: analyzedAssets.length,
-      passCount,
-      failCount,
-      averageScore: avgScore,
+      total_images: analyzedAssets.length,
+      passed: passCount,
+      failed: failCount,
+      average_score: avgScore,
     },
     assets: analyzedAssets.map(asset => ({
-      name: asset.name,
+      filename: asset.name,
       type: asset.type,
       score: asset.analysisResult?.overallScore || 0,
       status: asset.analysisResult?.status || 'UNKNOWN',
@@ -95,14 +98,14 @@ export function exportToPDF(data: ExportData): void {
   // Report info
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
-  doc.text(`Date: ${new Date(data.exportDate).toLocaleDateString()}`, pageWidth - 14, 50, { align: 'right' });
+  doc.text(`Date: ${new Date(data.timestamp).toLocaleDateString()}`, pageWidth - 14, 50, { align: 'right' });
   
   // Listing title
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text('Listing:', 14, 55);
   doc.setFont('helvetica', 'normal');
-  const titleLines = doc.splitTextToSize(data.listingTitle, pageWidth - 50);
+  const titleLines = doc.splitTextToSize(data.listing_title, pageWidth - 50);
   doc.text(titleLines, 40, 55);
   
   // Summary section
@@ -119,10 +122,10 @@ export function exportToPDF(data: ExportData): void {
   doc.setFont('helvetica', 'normal');
   
   const summaryItems = [
-    { label: 'Total Images', value: data.summary.totalAssets.toString() },
-    { label: 'Passed', value: data.summary.passCount.toString(), color: [34, 139, 34] },
-    { label: 'Failed', value: data.summary.failCount.toString(), color: [220, 53, 69] },
-    { label: 'Avg Score', value: `${data.summary.averageScore}%` },
+    { label: 'Total Images', value: data.summary.total_images.toString() },
+    { label: 'Passed', value: data.summary.passed.toString(), color: [34, 139, 34] },
+    { label: 'Failed', value: data.summary.failed.toString(), color: [220, 53, 69] },
+    { label: 'Avg Score', value: `${data.summary.average_score}%` },
   ];
   
   let xPos = 20;
@@ -153,7 +156,7 @@ export function exportToPDF(data: ExportData): void {
   currentY += 8;
   
   const tableData = data.assets.map(asset => [
-    asset.name.length > 25 ? asset.name.substring(0, 22) + '...' : asset.name,
+    asset.filename.length > 25 ? asset.filename.substring(0, 22) + '...' : asset.filename,
     asset.type,
     `${asset.score}%`,
     asset.status,
@@ -198,7 +201,7 @@ export function exportToPDF(data: ExportData): void {
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text(`${asset.name} - Violations`, 14, currentY);
+    doc.text(`${asset.filename} - Violations`, 14, currentY);
     currentY += 6;
     
     const violationData = (asset.violations || []).map(v => [
