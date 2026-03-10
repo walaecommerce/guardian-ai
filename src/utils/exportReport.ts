@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { ImageAsset } from '@/types';
+import { CompetitorData, buildComparisonReport } from '@/components/CompetitorAudit';
 
 // Extend jsPDF type to include autoTable
 declare module 'jspdf' {
