@@ -1206,7 +1206,12 @@ const Index = () => {
         />
       )}
       
-      <main className="flex-1 container mx-auto px-4 py-6">
+      <main className="flex-1 container mx-auto px-4 py-6 space-y-4">
+        {/* Policy Update Banner */}
+        {!bannerDismissed && highImpactUpdates.length > 0 && (
+          <PolicyBanner updates={highImpactUpdates} onDismiss={() => setBannerDismissed(true)} />
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
           {/* Left Panel - Input */}
           <div className="lg:col-span-4 space-y-4" ref={uploadSectionRef}>
