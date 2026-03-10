@@ -70,6 +70,8 @@ export function ImageUploader({
   onRetryFailedDownloads,
   titlePulse = false,
   assetGridRef,
+  selectedCategory = 'AUTO',
+  onCategoryChange,
 }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
