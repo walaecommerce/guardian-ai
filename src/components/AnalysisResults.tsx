@@ -326,7 +326,7 @@ function AssetResultCard({
             <Button variant="secondary" size="sm" className="flex-1" onClick={() => onReverify(asset.id)} disabled={asset.isGeneratingFix}>
               {asset.isGeneratingFix ? <Loader2 className="w-4 h-4 animate-spin" /> : <><RotateCcw className="w-4 h-4 mr-1" />Re-verify</>}
             </Button>
-          ) : result.status === 'FAIL' ? (
+          ) : result.status === 'FAIL' || result.status === 'WARNING' ? (
             <Button size="sm" className="flex-1" onClick={() => { onViewDetails(asset); onRequestFix(asset.id); }} disabled={asset.isGeneratingFix}>
               {asset.isGeneratingFix ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Wand2 className="w-4 h-4 mr-1" />Fix</>}
             </Button>
