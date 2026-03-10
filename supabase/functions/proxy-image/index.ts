@@ -34,6 +34,7 @@ serve(async (req) => {
       });
     }
 
+    const arrayBuffer = await response.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
     // Chunk-based btoa to avoid stack overflow on large images
     let binary = '';

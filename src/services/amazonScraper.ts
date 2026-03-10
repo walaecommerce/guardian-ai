@@ -142,29 +142,63 @@ function extractGalleryHtml(html: string): string {
 function extractGalleryFromJson(html: string): string[] {
   const urls: string[] = [];
 
-  // Strategy 1: Parse 'colorImages' JSON blob
-  const colorImagesMatch = html.match(/['"]colorImages['"]:\s*\{[^}]*['"]initial['"]:\s*(\[[\s\S]*?\])\s*\}/);
-  if (colorImagesMatch) {
-    try {
-      const items = JSON.parse(colorImagesMatch[1]);
-      for (const item of items) {
-        // hiRes is highest quality, then large, then thumb
-        const imgUrl = item.hiRes || item.large || item.thumb;
-        if (imgUrl) urls.push(imgUrl);
-      }
-    } catch { /* ignore parse errors */ }
+  // Strategy 1: Parse 'colorImages' JSON blob — multiple regex patterns for different Amazon formats
+  const colorImagesPatterns = [
+    /['"]colorImages['"]:\s*\{[^}]*['"]initial['"]:\s*(\[[\s\S]*?\])\s*\}/,
+    /colorImages\s*['"]?\s*:\s*\{\s*['"]initial['"]\s*:\s*(\[[\s\S]*?\])/,
+    /'colorImages'\s*:\s*\{\s*'initial'\s*:\s*(\[[\s\S]*?\])\s*\}/,
+  ];
+  
+  for (const pattern of colorImagesPatterns) {
+    if (urls.length > 0) break;
+    const match = html.match(pattern);
+    if (match) {
+      try {
+        // Fix common JSON issues in Amazon's inline JS (single quotes → double quotes)
+        let jsonStr = match[1]
+          .replace(/'/g, '"')
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']');
+        const items = JSON.parse(jsonStr);
+        for (const item of items) {
+          const imgUrl = item.hiRes || item.large || item.thumb;
+          if (imgUrl) urls.push(imgUrl);
+        }
+      } catch { /* ignore parse errors */ }
+    }
   }
 
   // Strategy 2: Parse 'imageGalleryData' JSON blob
-  const galleryDataMatch = html.match(/imageGalleryData\s*[=:]\s*(\[[\s\S]*?\])\s*[;,]/);
-  if (galleryDataMatch) {
-    try {
-      const items = JSON.parse(galleryDataMatch[1]);
-      for (const item of items) {
-        const imgUrl = item.mainUrl || item.thumbUrl;
-        if (imgUrl) urls.push(imgUrl);
-      }
-    } catch { /* ignore parse errors */ }
+  const galleryDataPatterns = [
+    /imageGalleryData\s*[=:]\s*(\[[\s\S]*?\])\s*[;,]/,
+    /['"]imageGalleryData['"]\s*:\s*(\[[\s\S]*?\])/,
+  ];
+  
+  for (const pattern of galleryDataPatterns) {
+    if (urls.length > 0) break;
+    const match = html.match(pattern);
+    if (match) {
+      try {
+        let jsonStr = match[1].replace(/'/g, '"').replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        const items = JSON.parse(jsonStr);
+        for (const item of items) {
+          const imgUrl = item.mainUrl || item.thumbUrl;
+          if (imgUrl) urls.push(imgUrl);
+        }
+      } catch { /* ignore parse errors */ }
+    }
+  }
+
+  // Strategy 3: Extract hiRes URLs directly from script text with simple regex
+  if (urls.length === 0) {
+    const hiResMatches = html.matchAll(/["']hiRes["']\s*:\s*["'](https?:\/\/[^"']+)["']/gi);
+    for (const m of hiResMatches) urls.push(m[1]);
+  }
+
+  // Strategy 4: Extract from data-old-hires attributes (landing image and thumbs)
+  if (urls.length === 0) {
+    const oldHiresMatches = html.matchAll(/data-old-hires=["'](https?:\/\/[^"']+)["']/gi);
+    for (const m of oldHiresMatches) urls.push(m[1]);
   }
 
   return urls;
