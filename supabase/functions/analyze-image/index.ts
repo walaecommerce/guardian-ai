@@ -480,10 +480,20 @@ serve(async (req) => {
 
     // ── Map to camelCase for frontend ──
     const categoryChecks = rawResult.category_specific_checks || {};
+    // Enforce score-based status mapping server-side
+    const score = rawResult.overall_score ?? rawResult.overallScore ?? 0;
+    let derivedStatus: string;
+    let derivedSeverity: string;
+    if (score >= 90) { derivedStatus = 'PASS'; derivedSeverity = 'NONE'; }
+    else if (score >= 75) { derivedStatus = 'PASS'; derivedSeverity = 'LOW'; }
+    else if (score >= 50) { derivedStatus = 'WARNING'; derivedSeverity = 'MEDIUM'; }
+    else { derivedStatus = 'FAIL'; derivedSeverity = score < 25 ? 'CRITICAL' : 'HIGH'; }
+
     const mappedResult = {
-      overallScore: rawResult.overall_score ?? rawResult.overallScore ?? 0,
-      status: rawResult.status || 'FAIL',
-      severity: rawResult.severity || 'NONE',
+      overallScore: score,
+      status: derivedStatus,
+      severity: derivedSeverity,
+      scoringRationale: rawResult.scoring_rationale || rawResult.scoringRationale || null,
       productCategory: detectedCategory,
       violations: (rawResult.violations || []).map((v: any) => ({
         severity: v.severity || 'info',
