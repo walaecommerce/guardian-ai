@@ -262,12 +262,14 @@ function AssetResultCard({
         <div className={`absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold ${
           result.status === 'PASS'
             ? 'bg-success text-success-foreground'
-            : 'bg-destructive text-destructive-foreground'
+            : result.status === 'WARNING'
+              ? 'bg-[hsl(38,92%,50%)] text-white'
+              : 'bg-destructive text-destructive-foreground'
         }`}>
           <div className={`w-2 h-2 rounded-full ${
-            result.status === 'PASS' ? 'bg-green-300 animate-pulse' : 'bg-red-300 animate-pulse'
+            result.status === 'PASS' ? 'bg-green-300 animate-pulse' : result.status === 'WARNING' ? 'bg-yellow-200 animate-pulse' : 'bg-red-300 animate-pulse'
           }`} />
-          {result.status === 'PASS' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+          {result.status === 'PASS' ? <CheckCircle className="w-3 h-3" /> : result.status === 'WARNING' ? <AlertTriangle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
           {result.status}
         </div>
 
@@ -294,6 +296,13 @@ function AssetResultCard({
           <ScoreGauge score={result.overallScore} size={60} />
         </div>
 
+        {/* Scoring Rationale */}
+        {result.scoringRationale && (
+          <p className="text-xs text-muted-foreground italic leading-relaxed border-l-2 border-primary/30 pl-2">
+            {result.scoringRationale}
+          </p>
+        )}
+
         {/* Violations sorted by severity with stagger */}
         {sortedViolations.length > 0 && (
           <div className="max-h-32 overflow-y-auto space-y-2">
@@ -317,7 +326,7 @@ function AssetResultCard({
             <Button variant="secondary" size="sm" className="flex-1" onClick={() => onReverify(asset.id)} disabled={asset.isGeneratingFix}>
               {asset.isGeneratingFix ? <Loader2 className="w-4 h-4 animate-spin" /> : <><RotateCcw className="w-4 h-4 mr-1" />Re-verify</>}
             </Button>
-          ) : result.status === 'FAIL' ? (
+          ) : result.status === 'FAIL' || result.status === 'WARNING' ? (
             <Button size="sm" className="flex-1" onClick={() => { onViewDetails(asset); onRequestFix(asset.id); }} disabled={asset.isGeneratingFix}>
               {asset.isGeneratingFix ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Wand2 className="w-4 h-4 mr-1" />Fix</>}
             </Button>
@@ -367,7 +376,9 @@ export function AnalysisResults({
 
   const completedAssets = analyzedAssets.filter(a => a.analysisResult);
   const passCount = completedAssets.filter(a => a.analysisResult?.status === 'PASS').length;
+  const warningCount = completedAssets.filter(a => a.analysisResult?.status === 'WARNING').length;
   const failCount = completedAssets.filter(a => a.analysisResult?.status === 'FAIL').length;
+  const fixableCount = failCount + warningCount;
   const avgScore = completedAssets.length > 0
     ? Math.round(completedAssets.reduce((sum, a) => sum + (a.analysisResult?.overallScore || 0), 0) / completedAssets.length)
     : 0;
@@ -382,9 +393,9 @@ export function AnalysisResults({
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Analysis Summary</CardTitle>
             <div className="flex items-center gap-2">
-              {failCount > 0 && onBatchFix && (
+              {fixableCount > 0 && onBatchFix && (
                 <Button size="sm" onClick={onBatchFix} disabled={isBatchFixing} className="bg-primary hover:bg-primary/90">
-                  {isBatchFixing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fixing...</> : <><Wand2 className="w-4 h-4 mr-2" />Fix All ({failCount})</>}
+                  {isBatchFixing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fixing...</> : <><Wand2 className="w-4 h-4 mr-2" />Fix All ({fixableCount})</>}
                 </Button>
               )}
               <ExportButton assets={assets} listingTitle={listingTitle} productAsin={productAsin} competitorData={competitorData} />
@@ -397,6 +408,10 @@ export function AnalysisResults({
               <div className="text-center">
                 <p className="text-2xl font-bold text-green-500">{passCount}</p>
                 <p className="text-xs text-muted-foreground">Passed</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-[hsl(38,92%,50%)]">{warningCount}</p>
+                <p className="text-xs text-muted-foreground">Warning</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-red-500">{failCount}</p>

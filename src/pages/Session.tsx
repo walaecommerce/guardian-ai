@@ -439,7 +439,7 @@ const Session = () => {
   };
 
   const handleBatchFix = async () => {
-    const failedAssets = assets.filter(a => a.analysisResult?.status === 'FAIL' && !a.fixedImage);
+    const failedAssets = assets.filter(a => (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage);
     if (failedAssets.length === 0) return;
     
     setIsBatchFixing(true);

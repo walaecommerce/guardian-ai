@@ -28,6 +28,8 @@ const MAIN_IMAGE_RULES = `UNIVERSAL MAIN IMAGE RULES (apply to ALL categories):
 BACKGROUND:
 - MUST be pure white RGB(255,255,255). Any shadow, gradient, or off-white tone = CRITICAL violation
 - No environmental backgrounds — countertops, tables, wooden surfaces, kitchen settings = CRITICAL violation
+- Any shadow that is NOT a natural drop shadow directly under the product: -15 points
+- Any visible background texture (wood grain, fabric, gradient, pattern): -35 points (CRITICAL)
 
 TEXT & BADGES:
 - ZERO tolerance for overlays. No badges, watermarks, promotional text, "Best Seller", "Amazon's Choice" = CRITICAL violation
@@ -35,6 +37,8 @@ TEXT & BADGES:
 PRODUCT PRESENTATION:
 - Product must fill 85%+ of frame. Under 70% = HIGH violation
 - Product must face forward with primary label readable. Sideways or back-facing = HIGH violation
+- Multiple products shown when listing is for a single unit: -20 points
+- Product packaging shown with price tag or retail sticker visible: -25 points
 
 IMAGE QUALITY:
 - Must be sharp, high-res, professionally lit. Blur or grain = MEDIUM violation`;
@@ -47,12 +51,25 @@ ALLOWED & ENCOURAGED:
 - Comparison images showing size reference or product scale — ALLOWED
 - Multiple product variants or flavors shown together — ALLOWED
 
-PROHIBITED (still enforced):
-- "Best Seller" badges, "Amazon's Choice" badges, competitor brand logos = CRITICAL violation
-- Competitor product comparisons using their actual brand names/logos = HIGH violation
+PROHIBITED — SCORE DEDUCTIONS (apply ALL that are present, deductions are cumulative from 100):
+- Missing product in frame (no product visible at all): -40 points
+- Text is blurry, pixelated, or under 20pt equivalent: -25 points
+- Cluttered layout with more than 6 callouts on one image: -20 points
+- Low contrast text (text color too similar to background): -20 points
+- Missing brand name or logo anywhere on image: -15 points
+- Image resolution appears under 1000px on shortest side: -15 points
+- Watermarks, stock photo artifacts, or visible compression: -15 points
+- Competitor brand logos or trademarks visible: -40 points (CRITICAL)
+- Amazon restricted badges (Best Seller, Amazon's Choice, #1 Best Seller): -30 points (CRITICAL)
+- Claims without substantiation ("clinically proven", "#1", "best"): -25 points
+- Before/after claims without FDA disclaimer: -30 points (CRITICAL for supplements/food)
+- Missing required supplement facts panel (for food/supplement products when expected): -35 points (CRITICAL)
 
-IMAGE QUALITY:
-- Must be readable and clear. Blurry or pixelated = MEDIUM violation`;
+INFOGRAPHIC-SPECIFIC RULES (apply when the image contains infographic/text overlay content):
+- Text NOT readable/legible at thumbnail size (300x300px): -20 points
+- No clear visual hierarchy (no size/weight/color differentiation in text): -15 points
+- Chart/graph shown with no axis labels or legend: -20 points
+- Lifestyle image shows person but face is obscured or cropped badly: -10 points`;
 
 const FOOD_RULES = `FOOD PRODUCT SPECIFIC RULES (apply when category is FOOD):
 
@@ -212,8 +229,9 @@ const OUTPUT_SCHEMA = `
 Return this EXACT JSON structure:
 {
   "overall_score": <0-100>,
-  "status": "PASS" or "FAIL",
+  "status": "PASS" | "WARNING" | "FAIL",
   "severity": "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+  "scoring_rationale": "<2-3 sentence explanation of why this specific score was given, listing the top 2-3 factors that affected the score most>",
   "product_category": "FOOD_BEVERAGE" | "PET_SUPPLIES" | "SUPPLEMENTS" | "BEAUTY_PERSONAL_CARE" | "ELECTRONICS" | "GENERAL_MERCHANDISE",
   "text_readability_score": <0-100 — for SECONDARY images only, rate how readable any text/infographic content would be on a mobile phone screen. Consider font size, contrast, text density, legibility. For MAIN images return null>,
   "emotional_appeal_score": <0-100 — for SECONDARY images only, rate the emotional appeal and aspirational quality. Consider: appetizing food, happy people, active lifestyle, professional photography, warm lighting. For MAIN images return null>,
@@ -258,12 +276,20 @@ Return this EXACT JSON structure:
   "generative_prompt": "<detailed AI image generation prompt to fix all issues>"
 }
 
-SCORING:
-- 100: Perfect compliance
-- 85-99: Minor issues, likely passes
-- 70-84: Moderate issues, fix recommended
-- 50-69: Significant violations
-- 0-49: Critical failures
+SCORING CALIBRATION — CRITICAL:
+You are currently scoring too generously. Recalibrate with these strict thresholds:
+- 90-100: GENUINELY exceptional. Only ~5% of real Amazon product images should score here. Pure white background, perfect lighting, centered, clear text, zero violations whatsoever. If you find ANY issue at all, the score CANNOT be 90+.
+- 75-89: Good but has minor issues worth noting. Most "good" Amazon images should land here. This is the realistic ceiling for typical product images.
+- 50-74: Clear issues present. Needs improvement. Should be flagged with WARNING.
+- Below 50: Multiple violations. FAIL. Fix strongly recommended.
+
+STATUS MAPPING (derive from score — do NOT default to PASS):
+- Score 90-100: status = "PASS", severity = "NONE"
+- Score 75-89: status = "PASS", severity = "LOW" — still list ALL violations even if minor
+- Score 50-74: status = "WARNING", severity = "MEDIUM" — show Fix button
+- Score below 50: status = "FAIL", severity = "HIGH" or "CRITICAL"
+
+IMPORTANT: Do NOT round scores up to 100. A score of 100 means literally zero issues found — no minor lighting concern, no slight text legibility issue, nothing. Be a strict grader.
 
 TEXT READABILITY SCORING (SECONDARY images only):
 - 100: All text is large, high-contrast, minimal density — perfect mobile readability
@@ -454,10 +480,20 @@ serve(async (req) => {
 
     // ── Map to camelCase for frontend ──
     const categoryChecks = rawResult.category_specific_checks || {};
+    // Enforce score-based status mapping server-side
+    const score = rawResult.overall_score ?? rawResult.overallScore ?? 0;
+    let derivedStatus: string;
+    let derivedSeverity: string;
+    if (score >= 90) { derivedStatus = 'PASS'; derivedSeverity = 'NONE'; }
+    else if (score >= 75) { derivedStatus = 'PASS'; derivedSeverity = 'LOW'; }
+    else if (score >= 50) { derivedStatus = 'WARNING'; derivedSeverity = 'MEDIUM'; }
+    else { derivedStatus = 'FAIL'; derivedSeverity = score < 25 ? 'CRITICAL' : 'HIGH'; }
+
     const mappedResult = {
-      overallScore: rawResult.overall_score ?? rawResult.overallScore ?? 0,
-      status: rawResult.status || 'FAIL',
-      severity: rawResult.severity || 'NONE',
+      overallScore: score,
+      status: derivedStatus,
+      severity: derivedSeverity,
+      scoringRationale: rawResult.scoring_rationale || rawResult.scoringRationale || null,
       productCategory: detectedCategory,
       violations: (rawResult.violations || []).map((v: any) => ({
         severity: v.severity || 'info',

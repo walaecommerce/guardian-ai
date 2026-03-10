@@ -110,7 +110,8 @@ export interface SpatialAnalysis {
 
 export interface AnalysisResult {
   overallScore: number;
-  status: 'PASS' | 'FAIL';
+  status: 'PASS' | 'WARNING' | 'FAIL';
+  scoringRationale?: string;
   productCategory?: string;
   mainImageAnalysis?: MainImageAnalysis;
   contentConsistency?: ContentConsistency;
