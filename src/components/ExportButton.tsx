@@ -40,7 +40,7 @@ export function ExportButton({ assets, listingTitle, productAsin, competitorData
 
   const handleExportPDF = () => {
     try {
-      const data = generateExportData(assets, listingTitle);
+      const data = generateExportData(assets, listingTitle, competitorData);
       exportToPDF(data);
       toast({ title: 'Export Complete', description: 'PDF report downloaded successfully' });
     } catch {
