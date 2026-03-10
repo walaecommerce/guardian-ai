@@ -295,8 +295,8 @@ serve(async (req) => {
           thinkingLevel: "High",
         },
       },
-      tool_config: {
-        function_calling_config: {
+      toolConfig: {
+        functionCallingConfig: {
           mode: "NONE",
         },
       },
