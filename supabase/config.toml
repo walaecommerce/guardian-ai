@@ -70,3 +70,6 @@ verify_jwt = false
 
 [functions.generate-suggested-image]
 verify_jwt = false
+
+[functions.check-policy-updates]
+verify_jwt = false

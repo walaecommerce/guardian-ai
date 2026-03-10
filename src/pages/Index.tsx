@@ -58,6 +58,8 @@ const Index = () => {
   const [isImportingCompetitor, setIsImportingCompetitor] = useState(false);
   const [competitorProgress, setCompetitorProgress] = useState<{ current: number; total: number } | null>(null);
   const { toast } = useToast();
+  const { data: policyData, loading: policyLoading, highImpactUpdates, getMatchingUpdate, refresh: refreshPolicy } = usePolicyUpdates();
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   
   const uploadSectionRef = useRef<HTMLDivElement>(null);
 
