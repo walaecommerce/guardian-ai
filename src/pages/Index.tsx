@@ -1015,6 +1015,8 @@ const Index = () => {
               failedDownloads={failedDownloads}
               isRetrying={isRetrying}
               onRetryFailedDownloads={handleRetryFailedDownloads}
+              titlePulse={titlePulse}
+              assetGridRef={assetGridRef}
             />
             
             {/* Compliance Report Card - shown during/after analysis */}
