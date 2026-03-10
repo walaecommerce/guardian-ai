@@ -1272,6 +1272,7 @@ const Index = () => {
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <TabsList>
                   <TabsTrigger value="results">Analysis Results</TabsTrigger>
+                  <TabsTrigger value="scorecard">Score Card</TabsTrigger>
                   <TabsTrigger value="comparison">Before / After</TabsTrigger>
                   <TabsTrigger value="compare">Compare</TabsTrigger>
                   <TabsTrigger value="history">History</TabsTrigger>
