@@ -364,7 +364,7 @@ export function AnalysisResults({
                   {isBatchFixing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fixing...</> : <><Wand2 className="w-4 h-4 mr-2" />Fix All ({failCount})</>}
                 </Button>
               )}
-              <ExportButton assets={assets} listingTitle={listingTitle} productAsin={productAsin} />
+              <ExportButton assets={assets} listingTitle={listingTitle} productAsin={productAsin} competitorData={competitorData} />
             </div>
           </div>
         </CardHeader>
