@@ -173,7 +173,7 @@ export type OptimizeMode = 'fix' | 'enhance';
 // Scraping Types
 // Content-based categories (not position-based)
 // PRODUCT_SHOT = clean product on white background (what Amazon requires for first position)
-export type ImageCategory = 'PRODUCT_SHOT' | 'INFOGRAPHIC' | 'LIFESTYLE' | 'PRODUCT_IN_USE' | 'SIZE_CHART' | 'COMPARISON' | 'PACKAGING' | 'DETAIL' | 'UNKNOWN';
+export type ImageCategory = 'PRODUCT_SHOT' | 'INFOGRAPHIC' | 'LIFESTYLE' | 'PRODUCT_IN_USE' | 'SIZE_CHART' | 'COMPARISON' | 'PACKAGING' | 'DETAIL' | 'APLUS' | 'UNKNOWN';
 
 export interface ScrapedImage {
   url: string;
