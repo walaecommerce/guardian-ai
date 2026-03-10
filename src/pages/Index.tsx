@@ -9,6 +9,8 @@ import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
 import { SessionHistory } from '@/components/SessionHistory';
+import { ComplianceHistory, saveAuditToHistory, AuditHistoryEntry } from '@/components/ComplianceHistory';
+import { BulkUrlImport } from '@/components/BulkUrlImport';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
@@ -16,7 +18,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Save } from 'lucide-react';
+import { Save, Loader2, Wand2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { uploadImage } from '@/services/imageStorage';
 import { loadDemoImages, DEMO_PRODUCT } from '@/components/DemoImages';
 
@@ -35,6 +38,7 @@ const Index = () => {
   const [analyzingProgress, setAnalyzingProgress] = useState<{ current: number; total: number } | undefined>(undefined);
   const [auditComplete, setAuditComplete] = useState<{ passed: number; failed: number } | null>(null);
   const [isBatchFixing, setIsBatchFixing] = useState(false);
+  const [batchFixProgress, setBatchFixProgress] = useState<{ current: number; total: number } | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<ImageAsset | null>(null);
   const [showFixModal, setShowFixModal] = useState(false);
@@ -42,6 +46,8 @@ const Index = () => {
   const [failedDownloads, setFailedDownloads] = useState<FailedDownload[]>([]);
   const [isRetrying, setIsRetrying] = useState(false);
   const [showHero, setShowHero] = useState(true);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
+  const [activeTab, setActiveTab] = useState('results');
   const { toast } = useToast();
   
   const uploadSectionRef = useRef<HTMLDivElement>(null);
@@ -64,7 +70,6 @@ const Index = () => {
     });
   };
 
-  // Compute SHA-256 hash of file content for deduplication
   const computeContentHash = async (file: File): Promise<string> => {
     const buffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -138,7 +143,6 @@ const Index = () => {
     }, 100);
   };
 
-  // Ref for the asset grid to auto-scroll after import
   const assetGridRef = useRef<HTMLDivElement>(null);
   const [titlePulse, setTitlePulse] = useState(false);
 
@@ -151,21 +155,16 @@ const Index = () => {
     setIsImporting(true);
 
     try {
-      // Use the new scraper with log callbacks for activity log
       const product = await scrapeAmazonProduct(amazonUrl, addLog);
-
-      // Apply max images limit
       const imagesToProcess = product.images.slice(0, maxCount);
       setProductAsin(product.asin !== 'UNKNOWN' ? product.asin : null);
       
-      // Auto-populate listing title with pulse animation
       if (product.title) {
         setListingTitle(product.title);
         setTitlePulse(true);
         setTimeout(() => setTitlePulse(false), 500);
       }
 
-      // Create enhancement session in database
       addLog('processing', '💾 Creating enhancement session...');
       const { data: sessionData, error: sessionError } = await supabase
         .from('enhancement_sessions')
@@ -187,7 +186,6 @@ const Index = () => {
         addLog('success', '📁 Session saved to history');
       }
 
-      // Download images with content-hash deduplication
       const newAssets: ImageAsset[] = [];
       const newAssetSessionMap = new Map<string, string>(assetSessionMap);
       
@@ -283,7 +281,6 @@ const Index = () => {
         }
       }
 
-      // Track failed downloads
       if (newFailedDownloads.length > 0) {
         addLog('warning', `⚠️ ${newFailedDownloads.length} image(s) failed to download`);
         setFailedDownloads(newFailedDownloads);
@@ -295,13 +292,11 @@ const Index = () => {
         setAssets(prev => [...prev, ...newAssets]);
         setAssetSessionMap(newAssetSessionMap);
         
-        // Green success toast
         toast({
           title: '✅ Import Successful',
           description: `Imported ${newAssets.length} images from Amazon`,
         });
 
-        // Auto-scroll asset grid into view
         setTimeout(() => {
           assetGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 300);
@@ -311,7 +306,6 @@ const Index = () => {
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Import failed';
       
-      // Handle specific error: no images found → inline message, not toast
       if (msg === 'NO_IMAGES') {
         addLog('warning', 'No product images found. Please upload manually.');
       } else {
@@ -321,6 +315,89 @@ const Index = () => {
     } finally {
       setIsImporting(false);
     }
+  };
+
+  // ── FEATURE 1: Bulk URL Import ──
+  const handleBulkImport = async (urls: string[]) => {
+    setShowHero(false);
+    setIsImporting(true);
+    setBulkProgress({ current: 0, total: urls.length });
+    addLog('processing', `📦 Starting bulk import of ${urls.length} URLs...`);
+
+    for (let i = 0; i < urls.length; i++) {
+      setBulkProgress({ current: i + 1, total: urls.length });
+      addLog('processing', `🔗 Importing URL ${i + 1}/${urls.length}: ${urls[i].substring(0, 60)}...`);
+      
+      setAmazonUrl(urls[i]);
+      
+      try {
+        const product = await scrapeAmazonProduct(urls[i], addLog);
+        const imagesToProcess = product.images.slice(0, 20);
+
+        if (product.title && !listingTitle) {
+          setListingTitle(product.title);
+          setTitlePulse(true);
+          setTimeout(() => setTitlePulse(false), 500);
+        }
+
+        if (product.asin !== 'UNKNOWN' && !productAsin) {
+          setProductAsin(product.asin);
+        }
+
+        const newAssets: ImageAsset[] = [];
+        const seenContentHashes = new Set(assets.filter(a => a.contentHash).map(a => a.contentHash!));
+
+        for (let j = 0; j < imagesToProcess.length; j++) {
+          const imageData = imagesToProcess[j];
+          const file = await downloadImage(imageData.url);
+          if (!file) continue;
+
+          const contentHash = await computeContentHash(file);
+          if (seenContentHashes.has(contentHash)) continue;
+          seenContentHashes.add(contentHash);
+
+          const base64 = await fileToBase64(file);
+          const classification = await classifyImage(base64, product.title, product.asin !== 'UNKNOWN' ? product.asin : undefined);
+          const aiCategory = classification.category as ImageCategory;
+
+          const assetId = Math.random().toString(36).substring(2, 9);
+          const isFirst = newAssets.length === 0 && assets.length === 0;
+
+          newAssets.push({
+            id: assetId,
+            file,
+            preview: URL.createObjectURL(file),
+            type: isFirst ? 'MAIN' : 'SECONDARY',
+            name: `${aiCategory}_${file.name}`,
+            sourceUrl: imageData.url,
+            contentHash,
+          });
+        }
+
+        if (newAssets.length > 0) {
+          setAssets(prev => [...prev, ...newAssets]);
+          addLog('success', `✅ Imported ${newAssets.length} images from URL ${i + 1}`);
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Import failed';
+        addLog('error', `❌ URL ${i + 1} failed: ${msg}`);
+      }
+
+      if (i < urls.length - 1) {
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+
+    setBulkProgress(null);
+    setIsImporting(false);
+    addLog('success', `🎯 Bulk import complete`);
+    toast({ title: 'Bulk Import Complete', description: `Processed ${urls.length} URLs` });
+
+    // Auto-run batch audit after bulk import
+    setTimeout(() => {
+      addLog('info', '🔍 Auto-starting batch audit after bulk import...');
+      handleRunAudit();
+    }, 1000);
   };
 
   const handleRetryFailedDownloads = async () => {
@@ -342,7 +419,6 @@ const Index = () => {
         continue;
       }
       
-      // Content-hash deduplication
       const contentHash = await computeContentHash(file);
       if (seenContentHashes.has(contentHash)) {
         addLog('info', `   Skipped (duplicate content)`);
@@ -350,7 +426,6 @@ const Index = () => {
       }
       seenContentHashes.add(contentHash);
       
-      // Classify image
       const base64 = await fileToBase64(file);
       const classification = await classifyImage(base64, listingTitle, productAsin || undefined);
       const aiCategory = classification.category as ImageCategory;
@@ -362,7 +437,7 @@ const Index = () => {
         id: assetId,
         file,
         preview: URL.createObjectURL(file),
-        type: 'SECONDARY' as const, // Retry downloads are always secondary
+        type: 'SECONDARY' as const,
         name: imageName,
         sourceUrl: failed.url,
         contentHash,
@@ -394,7 +469,6 @@ const Index = () => {
       });
 
       if (error) {
-        // Handle 429 rate limit with 30s pause and retry
         const status = (error as any)?.context?.status;
         if (status === 429 && attempt < 3) {
           addLog('warning', '⏳ Rate limit hit — pausing 30 seconds...');
@@ -410,7 +484,6 @@ const Index = () => {
     }
   };
 
-  // Countdown cooldown helper
   const countdownCooldown = async (ms: number) => {
     const seconds = ms / 1000;
     for (let i = seconds; i > 0; i--) {
@@ -482,7 +555,6 @@ const Index = () => {
         addLog('error', `❌ Failed to analyze ${asset.name}`);
       }
 
-      // Rate limit delays between images
       if (i < assets.length - 1) {
         addLog('info', `Cooling down before next image...`);
         await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
@@ -512,6 +584,14 @@ const Index = () => {
     setIsAnalyzing(false);
     setAnalyzingProgress(undefined);
     setAuditComplete({ passed: passedCount, failed: failedCount });
+
+    // FEATURE 2: Save to localStorage history
+    // We need the latest assets with results — use a callback to get fresh state
+    setAssets(currentAssets => {
+      saveAuditToHistory(currentAssets, listingTitle);
+      return currentAssets;
+    });
+
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
     setTimeout(() => setAuditComplete(null), 3000);
   };
@@ -566,7 +646,6 @@ const Index = () => {
     if (!asset) return;
 
     try {
-      // Get main image for cross-reference (for secondary images)
       const mainAsset = assets.find(a => a.type === 'MAIN' && a.id !== assetId);
       let mainImageBase64: string | undefined;
       
@@ -582,7 +661,6 @@ const Index = () => {
       a.id === assetId ? { ...a, isGeneratingFix: true } : a
     ));
 
-    // Initialize progress state
     const initProgress: FixProgressState = {
       attempt: 1,
       maxAttempts: 3,
@@ -616,7 +694,6 @@ const Index = () => {
       }
       
       try {
-        // Update progress - generating
         setFixProgress(prev => prev ? {
           ...prev,
           attempt,
@@ -624,7 +701,6 @@ const Index = () => {
           thinkingSteps: [...prev.thinkingSteps, `🖼️ Generation attempt ${attempt}/${maxAttempts}...`]
         } : prev);
 
-        // Step 1: Generate the fixed image
         const { data: genData, error: genError } = await supabase.functions.invoke('generate-fix', {
           body: { 
             imageBase64: originalBase64, 
@@ -635,8 +711,8 @@ const Index = () => {
             previousGeneratedImage: lastGeneratedImage,
             productTitle: listingTitle || undefined,
             productAsin: productAsin || extractAsin(amazonUrl) || undefined,
-            customPrompt: customPrompt, // Pass custom prompt if provided
-            spatialAnalysis: asset.analysisResult?.spatialAnalysis // Pass spatial zones for zone-aware editing
+            customPrompt: customPrompt,
+            spatialAnalysis: asset.analysisResult?.spatialAnalysis
           }
         });
 
@@ -656,7 +732,6 @@ const Index = () => {
           const serverMsg: string | undefined = body?.error || body?.message;
           const serverType: string | undefined = body?.errorType;
 
-          // Credits / rate-limit handling
           if (status === 402 || serverType === 'payment_required') {
             const creditError = serverMsg || 'Not enough AI credits. Please add credits in Settings → Workspace → Usage.';
             addLog('error', `❌ ${creditError}`);
@@ -675,7 +750,6 @@ const Index = () => {
             throw new Error(rateError);
           }
 
-          // Show actionable backend error messages (e.g. no_image_returned / image_recitation)
           if (serverMsg) {
             if (body?.modelTextSnippet) {
               addLog('info', `🤖 Model note: ${String(body.modelTextSnippet).substring(0, 140)}`);
@@ -686,7 +760,6 @@ const Index = () => {
           throw genError;
         }
         if (genData?.error) {
-          // Handle error in response body
           if (genData.errorType === 'payment_required') {
             const creditError = genData.error || 'Not enough AI credits.';
             addLog('error', `❌ ${creditError}`);
@@ -704,7 +777,6 @@ const Index = () => {
         addLog('success', `✨ AI generation complete`);
         lastGeneratedImage = genData.fixedImage;
 
-        // Create new attempt and update progress with intermediate image
         const newAttempt: FixAttempt = {
           attempt,
           generatedImage: genData.fixedImage,
@@ -719,7 +791,6 @@ const Index = () => {
           thinkingSteps: [...prev.thinkingSteps, '✨ Image generated, starting verification...']
         } : prev);
 
-        // Step 2: Verify the generated image
         addLog('processing', `🔍 Verification protocol starting...`);
         addLog('info', `   ├─ Check 1: Product identity match...`);
         addLog('info', `   ├─ Check 2: Compliance fixes applied...`);
@@ -732,7 +803,7 @@ const Index = () => {
             generatedImageBase64: genData.fixedImage,
             imageType: asset.type,
             mainImageBase64,
-            spatialAnalysis: asset.analysisResult?.spatialAnalysis // Pass spatial zones for verification
+            spatialAnalysis: asset.analysisResult?.spatialAnalysis
           }
         });
 
@@ -745,7 +816,6 @@ const Index = () => {
         const verification = verifyData;
         addLog('info', `📊 Verification score: ${verification.score}%`);
 
-        // Add thinking steps from verification to progress
         const thinkingSteps = verification.thinkingSteps || [];
         setFixProgress(prev => prev ? {
           ...prev,
@@ -765,7 +835,6 @@ const Index = () => {
           );
         }
 
-        // Update the attempt with verification result
         setFixProgress(prev => {
           if (!prev) return prev;
           const updatedAttempts = [...prev.attempts];
@@ -846,7 +915,6 @@ const Index = () => {
       ));
       setFixProgress(null);
       
-      // Save fixed image to storage and update session_image
       const sessionImageId = assetSessionMap.get(assetId);
       if (sessionImageId && currentSessionId) {
         addLog('processing', '☁️ Saving fixed image to storage...');
@@ -860,7 +928,6 @@ const Index = () => {
             })
             .eq('id', sessionImageId);
           
-          // Update session fixed count
           await supabase
             .from('enhancement_sessions')
             .update({ 
@@ -896,7 +963,6 @@ const Index = () => {
     try {
       const originalBase64 = await fileToBase64(asset.file);
       
-      // Get main image for cross-reference
       const mainAsset = assets.find(a => a.type === 'MAIN' && a.id !== assetId);
       let mainImageBase64: string | undefined;
       if (asset.type === 'SECONDARY' && mainAsset) {
@@ -950,19 +1016,39 @@ const Index = () => {
     }
   };
 
+  // ── FEATURE 4: Fix All Failures with progress ──
   const handleBatchFix = async () => {
     const failedAssets = assets.filter(a => a.analysisResult?.status === 'FAIL' && !a.fixedImage);
     if (failedAssets.length === 0) return;
     
     setIsBatchFixing(true);
-    addLog('processing', `🔧 Starting batch fix for ${failedAssets.length} images...`);
+    setBatchFixProgress({ current: 0, total: failedAssets.length });
+    addLog('processing', `🔧 Starting Fix All for ${failedAssets.length} failed images...`);
     
-    for (const asset of failedAssets) {
+    let fixedCount = 0;
+
+    for (let i = 0; i < failedAssets.length; i++) {
+      const asset = failedAssets[i];
+      setBatchFixProgress({ current: i + 1, total: failedAssets.length });
+      addLog('processing', `Fixing ${i + 1} of ${failedAssets.length} failed images...`);
+
       await handleRequestFix(asset.id);
-      await new Promise(r => setTimeout(r, 1000)); // Delay between fixes
+      fixedCount++;
+
+      // Rate limiting between fixes
+      if (i < failedAssets.length - 1) {
+        addLog('info', 'Cooling down before next fix...');
+        await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
+
+        const fixNumber = i + 1;
+        if (fixNumber % RATE_LIMITS.batchCooldownEvery === 0) {
+          addLog('info', `⏳ Rate limit cooldown after ${fixNumber} fixes...`);
+          await countdownCooldown(RATE_LIMITS.batchCooldownDuration);
+          addLog('success', `   ✓ Cooldown complete, resuming...`);
+        }
+      }
     }
     
-    // Mark session as completed
     if (currentSessionId) {
       await supabase
         .from('enhancement_sessions')
@@ -971,8 +1057,9 @@ const Index = () => {
     }
     
     setIsBatchFixing(false);
-    addLog('success', `✅ Batch fix complete!`);
-    toast({ title: 'Batch Fix Complete', description: `Fixed ${failedAssets.length} images` });
+    setBatchFixProgress(null);
+    addLog('success', `✅ All fixes complete — ${fixedCount} images corrected`);
+    toast({ title: 'Fix All Complete', description: `All fixes complete — ${fixedCount} images corrected` });
   };
 
   const handleViewDetails = (asset: ImageAsset) => {
@@ -987,11 +1074,19 @@ const Index = () => {
     link.click();
   };
 
+  // FEATURE 2: Load audit from history
+  const handleLoadAudit = (entry: AuditHistoryEntry) => {
+    setListingTitle(entry.listingTitle);
+    addLog('info', `📂 Loaded audit from ${new Date(entry.date).toLocaleDateString()}: ${entry.listingTitle}`);
+    addLog('info', `   ${entry.passed} passed, ${entry.failed} failed (${entry.passRate}% pass rate)`);
+    setActiveTab('results');
+    toast({ title: 'Audit Loaded', description: `Loaded "${entry.listingTitle}" from history` });
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
-      {/* Hero Section - shown only when no assets loaded */}
       {showHero && assets.length === 0 && (
         <HeroSection 
           onTryDemo={handleLoadDemo}
@@ -1022,8 +1117,38 @@ const Index = () => {
               titlePulse={titlePulse}
               assetGridRef={assetGridRef}
             />
+
+            {/* FEATURE 1: Bulk URL Import */}
+            <BulkUrlImport
+              isImporting={isImporting}
+              onBulkImport={handleBulkImport}
+              bulkProgress={bulkProgress}
+            />
+
+            {/* FEATURE 4: Fix All Failures sticky button */}
+            {auditComplete && auditComplete.failed > 0 && !isBatchFixing && (
+              <div className="sticky bottom-16 z-10">
+                <Button
+                  onClick={handleBatchFix}
+                  className="w-full h-12 text-base font-semibold bg-destructive hover:bg-destructive/90"
+                  size="lg"
+                >
+                  <Wand2 className="w-5 h-5 mr-2" />
+                  Fix All Failures ({auditComplete.failed})
+                </Button>
+              </div>
+            )}
+
+            {isBatchFixing && batchFixProgress && (
+              <div className="sticky bottom-16 z-10 space-y-2 bg-background p-3 rounded-lg border">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Fixing {batchFixProgress.current} of {batchFixProgress.total} failed images...
+                </div>
+                <Progress value={(batchFixProgress.current / batchFixProgress.total) * 100} className="h-2" />
+              </div>
+            )}
             
-            {/* Compliance Report Card - shown during/after analysis */}
             {(assets.some(a => a.analysisResult) || isAnalyzing) && (
               <ComplianceReportCard 
                 assets={assets} 
@@ -1037,11 +1162,12 @@ const Index = () => {
 
           {/* Right Panel - Results */}
           <div className="lg:col-span-8">
-            <Tabs defaultValue="results" className="w-full">
-              <div className="flex items-center justify-between mb-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <TabsList>
                   <TabsTrigger value="results">Analysis Results</TabsTrigger>
                   <TabsTrigger value="comparison">Before / After</TabsTrigger>
+                  <TabsTrigger value="history">History</TabsTrigger>
                 </TabsList>
                 {assets.some(a => a.analysisResult) && (
                   <Button onClick={handleSaveReport} variant="outline" size="sm">
@@ -1059,6 +1185,7 @@ const Index = () => {
                   onReverify={handleReverify}
                   onBatchFix={handleBatchFix}
                   isBatchFixing={isBatchFixing}
+                  batchFixProgress={batchFixProgress}
                   productAsin={productAsin || undefined}
                 />
               </TabsContent>
@@ -1068,6 +1195,9 @@ const Index = () => {
                   onViewDetails={handleViewDetails}
                   onDownload={handleDownload}
                 />
+              </TabsContent>
+              <TabsContent value="history">
+                <ComplianceHistory onLoadAudit={handleLoadAudit} />
               </TabsContent>
             </Tabs>
           </div>

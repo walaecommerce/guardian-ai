@@ -3,9 +3,12 @@ import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, Chevron
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ImageAsset, AnalysisResult } from '@/types';
 import { ExportButton } from '@/components/ExportButton';
+import { ScoreTrendBadge } from '@/components/ScoreTrendBadge';
+import { getScoreTrend } from '@/components/ComplianceHistory';
 
 interface AnalysisResultsProps {
   assets: ImageAsset[];
@@ -15,6 +18,7 @@ interface AnalysisResultsProps {
   onReverify?: (assetId: string) => void;
   onBatchFix?: () => void;
   isBatchFixing?: boolean;
+  batchFixProgress?: { current: number; total: number } | null;
   productAsin?: string;
 }
 
@@ -314,6 +318,7 @@ export function AnalysisResults({
   onReverify,
   onBatchFix,
   isBatchFixing,
+  batchFixProgress,
   productAsin
 }: AnalysisResultsProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult || a.isAnalyzing);
@@ -340,6 +345,9 @@ export function AnalysisResults({
   const avgScore = completedAssets.length > 0
     ? Math.round(completedAssets.reduce((sum, a) => sum + (a.analysisResult?.overallScore || 0), 0) / completedAssets.length)
     : 0;
+
+  // FEATURE 3: Violation Trend Badges
+  const trend = getScoreTrend(listingTitle);
 
   return (
     <div className="space-y-4">
@@ -373,7 +381,28 @@ export function AnalysisResults({
                 <p className="text-xs text-muted-foreground">Processing</p>
               </div>
             </div>
-            {completedAssets.length > 0 && <ScoreGauge score={avgScore} size={70} />}
+            {completedAssets.length > 0 && (
+              <div className="flex items-center gap-2">
+                <ScoreGauge score={avgScore} size={70} />
+                {trend && (
+                  <ScoreTrendBadge
+                    direction={trend.direction}
+                    prevScore={trend.prevScore}
+                    prevDate={trend.prevDate}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Batch fix progress */}
+            {isBatchFixing && batchFixProgress && (
+              <div className="mt-3 space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Fixing {batchFixProgress.current} of {batchFixProgress.total} failed images...
+                </p>
+                <Progress value={(batchFixProgress.current / batchFixProgress.total) * 100} className="h-2" />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
