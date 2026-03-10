@@ -389,7 +389,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, imageType, listingTitle } = await req.json();
+    const { imageBase64, imageType, listingTitle, forcedCategory } = await req.json();
 
     const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GOOGLE_GEMINI_API_KEY) {
