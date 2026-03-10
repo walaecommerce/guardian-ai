@@ -1435,7 +1435,7 @@ const Index = () => {
                 </TabsList>
                 {assets.some(a => a.analysisResult) && (
                   <div className="flex items-center gap-2">
-                    <ClientReportGenerator assets={assets} listingTitle={listingTitle} productAsin={productAsin} />
+                    <ClientReportGenerator assets={assets} listingTitle={listingTitle} productAsin={productAsin} competitorData={aiComparison} />
                     <Button onClick={handleSaveReport} variant="outline" size="sm">
                       <Save className="h-4 w-4 mr-2" />
                       Save Report
