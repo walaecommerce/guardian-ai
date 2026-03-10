@@ -565,15 +565,19 @@ export async function downloadImage(url: string): Promise<File | null> {
 }
 
 // Try to scrape via backend edge function (uses Firecrawl if available)
-async function scrapeViaBackend(url: string): Promise<{ html?: string; markdown?: string } | null> {
+async function scrapeViaBackend(url: string): Promise<{ html?: string; markdown?: string; error?: string } | null> {
   try {
     const { data, error } = await supabase.functions.invoke('scrape-amazon', {
       body: { url }
     });
     if (error) throw error;
+    if (data && !data.success && data.error) {
+      console.log(`[Scraper] Backend returned error: ${data.error}`);
+      return { error: data.error };
+    }
     return data;
   } catch (e) {
-    console.log('Backend scraping not available');
+    console.log('Backend scraping not available:', e);
     return null;
   }
 }
@@ -588,6 +592,11 @@ export async function scrapeAmazonProduct(url: string): Promise<ScrapedProduct |
 
   // Try backend scraping first (more reliable)
   const backendResult = await scrapeViaBackend(url);
+  
+  // If backend returned a specific error, throw it
+  if (backendResult?.error) {
+    throw new Error(backendResult.error);
+  }
   
   if (backendResult?.html) {
     console.log(`[Scraper] Received HTML (${backendResult.html.length} chars)`);

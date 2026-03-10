@@ -26,41 +26,81 @@ serve(async (req) => {
     if (firecrawlKey) {
       console.log('Using Firecrawl to scrape Amazon...');
       
-      const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${firecrawlKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url,
-          formats: ['rawHtml'],  // Use rawHtml to preserve Amazon's inline JSON/script blobs
-          waitFor: 15000,  // Wait 15s for JS to load ALL images and gallery data
-          onlyMainContent: false,  // We need full page to get gallery JSON
-        }),
-      });
+      // Try with different strategies
+      const strategies = [
+        { waitFor: 15000, location: { country: 'US', languages: ['en'] } },
+        { waitFor: 20000 },  // Longer wait fallback
+      ];
 
-      const data = await response.json();
+      let html: string | null = null;
+      let lastError: string | null = null;
 
-      if (!response.ok) {
-        console.error('Firecrawl error:', data);
-        return new Response(
-          JSON.stringify({ success: false, error: data.error || 'Scraping failed' }),
-          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      for (const strategy of strategies) {
+        console.log(`[scrape-amazon] Trying strategy: waitFor=${strategy.waitFor}, location=${strategy.location?.country || 'default'}`);
+        
+        const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${firecrawlKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url,
+            formats: ['rawHtml'],
+            waitFor: strategy.waitFor,
+            onlyMainContent: false,
+            ...(strategy.location && { location: strategy.location }),
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          console.error('[scrape-amazon] Firecrawl error:', data);
+          lastError = data.error || `Scraping failed (${response.status})`;
+          continue;
+        }
+
+        const rawHtml = data.data?.rawHtml || data.rawHtml || data.data?.html || data.html;
+        console.log(`[scrape-amazon] Received HTML: ${rawHtml?.length || 0} chars`);
+
+        // Check if Amazon returned a real product page (>10KB typical) or a CAPTCHA (<5KB)
+        if (rawHtml && rawHtml.length > 5000) {
+          // Verify it contains product image data
+          const hasImageData = rawHtml.includes('colorImages') || 
+                              rawHtml.includes('imageGalleryData') || 
+                              rawHtml.includes('landingImage') ||
+                              rawHtml.includes('media-amazon.com/images/I/');
+          
+          if (hasImageData) {
+            console.log('[scrape-amazon] ✅ Valid product page with image data');
+            html = rawHtml;
+            return new Response(
+              JSON.stringify({ 
+                success: true, 
+                html: rawHtml,
+                markdown: data.data?.markdown || data.markdown
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          } else {
+            console.log('[scrape-amazon] ⚠️ HTML received but no image data found (possible CAPTCHA or error page)');
+            lastError = 'Amazon returned a page without product images (possible bot detection)';
+          }
+        } else {
+          console.log(`[scrape-amazon] ⚠️ HTML too short (${rawHtml?.length || 0} chars) — likely CAPTCHA`);
+          lastError = 'Amazon returned a CAPTCHA page. Please try again or use manual upload.';
+        }
       }
 
-      // Prefer rawHtml as it preserves the Amazon inline JSON/scripts we need for gallery extraction
-      const html = data.data?.rawHtml || data.rawHtml || data.data?.html || data.html;
-      console.log(`Firecrawl scrape successful, HTML length: ${html?.length || 0}`);
-      
+      // All strategies failed
+      console.error('[scrape-amazon] All scraping strategies failed');
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          html: html,
-          markdown: data.data?.markdown || data.markdown
+          success: false, 
+          error: lastError || 'Amazon blocked the scraping request. Please use manual upload instead.' 
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
