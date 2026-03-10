@@ -262,12 +262,14 @@ function AssetResultCard({
         <div className={`absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold ${
           result.status === 'PASS'
             ? 'bg-success text-success-foreground'
-            : 'bg-destructive text-destructive-foreground'
+            : result.status === 'WARNING'
+              ? 'bg-[hsl(38,92%,50%)] text-white'
+              : 'bg-destructive text-destructive-foreground'
         }`}>
           <div className={`w-2 h-2 rounded-full ${
-            result.status === 'PASS' ? 'bg-green-300 animate-pulse' : 'bg-red-300 animate-pulse'
+            result.status === 'PASS' ? 'bg-green-300 animate-pulse' : result.status === 'WARNING' ? 'bg-yellow-200 animate-pulse' : 'bg-red-300 animate-pulse'
           }`} />
-          {result.status === 'PASS' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+          {result.status === 'PASS' ? <CheckCircle className="w-3 h-3" /> : result.status === 'WARNING' ? <AlertTriangle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
           {result.status}
         </div>
 
