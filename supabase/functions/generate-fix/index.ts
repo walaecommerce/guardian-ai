@@ -3,13 +3,10 @@ import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MAX_RETRIES = 3;
-const INITIAL_DELAY_MS = 1000;
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ── Prompt builders ──────────────────────────────────────────────
 
@@ -34,60 +31,6 @@ function buildSecondaryImagePrompt(): string {
 - Make the smallest possible edit to achieve compliance`;
 }
 
-// ── Error parser ─────────────────────────────────────────────────
-
-const parseGeminiError = (status: number, errorText: string): { message: string; errorType: string; retryable: boolean } => {
-  try {
-    const errorJson = JSON.parse(errorText);
-    const apiMessage = errorJson?.error?.message || '';
-
-    if (status === 429) return { message: "Rate limit exceeded. Please wait a moment and try again.", errorType: "rate_limit", retryable: true };
-    if (status === 403) return { message: "API key invalid or quota exceeded.", errorType: "auth_error", retryable: false };
-    if (status === 400) {
-      if (apiMessage.includes('safety')) return { message: "Image was blocked by safety filters.", errorType: "safety_block", retryable: false };
-      if (apiMessage.includes('MIME type')) return { message: `Invalid image format: ${apiMessage}`, errorType: "invalid_image", retryable: false };
-      return { message: `Invalid request: ${apiMessage}`, errorType: "bad_request", retryable: false };
-    }
-    if (status >= 500) return { message: "Google AI service temporarily unavailable. Retrying...", errorType: "server_error", retryable: true };
-    return { message: apiMessage || `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
-  } catch {
-    return { message: `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
-  }
-};
-
-// ── Fetch with retry ─────────────────────────────────────────────
-
-const fetchWithRetry = async (url: string, options: RequestInit): Promise<Response> => {
-  let lastError: Error | null = null;
-  let delay = INITIAL_DELAY_MS;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.ok) return response;
-
-      const errorText = await response.text();
-      const parsed = parseGeminiError(response.status, errorText);
-      console.log(`[generate-fix] Attempt ${attempt}/${MAX_RETRIES}: ${parsed.message}`);
-
-      if (!parsed.retryable || attempt === MAX_RETRIES) {
-        return new Response(errorText, { status: response.status, headers: response.headers });
-      }
-
-      await sleep(delay);
-      delay *= 2;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`[generate-fix] Attempt ${attempt}/${MAX_RETRIES} failed:`, lastError.message);
-      if (attempt === MAX_RETRIES) throw lastError;
-      await sleep(delay);
-      delay *= 2;
-    }
-  }
-
-  throw lastError || new Error('Max retries exceeded');
-};
-
 // ── Image helpers ────────────────────────────────────────────────
 
 const guessImageMimeType = (b64: string): string => {
@@ -106,53 +49,10 @@ const normalizeMimeType = (raw: string, b64: string): string => {
   return allowed.has(mt) ? mt : guessImageMimeType(b64);
 };
 
-const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
-  if (dataUrl.startsWith('data:')) {
-    const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-    if (match) {
-      const data = (match[2] || '').trim();
-      return { mimeType: normalizeMimeType(match[1], data), data };
-    }
-  }
-  return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
-};
-
-// ── Response extractor ───────────────────────────────────────────
-
-const extractImageFromResponse = (data: any): { success: true; imageBase64: string; mimeType: string } | { success: false; error: string; finishReason: string | null; modelText: string | null } => {
-  const candidates = data.candidates;
-  const finishReason = candidates?.[0]?.finishReason ?? null;
-  let modelText: string | null = null;
-
-  if (candidates?.[0]?.content?.parts) {
-    for (const part of candidates[0].content.parts) {
-      // Skip thinking tokens
-      if (part.thought === true) continue;
-
-      const inline = part.inlineData || part.inline_data;
-      if (inline && inline.data) {
-        const mimeType = inline.mimeType || inline.mime_type || 'image/png';
-        return { success: true, imageBase64: inline.data, mimeType };
-      }
-
-      if (!modelText && typeof part.text === 'string' && part.text.trim()) {
-        modelText = part.text.trim();
-      }
-    }
-  }
-
-  // Map specific finish reasons to user-friendly errors
-  if (finishReason === 'SAFETY') {
-    return { success: false, error: "Image generation was blocked by safety filters.", finishReason, modelText };
-  }
-  if (finishReason === 'IMAGE_RECITATION') {
-    return { success: false, error: "The AI could not generate a fix for this image. Try a simpler custom prompt.", finishReason, modelText };
-  }
-  if (finishReason === 'MALFORMED_FUNCTION_CALL') {
-    return { success: false, error: "The AI tried to use internal tools instead of generating an image. Please retry.", finishReason, modelText };
-  }
-
-  return { success: false, error: "No image generated", finishReason, modelText };
+const toDataUrl = (dataUrl: string): string => {
+  if (dataUrl.startsWith('data:')) return dataUrl;
+  const mimeType = guessImageMimeType(dataUrl);
+  return `data:${mimeType};base64,${dataUrl}`;
 };
 
 // ── Main handler ─────────────────────────────────────────────────
@@ -175,13 +75,13 @@ serve(async (req) => {
       spatialAnalysis,
     } = await req.json();
 
-    const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GOOGLE_GEMINI_API_KEY) {
-      throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const isMain = imageType === 'MAIN';
-    console.log(`[generate-fix] using model: ${MODELS.imageGen}`);
+    console.log(`[generate-fix] using model: ${MODELS.imageGen} via Lovable AI gateway`);
     console.log(`[generate-fix] Pattern: ${isMain ? 'A (MAIN text-to-image)' : mainImageBase64 ? 'C (SECONDARY + main ref)' : 'B (SECONDARY image-to-image)'}`);
 
     // ── Build spatial context for secondary prompts ──
@@ -209,145 +109,153 @@ serve(async (req) => {
       return removals.length ? `\n\nSPECIFIC REMOVALS:\n${removals.join('\n')}` : '';
     };
 
-    // ── Construct parts for each pattern ──
+    // ── Build message content parts (OpenAI-compatible format) ──
 
-    let parts: any[];
+    const contentParts: any[] = [];
 
     if (isMain) {
-      // PATTERN A — MAIN image: text-to-image
+      // PATTERN A — MAIN image: text-to-image (with optional reference)
       const description = productTitle || generativePrompt || 'Amazon product';
       let prompt = customPrompt || buildMainImagePrompt(description);
-
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
+      contentParts.push({ type: "text", text: prompt });
 
-      parts = [{ text: prompt }];
-
-      // If we have the original image, include it as reference
+      // Include original image as reference if available
       if (imageBase64) {
-        const img = extractBase64(imageBase64);
-        parts.push({ inline_data: { mime_type: img.mimeType, data: img.data } });
+        contentParts.push({
+          type: "image_url",
+          image_url: { url: toDataUrl(imageBase64) }
+        });
       }
 
       console.log(`[generate-fix] MAIN prompt length: ${prompt.length}, has original ref: ${!!imageBase64}`);
 
     } else if (mainImageBase64) {
       // PATTERN C — SECONDARY with main reference (two images)
-      const mainRef = extractBase64(mainImageBase64);
-      const secondary = extractBase64(imageBase64);
-
       let prompt = customPrompt || `Edit this secondary image. Remove ONLY: Best Seller badges, Amazon's Choice badges, competitor logos. PRESERVE everything else: lifestyle setting, people, props, infographic text, background. Ensure product matches the reference main image provided.`;
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
-
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
 
-      parts = [
-        { text: prompt },
-        { inline_data: { mime_type: mainRef.mimeType, data: mainRef.data } },
-        { inline_data: { mime_type: secondary.mimeType, data: secondary.data } },
-      ];
+      contentParts.push({ type: "text", text: prompt });
+      contentParts.push({
+        type: "image_url",
+        image_url: { url: toDataUrl(mainImageBase64) }
+      });
+      contentParts.push({
+        type: "image_url",
+        image_url: { url: toDataUrl(imageBase64) }
+      });
 
       console.log(`[generate-fix] SECONDARY+REF prompt length: ${prompt.length}`);
 
     } else {
       // PATTERN B — SECONDARY without main reference (one image)
-      const secondary = extractBase64(imageBase64);
-
       let prompt = customPrompt || buildSecondaryImagePrompt();
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
-
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
 
-      parts = [
-        { text: prompt },
-        { inline_data: { mime_type: secondary.mimeType, data: secondary.data } },
-      ];
+      contentParts.push({ type: "text", text: prompt });
+      contentParts.push({
+        type: "image_url",
+        image_url: { url: toDataUrl(imageBase64) }
+      });
 
       console.log(`[generate-fix] SECONDARY prompt length: ${prompt.length}`);
     }
 
     // Add previous attempt for comparison if retrying
     if (previousGeneratedImage) {
-      const prev = extractBase64(previousGeneratedImage);
-      parts.push({ text: "Previous attempt (for comparison — fix the issues noted above):" });
-      parts.push({ inline_data: { mime_type: prev.mimeType, data: prev.data } });
+      contentParts.push({ type: "text", text: "Previous attempt (for comparison — fix the issues noted above):" });
+      contentParts.push({
+        type: "image_url",
+        image_url: { url: toDataUrl(previousGeneratedImage) }
+      });
     }
 
-    // ── Make API request ──
+    // ── Make gateway request ──
 
-    const requestBody = {
-      model: MODELS.imageGen,
-      contents: [{ parts }],
-      generationConfig: {
-        responseModalities: ["TEXT", "IMAGE"],
-        imageConfig: {
-          aspectRatio: "1:1",
-          imageSize: "2K",
-        },
-        thinkingConfig: {
-          thinkingLevel: "High",
-        },
+    console.log(`[generate-fix] Sending request to Lovable AI gateway: contentParts=${contentParts.length}, isMain=${isMain}`);
+
+    const response = await fetch(GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
-      toolConfig: {
-        functionCallingConfig: {
-          mode: "NONE",
-        },
-      },
-    };
+      body: JSON.stringify({
+        model: MODELS.imageGen,
+        messages: [{ role: "user", content: contentParts }],
+        modalities: ["image", "text"],
+      }),
+    });
 
-    console.log(`[generate-fix] Sending request: parts=${parts.length}, isMain=${isMain}`);
+    // Handle rate limit / payment errors
+    if (response.status === 429) {
+      const body = await response.text();
+      console.error("[generate-fix] Rate limited:", body);
+      return new Response(JSON.stringify({
+        error: "Rate limit exceeded. Please wait a moment and try again.",
+        errorType: "rate_limit",
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const response = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.imageGen}:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      }
-    );
+    if (response.status === 402) {
+      const body = await response.text();
+      console.error("[generate-fix] Payment required:", body);
+      return new Response(JSON.stringify({
+        error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.",
+        errorType: "payment_required",
+      }), {
+        status: 402,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      const parsed = parseGeminiError(response.status, errorText);
-      console.error("[generate-fix] API error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: parsed.message, errorType: parsed.errorType }), {
+      console.error("[generate-fix] Gateway error:", response.status, errorText);
+      return new Response(JSON.stringify({
+        error: `AI gateway error (${response.status})`,
+        errorType: "gateway_error",
+      }), {
         status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-    const result = extractImageFromResponse(data);
 
-    if (!result.success) {
-      console.error(`[generate-fix] No image returned. finishReason=${result.finishReason}, text=${result.modelText?.slice(0, 200)}`);
+    // Extract image from gateway response format
+    const imageResult = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-      const statusCode = result.finishReason === 'SAFETY' ? 400
-        : result.finishReason === 'IMAGE_RECITATION' ? 422
-        : 502;
-
+    if (!imageResult) {
+      const textContent = data.choices?.[0]?.message?.content || '';
+      console.error(`[generate-fix] No image in gateway response. Text: ${textContent.slice(0, 200)}`);
       return new Response(JSON.stringify({
-        error: result.error,
-        errorType: result.finishReason?.toLowerCase() || 'no_image_returned',
-        finishReason: result.finishReason,
-        modelTextSnippet: result.modelText?.slice(0, 240) || null,
+        error: "No image generated. The AI returned text only. Try a different prompt.",
+        errorType: "no_image_returned",
+        modelTextSnippet: textContent.slice(0, 240) || null,
       }), {
-        status: statusCode,
+        status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`[generate-fix] ✅ Image generated successfully (${result.mimeType})`);
+    console.log(`[generate-fix] ✅ Image generated successfully via Lovable AI gateway`);
 
     return new Response(JSON.stringify({
-      fixedImage: `data:${result.mimeType};base64,${result.imageBase64}`,
+      fixedImage: imageResult,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
