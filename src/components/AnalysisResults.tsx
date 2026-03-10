@@ -381,7 +381,28 @@ export function AnalysisResults({
                 <p className="text-xs text-muted-foreground">Processing</p>
               </div>
             </div>
-            {completedAssets.length > 0 && <ScoreGauge score={avgScore} size={70} />}
+            {completedAssets.length > 0 && (
+              <div className="flex items-center gap-2">
+                <ScoreGauge score={avgScore} size={70} />
+                {trend && (
+                  <ScoreTrendBadge
+                    direction={trend.direction}
+                    prevScore={trend.prevScore}
+                    prevDate={trend.prevDate}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Batch fix progress */}
+            {isBatchFixing && batchFixProgress && (
+              <div className="mt-3 space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Fixing {batchFixProgress.current} of {batchFixProgress.total} failed images...
+                </p>
+                <Progress value={(batchFixProgress.current / batchFixProgress.total) * 100} className="h-2" />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
