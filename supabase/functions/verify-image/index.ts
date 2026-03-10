@@ -318,38 +318,36 @@ Be STRICT. Better to flag for retry than pass a flawed image.`;
       });
     }
 
+    // Build parts: system prompt + images + final instruction
     const parts: any[] = [
-      { text: `Verify this ${imageType} AI-generated image against Amazon compliance requirements.` },
-      { text: "=== ORIGINAL IMAGE (source with violations) ===" }
+      { text: `${systemPrompt}\n\nVerify this ${imageType} AI-generated image against Amazon compliance requirements.` },
+      {
+        inline_data: {
+          mime_type: originalImage.mimeType,
+          data: originalImage.data
+        }
+      },
+      {
+        inline_data: {
+          mime_type: generatedImage.mimeType,
+          data: generatedImage.data
+        }
+      },
     ];
 
-    parts.push({
-      inline_data: {
-        mime_type: originalImage.mimeType,
-        data: originalImage.data
-      }
-    });
-
-    parts.push({ text: "=== GENERATED IMAGE (AI-corrected, needs verification) ===" });
-    parts.push({
-      inline_data: {
-        mime_type: generatedImage.mimeType,
-        data: generatedImage.data
-      }
-    });
-
     if (!isMain && mainImageBase64) {
-      parts.push({ text: "=== MAIN PRODUCT REFERENCE (generated image must match this product) ===" });
       const mainImage = extractBase64(mainImageBase64);
-      parts.push({
-        inline_data: {
-          mime_type: mainImage.mimeType,
-          data: mainImage.data
-        }
-      });
+      if (mainImage.data) {
+        parts.push({
+          inline_data: {
+            mime_type: mainImage.mimeType,
+            data: mainImage.data
+          }
+        });
+      }
     }
 
-    parts.push({ text: "Execute full verification protocol and return detailed JSON assessment." });
+    parts.push({ text: "Compare these images and return your verification JSON." });
 
     console.log(`[Guardian] Verifying ${imageType} image...`);
     console.log(`[Guardian] Check 1: Product identity verification...`);
@@ -362,8 +360,14 @@ Be STRICT. Better to flag for retry than pass a flawed image.`;
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ parts }]
+          model: MODELS.verification,
+          contents: [{ parts }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            thinkingConfig: {
+              thinkingLevel: "High"
+            }
+          }
         }),
       }
     );
@@ -383,15 +387,54 @@ Be STRICT. Better to flag for retry than pass a flawed image.`;
     }
 
     const data = await response.json();
-    const responseContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     
-    const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("[Guardian] Failed to parse JSON from response");
-      throw new Error("Could not parse verification result");
+    // Find the first non-thinking text part
+    let rawText = "";
+    const responseParts = data.candidates?.[0]?.content?.parts || [];
+    for (const part of responseParts) {
+      if (part.thought === true) continue;
+      if (typeof part.text === "string" && part.text.trim()) {
+        rawText = part.text.trim();
+        break;
+      }
     }
-    
-    const verification = JSON.parse(jsonMatch[0]);
+
+    if (!rawText) {
+      console.error("[Guardian] No text content in verification response");
+      return new Response(JSON.stringify({
+        error: "No text content returned from verification model",
+        errorType: "parse_error",
+      }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Strip ```json fences if present
+    let jsonStr = rawText;
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim();
+    }
+
+    let verification: any;
+    try {
+      verification = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error("[Guardian] Failed to parse JSON from verification response:", rawText.substring(0, 300));
+        return new Response(JSON.stringify({
+          error: "Failed to parse verification response as JSON",
+          errorType: "parse_error",
+          rawSnippet: rawText.substring(0, 240),
+        }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      verification = JSON.parse(jsonMatch[0]);
+    }
     
     console.log(`[Guardian] Verification complete. Score: ${verification.score}%, Satisfactory: ${verification.isSatisfactory}`);
     console.log(`[Guardian] Product match: ${verification.productMatch}`);

@@ -415,18 +415,22 @@ Execute full analysis protocol and return comprehensive JSON assessment.`;
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
+          model: MODELS.analysis,
           contents: [{
             parts: [
-              { text: userPrompt },
+              { text: `${systemPrompt}\n\n${userPrompt}` },
               {
                 inline_data: {
                   mime_type: imageData.mimeType,
                   data: imageData.data
                 }
-              }
+              },
+              { text: "Analyze this image. Return ONLY valid JSON." }
             ]
-          }]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
         }),
       }
     );
@@ -446,15 +450,49 @@ Execute full analysis protocol and return comprehensive JSON assessment.`;
     }
 
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("[Guardian] Failed to parse JSON from response");
-      throw new Error("Could not parse analysis result");
+    // Find the first non-thinking text part in the response
+    let rawText = "";
+    const responseParts = data.candidates?.[0]?.content?.parts || [];
+    for (const part of responseParts) {
+      if (part.thought === true) continue;
+      if (typeof part.text === "string" && part.text.trim()) {
+        rawText = part.text.trim();
+        break;
+      }
     }
-    
-    let analysis = JSON.parse(jsonMatch[0]);
+
+    if (!rawText) {
+      console.error("[Guardian] No text content in response");
+      throw new Error("Could not parse analysis result - no text in response");
+    }
+
+    // Strip ```json fences if present
+    let jsonStr = rawText;
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim();
+    }
+
+    let analysis: any;
+    try {
+      analysis = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      // Fallback: try extracting JSON object from the text
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error("[Guardian] Failed to parse JSON from response:", rawText.substring(0, 300));
+        return new Response(JSON.stringify({
+          error: "Failed to parse analysis response as JSON",
+          errorType: "parse_error",
+          rawSnippet: rawText.substring(0, 240),
+        }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      analysis = JSON.parse(jsonMatch[0]);
+    }
     
     console.log(`[Guardian] Initial analysis complete. Score: ${analysis.overallScore}%, Status: ${analysis.status}`);
     console.log(`[Guardian] Found ${analysis.violations?.length || 0} violations`);
