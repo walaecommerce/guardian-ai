@@ -295,6 +295,11 @@ serve(async (req) => {
           thinkingLevel: "High",
         },
       },
+      tool_config: {
+        function_calling_config: {
+          mode: "NONE",
+        },
+      },
     };
 
     console.log(`[generate-fix] Sending request: parts=${parts.length}, isMain=${isMain}`);
