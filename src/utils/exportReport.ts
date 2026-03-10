@@ -98,7 +98,7 @@ export function exportToPDF(data: ExportData): void {
   // Report info
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
-  doc.text(`Date: ${new Date(data.exportDate).toLocaleDateString()}`, pageWidth - 14, 50, { align: 'right' });
+  doc.text(`Date: ${new Date(data.timestamp).toLocaleDateString()}`, pageWidth - 14, 50, { align: 'right' });
   
   // Listing title
   doc.setFontSize(14);
