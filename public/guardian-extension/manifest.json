@@ -34,14 +34,22 @@
     {
       "matches": [
         "*://www.amazon.com/dp/*",
+        "*://www.amazon.com/*/dp/*",
         "*://www.amazon.com/gp/product/*",
         "*://www.amazon.co.uk/dp/*",
+        "*://www.amazon.co.uk/*/dp/*",
         "*://www.amazon.com.au/dp/*",
+        "*://www.amazon.com.au/*/dp/*",
         "*://www.amazon.ca/dp/*",
+        "*://www.amazon.ca/*/dp/*",
         "*://www.amazon.de/dp/*",
+        "*://www.amazon.de/*/dp/*",
         "*://www.amazon.fr/dp/*",
+        "*://www.amazon.fr/*/dp/*",
         "*://www.amazon.in/dp/*",
-        "*://www.amazon.co.jp/dp/*"
+        "*://www.amazon.in/*/dp/*",
+        "*://www.amazon.co.jp/dp/*",
+        "*://www.amazon.co.jp/*/dp/*"
       ],
       "js": ["content.js"],
       "css": ["content.css"]
