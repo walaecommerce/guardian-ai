@@ -167,18 +167,20 @@ const Session = () => {
       if (i < assets.length - 1) {
         const imageNumber = i + 1; // 1-indexed count of completed images
         
-        // Every 3 images, do a 20-second cooldown
-        if (imageNumber % 3 === 0) {
+        // Every N images, do a cooldown
+        if (imageNumber % RATE_LIMITS.batchCooldownEvery === 0) {
+          const cooldownSec = Math.round(RATE_LIMITS.batchCooldownDuration / 1000);
           addLog('info', `⏳ Rate limit cooldown after ${imageNumber} images...`);
-          for (let sec = 20; sec > 0; sec--) {
+          for (let sec = cooldownSec; sec > 0; sec--) {
             addLog('processing', `   Cooldown: resuming in ${sec}s...`);
             await new Promise(r => setTimeout(r, 1000));
           }
           addLog('success', `   ✓ Cooldown complete, resuming...`);
         } else {
-          // Standard 10-second delay between images
-          addLog('info', `⏳ Rate limit pause (10s)...`);
-          await new Promise(r => setTimeout(r, 10000));
+          // Standard delay between images
+          const delaySec = Math.round(RATE_LIMITS.delayBetweenRequests / 1000);
+          addLog('info', `⏳ Rate limit pause (${delaySec}s)...`);
+          await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
         }
       }
     }
