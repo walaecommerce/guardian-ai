@@ -11,17 +11,19 @@ declare module 'jspdf' {
 }
 
 export interface ExportData {
-  listingTitle: string;
-  exportDate: string;
+  timestamp: string;
+  listing_title: string;
+  overall_status: 'PASS' | 'FAIL';
   summary: {
-    totalAssets: number;
-    passCount: number;
-    failCount: number;
-    averageScore: number;
+    total_images: number;
+    passed: number;
+    failed: number;
+    average_score: number;
   };
   assets: {
-    name: string;
+    filename: string;
     type: string;
+    category?: string;
     score: number;
     status: string;
     violations: {
@@ -41,19 +43,22 @@ export function generateExportData(assets: ImageAsset[], listingTitle: string): 
   const avgScore = analyzedAssets.length > 0
     ? Math.round(analyzedAssets.reduce((sum, a) => sum + (a.analysisResult?.overallScore || 0), 0) / analyzedAssets.length)
     : 0;
+  const overallStatus = failCount > 0 ? 'FAIL' : 'PASS';
 
   return {
-    listingTitle: listingTitle || 'Untitled Listing',
-    exportDate: new Date().toISOString(),
+    timestamp: new Date().toISOString(),
+    listing_title: listingTitle || 'Untitled Listing',
+    overall_status: overallStatus,
     summary: {
-      totalAssets: analyzedAssets.length,
-      passCount,
-      failCount,
-      averageScore: avgScore,
+      total_images: analyzedAssets.length,
+      passed: passCount,
+      failed: failCount,
+      average_score: avgScore,
     },
     assets: analyzedAssets.map(asset => ({
-      name: asset.name,
+      filename: asset.name,
       type: asset.type,
+      category: asset.category,
       score: asset.analysisResult?.overallScore || 0,
       status: asset.analysisResult?.status || 'UNKNOWN',
       violations: asset.analysisResult?.violations || [],
