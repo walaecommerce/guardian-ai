@@ -393,9 +393,9 @@ export function AnalysisResults({
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Analysis Summary</CardTitle>
             <div className="flex items-center gap-2">
-              {failCount > 0 && onBatchFix && (
+              {fixableCount > 0 && onBatchFix && (
                 <Button size="sm" onClick={onBatchFix} disabled={isBatchFixing} className="bg-primary hover:bg-primary/90">
-                  {isBatchFixing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fixing...</> : <><Wand2 className="w-4 h-4 mr-2" />Fix All ({failCount})</>}
+                  {isBatchFixing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fixing...</> : <><Wand2 className="w-4 h-4 mr-2" />Fix All ({fixableCount})</>}
                 </Button>
               )}
               <ExportButton assets={assets} listingTitle={listingTitle} productAsin={productAsin} competitorData={competitorData} />
