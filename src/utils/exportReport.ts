@@ -201,7 +201,7 @@ export function exportToPDF(data: ExportData): void {
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text(`${asset.name} - Violations`, 14, currentY);
+    doc.text(`${asset.filename} - Violations`, 14, currentY);
     currentY += 6;
     
     const violationData = (asset.violations || []).map(v => [
