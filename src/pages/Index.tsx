@@ -1078,6 +1078,107 @@ const Index = () => {
     link.click();
   };
 
+  // ── Competitor Import & Audit ──
+  const handleImportCompetitor = async (url: string) => {
+    setIsImportingCompetitor(true);
+    setCompetitorData(null);
+    addLog('processing', '🔍 Importing competitor listing...');
+
+    try {
+      const product = await scrapeAmazonProduct(url, addLog);
+      const imagesToProcess = product.images.slice(0, 20);
+      addLog('info', `📦 Competitor: ${product.title?.substring(0, 60)}...`);
+
+      const compAssets: ImageAsset[] = [];
+      const seenHashes = new Set<string>();
+
+      for (let i = 0; i < imagesToProcess.length; i++) {
+        setCompetitorProgress({ current: i + 1, total: imagesToProcess.length });
+        const file = await downloadImage(imagesToProcess[i].url);
+        if (!file) continue;
+
+        const contentHash = await computeContentHash(file);
+        if (seenHashes.has(contentHash)) continue;
+        seenHashes.add(contentHash);
+
+        const base64 = await fileToBase64(file);
+        const classification = await classifyImage(base64, product.title, product.asin !== 'UNKNOWN' ? product.asin : undefined);
+        const aiCategory = classification.category as ImageCategory;
+
+        const assetId = `comp_${Math.random().toString(36).substring(2, 9)}`;
+        const isFirst = compAssets.length === 0;
+
+        const asset: ImageAsset = {
+          id: assetId,
+          file,
+          preview: URL.createObjectURL(file),
+          type: isFirst ? 'MAIN' : 'SECONDARY',
+          name: `${aiCategory}_${file.name}`,
+          sourceUrl: imagesToProcess[i].url,
+          contentHash,
+        };
+
+        // Analyze each competitor image
+        addLog('processing', `Auditing competitor image ${compAssets.length + 1}...`);
+        const result = await analyzeAsset(asset);
+        if (result) {
+          asset.analysisResult = result;
+        }
+
+        compAssets.push(asset);
+
+        // Rate limiting
+        if (i < imagesToProcess.length - 1) {
+          await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
+          if ((i + 1) % RATE_LIMITS.batchSize === 0) {
+            await countdownCooldown(RATE_LIMITS.cooldownAfterBatch);
+          }
+        }
+      }
+
+      const analyzed = compAssets.filter(a => a.analysisResult);
+      const passed = analyzed.filter(a => a.analysisResult?.status === 'PASS').length;
+      const scores = analyzed.map(a => a.analysisResult!.overallScore);
+      const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+
+      const categories: Record<string, number> = {};
+      compAssets.forEach(a => {
+        const cat = a.name.split('_')[0] || 'UNKNOWN';
+        categories[cat] = (categories[cat] || 0) + 1;
+      });
+
+      const allViolations = analyzed.flatMap(a =>
+        (a.analysisResult?.violations || []).map(v => ({
+          severity: v.severity,
+          message: v.message,
+        }))
+      );
+
+      setCompetitorData({
+        url,
+        asin: product.asin !== 'UNKNOWN' ? product.asin : null,
+        title: product.title || 'Unknown Competitor',
+        assets: compAssets,
+        imageCount: compAssets.length,
+        passRate: analyzed.length ? Math.round((passed / analyzed.length) * 100) : 0,
+        overallScore: avgScore,
+        categories,
+        violations: allViolations,
+      });
+
+      setActiveTab('compare');
+      addLog('success', `✅ Competitor audit complete — ${compAssets.length} images, ${avgScore}% score`);
+      toast({ title: 'Competitor Audit Complete', description: `Analyzed ${compAssets.length} images from competitor listing` });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Competitor import failed';
+      addLog('error', msg);
+      toast({ title: 'Import Failed', description: msg, variant: 'destructive' });
+    } finally {
+      setIsImportingCompetitor(false);
+      setCompetitorProgress(null);
+    }
+  };
+
   // FEATURE 2: Load audit from history
   const handleLoadAudit = (entry: AuditHistoryEntry) => {
     setListingTitle(entry.listingTitle);
