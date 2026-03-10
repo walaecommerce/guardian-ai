@@ -12,6 +12,7 @@ import { SessionHistory } from '@/components/SessionHistory';
 import { ComplianceHistory, saveAuditToHistory, AuditHistoryEntry } from '@/components/ComplianceHistory';
 import { BulkUrlImport } from '@/components/BulkUrlImport';
 import { CompetitorAudit, CompetitorData, buildComparisonReport } from '@/components/CompetitorAudit';
+import { ListingScoreCard } from '@/components/ListingScoreCard';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
@@ -1271,6 +1272,7 @@ const Index = () => {
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <TabsList>
                   <TabsTrigger value="results">Analysis Results</TabsTrigger>
+                  <TabsTrigger value="scorecard">Score Card</TabsTrigger>
                   <TabsTrigger value="comparison">Before / After</TabsTrigger>
                   <TabsTrigger value="compare">Compare</TabsTrigger>
                   <TabsTrigger value="history">History</TabsTrigger>
@@ -1295,6 +1297,9 @@ const Index = () => {
                   productAsin={productAsin || undefined}
                   competitorData={competitorData}
                 />
+              </TabsContent>
+              <TabsContent value="scorecard">
+                <ListingScoreCard assets={assets} listingTitle={listingTitle} />
               </TabsContent>
               <TabsContent value="comparison">
                 <BatchComparisonView
