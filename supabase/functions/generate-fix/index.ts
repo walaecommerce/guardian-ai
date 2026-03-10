@@ -425,6 +425,16 @@ OUTPUT: Return the edited image directly. Same image with only prohibited overla
         );
       }
 
+      if (finishReason === "MALFORMED_FUNCTION_CALL") {
+        return new Response(
+          JSON.stringify({
+            error: "The AI tried to use internal tools instead of generating an image. Please retry — this is a transient model issue.",
+            errorType: "malformed_function_call",
+          }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       console.error("[Guardian] No image in response:", JSON.stringify(finalAttempt.raw).substring(0, 500));
 
       return new Response(
