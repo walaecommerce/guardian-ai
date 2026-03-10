@@ -3,7 +3,7 @@ import { ImageAsset } from '@/types';
 // Simple ZIP file creator without external dependencies
 // Uses the built-in Compression API for deflate
 
-interface ZipEntry {
+export interface ZipEntry {
   name: string;
   data: Blob;
 }
@@ -12,7 +12,7 @@ interface ZipEntry {
  * Creates a ZIP file from an array of entries
  * This is a simple implementation that creates uncompressed ZIP files
  */
-async function createZipBlob(entries: ZipEntry[]): Promise<Blob> {
+export async function createZipBlob(entries: ZipEntry[]): Promise<Blob> {
   const encoder = new TextEncoder();
   const chunks: Uint8Array[] = [];
   const centralDirectory: Uint8Array[] = [];

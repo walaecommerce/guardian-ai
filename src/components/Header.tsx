@@ -1,8 +1,47 @@
-import { Shield, Zap, BarChart3, Sparkles, Activity } from 'lucide-react';
+import { useState } from 'react';
+import { Shield, Zap, BarChart3, Sparkles, Activity, Download, Loader2, Chrome } from 'lucide-react';
 import { HeaderNavLink } from './NavLink';
 import { NotificationSettings } from './NotificationSettings';
+import { Button } from './ui/button';
+import { createZipBlob } from '@/utils/zipExport';
+import { useToast } from '@/hooks/use-toast';
+
+const EXTENSION_FILES = [
+  'manifest.json', 'popup.html', 'popup.js', 'content.js', 'content.css',
+  'background.js', 'sidepanel.html', 'sidepanel.js', 'README.md',
+  'icons/icon16.png', 'icons/icon48.png', 'icons/icon128.png',
+];
 
 export function Header() {
+  const [downloading, setDownloading] = useState(false);
+  const { toast } = useToast();
+
+  const handleDownloadExtension = async () => {
+    setDownloading(true);
+    try {
+      const entries = await Promise.all(
+        EXTENSION_FILES.map(async (file) => {
+          const res = await fetch(`/guardian-extension/${file}`);
+          if (!res.ok) throw new Error(`Failed to fetch ${file}`);
+          const blob = await res.blob();
+          return { name: `guardian-extension/${file}`, data: blob };
+        })
+      );
+      const zip = await createZipBlob(entries);
+      const url = URL.createObjectURL(zip);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'guardian-extension.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: 'Extension Downloaded', description: 'Unzip and load as unpacked in chrome://extensions' });
+    } catch (e) {
+      toast({ title: 'Download Failed', description: e instanceof Error ? e.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <header className="bg-secondary text-secondary-foreground shadow-lg">
       <div className="container mx-auto px-4 py-4">
@@ -29,7 +68,28 @@ export function Header() {
             </nav>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadExtension}
+              disabled={downloading}
+              className="hidden sm:flex items-center gap-1.5 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+            >
+              {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Chrome className="w-3.5 h-3.5" />}
+              <span className="hidden lg:inline">Chrome Extension</span>
+              <Download className="w-3 h-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDownloadExtension}
+              disabled={downloading}
+              className="sm:hidden text-primary"
+              title="Download Chrome Extension"
+            >
+              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Chrome className="w-4 h-4" />}
+            </Button>
             <NotificationSettings />
             <div className="flex items-center gap-2 text-sm">
               <Zap className="w-4 h-4 text-primary" />
