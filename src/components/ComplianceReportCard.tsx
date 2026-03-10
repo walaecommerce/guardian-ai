@@ -165,11 +165,11 @@ export function ComplianceReportCard({ assets, isAnalyzing }: ComplianceReportCa
 
   const getTextOverlayCheck = () => {
     const textViolations = analyzedAssets.flatMap(a => 
-      a.analysisResult?.violations.filter(v => 
+      (a.analysisResult?.violations || []).filter(v => 
         v.category.toLowerCase().includes('text') || 
         v.category.toLowerCase().includes('badge') ||
         v.category.toLowerCase().includes('watermark')
-      ) || []
+      )
     );
     return textViolations.length === 0;
   };
