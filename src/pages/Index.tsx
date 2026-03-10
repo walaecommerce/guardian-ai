@@ -32,6 +32,7 @@ import { Save, Loader2, Wand2, Swords, Import } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { uploadImage } from '@/services/imageStorage';
 import { loadDemoImages, DEMO_PRODUCT } from '@/components/DemoImages';
+import { sendSlackNotification } from '@/components/NotificationSettings';
 
 // ── Competitor URL Input (left panel) ──
 function CompetitorUrlInput({
@@ -685,6 +686,32 @@ const Index = () => {
       saveAuditToHistory(currentAssets, listingTitle);
       return currentAssets;
     });
+
+    // Send Slack notifications
+    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+    const allViolations = assets.flatMap(a => a.analysisResult?.violations || []);
+    const criticals = allViolations.filter(v => v.severity === 'critical');
+    const topViolation = allViolations[0]?.message || 'None';
+
+    sendSlackNotification({
+      type: 'audit_complete',
+      title: listingTitle || 'Untitled Product',
+      status: failedCount === 0 ? '✅ PASS' : '❌ FAIL',
+      score: avgScore,
+      violations: allViolations.length,
+      images: assets.length,
+      criticalCount: criticals.length,
+      topViolation,
+    });
+
+    if (criticals.length > 0) {
+      sendSlackNotification({
+        type: 'critical_violation',
+        title: listingTitle || 'Untitled Product',
+        criticalCount: criticals.length,
+        topViolation: criticals[0]?.message,
+      });
+    }
 
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
     setTimeout(() => setAuditComplete(null), 3000);

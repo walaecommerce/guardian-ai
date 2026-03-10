@@ -1,5 +1,6 @@
 import { Shield, Zap, BarChart3, Sparkles, Activity } from 'lucide-react';
 import { HeaderNavLink } from './NavLink';
+import { NotificationSettings } from './NotificationSettings';
 
 export function Header() {
   return (
@@ -29,6 +30,7 @@ export function Header() {
           </div>
           
           <div className="flex items-center gap-4">
+            <NotificationSettings />
             <div className="flex items-center gap-2 text-sm">
               <Zap className="w-4 h-4 text-primary" />
               <span className="text-secondary-foreground/80">
