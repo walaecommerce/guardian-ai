@@ -237,19 +237,23 @@ export async function scrapeAmazonProduct(
   };
 }
 
-// ── Image downloader (via wsrv.nl proxy) ─────────────────────────
+// ── Image downloader (via edge function proxy) ──────────────────
 
 export async function downloadImage(url: string): Promise<File | null> {
-  const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(url)}&n=-1`;
   try {
-    const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-    if (response.ok) {
-      const blob = await response.blob();
-      const filename = url.split('/').pop()?.split('?')[0] || 'image.jpg';
-      return new File([blob], filename, { type: blob.type || 'image/jpeg' });
-    }
+    const { data, error } = await supabase.functions.invoke('proxy-image', {
+      body: { url },
+    });
+    if (error || !data?.base64) return null;
+
+    const binary = atob(data.base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+    const blob = new Blob([bytes], { type: data.contentType || 'image/jpeg' });
+    const filename = url.split('/').pop()?.split('?')[0] || 'image.jpg';
+    return new File([blob], filename, { type: data.contentType || 'image/jpeg' });
   } catch {
-    // silent fail
+    return null;
   }
-  return null;
 }
