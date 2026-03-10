@@ -176,7 +176,6 @@ function AssetResultCard({
   getMatchingPolicyUpdate?: (message: string, category: string) => PolicyUpdate | null;
 }) {
   const result = asset.analysisResult;
-  const result = asset.analysisResult;
 
   const categoryMatch = asset.name.match(/^(MAIN|INFOGRAPHIC|LIFESTYLE|PRODUCT_IN_USE|SIZE_CHART|COMPARISON|PACKAGING|DETAIL|UNKNOWN)_/);
   const imageCategory = categoryMatch ? categoryMatch[1] : null;
