@@ -570,6 +570,11 @@ const Index = () => {
           await new Promise(r => setTimeout(r, 30000));
           return analyzeAsset(asset, attempt + 1);
         }
+        if (status === 502 && attempt < 2) {
+          addLog('warning', '⚠️ Gateway returned empty response — retrying in 5s...');
+          await new Promise(r => setTimeout(r, 5000));
+          return analyzeAsset(asset, attempt + 1);
+        }
         throw error;
       }
       return data as AnalysisResult;
