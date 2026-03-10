@@ -21,8 +21,8 @@ export function Header() {
               </div>
             </a>
             <nav className="hidden md:flex items-center gap-1 ml-4">
-              <NavLink to="/" label="Single Audit" />
-              <NavLink to="/campaign" label="Campaign Audit" icon={<BarChart3 className="w-3.5 h-3.5" />} />
+              <HeaderNavLink to="/" label="Single Audit" />
+              <HeaderNavLink to="/campaign" label="Campaign Audit" icon={<BarChart3 className="w-3.5 h-3.5" />} />
             </nav>
           </div>
           
