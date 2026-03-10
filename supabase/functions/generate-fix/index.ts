@@ -189,9 +189,10 @@ PRESERVE EXACTLY:
 
 OUTPUT: Clean product photo on white background, professional quality.`;
     } else {
-      prompt = `Edit this product image by making ONLY these changes:
+      prompt = `Edit the second image by making ONLY these changes:
 
 TASK: Remove promotional overlays while keeping everything else identical.
+IMPORTANT: You MUST directly generate and return a modified image. Do NOT call any functions or tools. Output the edited image directly.
 
 REMOVE (if present):
 - Award badges or "best seller" ribbons
@@ -210,7 +211,7 @@ PRESERVE EXACTLY (do not modify):
 ${protectedZonesText ? `PROTECTED AREAS (do not touch):\n${protectedZonesText}\n` : ''}
 ${removalInstructions ? `SPECIFIC REMOVALS:\n${removalInstructions}\n` : ''}
 
-OUTPUT: Same image with only prohibited overlays removed via clean inpainting.`;
+OUTPUT: Return the edited image directly. Same image with only prohibited overlays removed.`;
     }
 
     if (previousCritique) {
@@ -229,6 +230,10 @@ OUTPUT: Same image with only prohibited overlays removed via clean inpainting.`;
     const originalImage = imageBase64 ? extractBase64(imageBase64) : null;
     const prevImage = previousGeneratedImage ? extractBase64(previousGeneratedImage) : null;
     const mainRefImage = !isMain && mainImageBase64 ? extractBase64(mainImageBase64) : null;
+
+    if (mainRefImage) {
+      console.log("[Guardian] Cross-referencing with main image for secondary fix");
+    }
 
     // --- Build request parts based on image type ---
 
@@ -253,15 +258,9 @@ OUTPUT: Same image with only prohibited overlays removed via clean inpainting.`;
       } else {
         // SECONDARY image: image-to-image edit
         if (mainRefImage) {
-          // Case 3: Secondary with main reference — main ref first, then image to fix
+          // Case 3: Secondary with main reference — image to fix first, then main ref
           parts.push({
-            text: `${promptText}\n\nEnsure the product in the edited image matches this reference main image.`,
-          });
-          parts.push({
-            inline_data: {
-              mime_type: mainRefImage.mimeType,
-              data: mainRefImage.data,
-            },
+            text: `${promptText}\n\nThe first image is the one to edit. The second image is a reference showing the correct product — ensure the product identity matches.`,
           });
           if (originalImage?.data) {
             parts.push({
@@ -270,6 +269,13 @@ OUTPUT: Same image with only prohibited overlays removed via clean inpainting.`;
                 data: originalImage.data,
               },
             });
+          }
+          parts.push({
+            inline_data: {
+              mime_type: mainRefImage.mimeType,
+              data: mainRefImage.data,
+            },
+          });
           }
         } else {
           // Case 2: Secondary without main reference — just prompt + image
@@ -388,7 +394,7 @@ OUTPUT: Same image with only prohibited overlays removed via clean inpainting.`;
 
     const fallbackPrompt = isMain
       ? `Generate a clean Amazon-style MAIN product image.\n- Background must be pure white (#FFFFFF).\n- Remove ONLY promotional overlays/badges/watermarks that are NOT printed on the product packaging.\n- Preserve the product, packaging text, shape, colors, and lighting exactly.\n- Do NOT generate a different product.\n\nReturn an IMAGE (do not reply with text-only).`
-      : `Edit the provided image with MINIMAL inpainting-only changes.\n- Remove ONLY promotional overlays/badges/star ratings/watermarks that are NOT part of the real product packaging.\n- Preserve everything else exactly (product, packaging text, background scene, layout, infographics).\n- Do NOT regenerate the product.\n\nReturn an IMAGE (do not reply with text-only).`;
+      : `Edit the provided image with MINIMAL changes.\n- Remove ONLY promotional overlays/badges/star ratings/watermarks that are NOT part of the real product packaging.\n- Preserve everything else exactly (product, packaging text, background scene, layout, infographics).\n- Do NOT regenerate the product.\n- IMPORTANT: Generate and return an image directly. Do NOT call any functions or tools.\n\nReturn an IMAGE.`;
 
     const finalAttempt = shouldFallback ? await requestImage(fallbackPrompt) : primary;
 
@@ -416,6 +422,16 @@ OUTPUT: Same image with only prohibited overlays removed via clean inpainting.`;
             errorType: "image_recitation",
           }),
           { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (finishReason === "MALFORMED_FUNCTION_CALL") {
+        return new Response(
+          JSON.stringify({
+            error: "The AI tried to use internal tools instead of generating an image. Please retry — this is a transient model issue.",
+            errorType: "malformed_function_call",
+          }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
