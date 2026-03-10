@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const MAX_RETRIES = 3;
 const INITIAL_DELAY_MS = 1000;
-const SATISFACTORY_THRESHOLD = 99;
+const SATISFACTORY_THRESHOLD = 85;
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
