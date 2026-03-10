@@ -438,7 +438,7 @@ Be STRICT. Better to flag for retry than pass a flawed image.`;
     }
 
     // Server-side threshold enforcement (overrides AI judgment)
-    const SATISFACTORY_THRESHOLD = 99; // TEMP: Set to 99 for testing retry loop (normally 85)
+    const SATISFACTORY_THRESHOLD = 85; // Server-side threshold (change to 99 for testing retry loop)
     if (verification.score < SATISFACTORY_THRESHOLD) {
       verification.isSatisfactory = false;
     }
