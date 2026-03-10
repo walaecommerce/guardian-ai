@@ -82,3 +82,6 @@ verify_jwt = false
 
 [functions.generate-studio-image]
 verify_jwt = false
+
+[functions.send-slack-notification]
+verify_jwt = false
