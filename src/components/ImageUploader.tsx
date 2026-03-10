@@ -317,7 +317,7 @@ export function ImageUploader({
                 items={assets.map(a => a.id)}
                 strategy={rectSortingStrategy}
               >
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {assets.map((asset, index) => (
                     <SortableImageCard
                       key={asset.id}
