@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ImageAsset } from '@/types';
+import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
 import { SuggestionsData } from '@/components/recommendations/types';
 import { ScorecardData } from '@/components/ListingScoreCard';
 import { AIComparisonResult } from '@/components/CompetitorAudit';
