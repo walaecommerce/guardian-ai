@@ -138,6 +138,10 @@ const Index = () => {
     }, 100);
   };
 
+  // Ref for the asset grid to auto-scroll after import
+  const assetGridRef = useRef<HTMLDivElement>(null);
+  const [titlePulse, setTitlePulse] = useState(false);
+
   const handleImportFromAmazon = async (maxImages: MaxImagesOption = '20') => {
     if (!amazonUrl) return;
     
@@ -145,20 +149,20 @@ const Index = () => {
     const maxCount = maxImages === 'all' ? Infinity : parseInt(maxImages, 10);
     
     setIsImporting(true);
-    addLog('processing', 'Starting Amazon import...');
 
     try {
-      const product = await scrapeAmazonProduct(amazonUrl);
-      if (!product) throw new Error('Failed to scrape product');
+      // Use the new scraper with log callbacks for activity log
+      const product = await scrapeAmazonProduct(amazonUrl, addLog);
 
       // Apply max images limit
       const imagesToProcess = product.images.slice(0, maxCount);
-      addLog('success', `Found ${product.images.length} images for ASIN: ${product.asin}${maxCount < product.images.length ? ` (importing first ${maxCount})` : ''}`);
-      setProductAsin(product.asin);
+      setProductAsin(product.asin !== 'UNKNOWN' ? product.asin : null);
       
+      // Auto-populate listing title with pulse animation
       if (product.title) {
         setListingTitle(product.title);
-        addLog('info', `Title: ${product.title.substring(0, 50)}...`);
+        setTitlePulse(true);
+        setTimeout(() => setTitlePulse(false), 500);
       }
 
       // Create enhancement session in database
@@ -167,7 +171,7 @@ const Index = () => {
         .from('enhancement_sessions')
         .insert([{
           amazon_url: amazonUrl,
-          product_asin: product.asin,
+          product_asin: product.asin !== 'UNKNOWN' ? product.asin : null,
           listing_title: product.title || null,
           total_images: imagesToProcess.length,
           status: 'in_progress'
@@ -187,12 +191,9 @@ const Index = () => {
       const newAssets: ImageAsset[] = [];
       const newAssetSessionMap = new Map<string, string>(assetSessionMap);
       
-      // Track by canonical URL key AND content hash for robust deduplication
       const seenCanonicalKeys = new Set(assets.map(a => a.sourceUrl ? getCanonicalImageKey(a.sourceUrl) : ''));
       const seenContentHashes = new Set(assets.filter(a => a.contentHash).map(a => a.contentHash!));
       
-      // Import stats for summary logging
-      let foundCount = imagesToProcess.length;
       let downloadedCount = 0;
       let skippedDuplicateUrl = 0;
       let skippedDuplicateContent = 0;
@@ -204,10 +205,8 @@ const Index = () => {
         const imageData = imagesToProcess[i];
         const canonicalKey = getCanonicalImageKey(imageData.url);
         
-        // Skip if we've already seen this canonical URL
         if (seenCanonicalKeys.has(canonicalKey)) {
           skippedDuplicateUrl++;
-          console.log(`[Import] Skipping duplicate URL: ${imageData.url.substring(0, 60)}...`);
           continue;
         }
         seenCanonicalKeys.add(canonicalKey);
@@ -216,42 +215,29 @@ const Index = () => {
         const file = await downloadImage(imageData.url);
         
         if (!file) {
-          newFailedDownloads.push({
-            url: imageData.url,
-            reason: 'Download failed',
-            timestamp: new Date()
-          });
+          newFailedDownloads.push({ url: imageData.url, reason: 'Download failed', timestamp: new Date() });
           continue;
         }
         
-        // Content-hash deduplication: compute hash and skip if we've seen this exact content
         const contentHash = await computeContentHash(file);
         if (seenContentHashes.has(contentHash)) {
           skippedDuplicateContent++;
-          console.log(`[Import] Skipping duplicate content (hash collision): ${imageData.url.substring(0, 60)}...`);
           continue;
         }
         seenContentHashes.add(contentHash);
         downloadedCount++;
         
-        // Convert to base64 for AI classification
         const base64 = await fileToBase64(file);
         
         addLog('processing', `🔍 Classifying image ${downloadedCount} with AI vision...`);
-        const classification = await classifyImage(base64, product.title, product.asin);
+        const classification = await classifyImage(base64, product.title, product.asin !== 'UNKNOWN' ? product.asin : undefined);
         
         const aiCategory = classification.category as ImageCategory;
-        const confidence = classification.confidence;
-        
-        addLog('info', `   └─ Detected: ${aiCategory} (${confidence}% confidence)`);
-        if (classification.reasoning) {
-          addLog('info', `      ${classification.reasoning}`);
-        }
+        addLog('info', `   └─ Detected: ${aiCategory} (${classification.confidence}% confidence)`);
 
         const assetId = Math.random().toString(36).substring(2, 9);
         const imageName = `${aiCategory}_${file.name}`;
 
-        // Upload to Supabase Storage if session was created
         let originalImageUrl = URL.createObjectURL(file);
         
         if (sessionData?.id) {
@@ -260,8 +246,6 @@ const Index = () => {
           if (uploaded) {
             originalImageUrl = uploaded.url;
             
-            // Create session_image record
-            // image_type is position-based (first = MAIN), category is content-based from AI
             const isFirstImage = newAssets.length === 0 && assets.length === 0;
             const { data: sessionImageData, error: imgError } = await supabase
               .from('session_images')
@@ -282,8 +266,6 @@ const Index = () => {
           }
         }
 
-        // Only the FIRST image gets type 'MAIN', all others are 'SECONDARY'
-        // Position-based, not content-based - matches Amazon's listing structure
         const isFirstImage = newAssets.length === 0 && assets.length === 0;
         
         newAssets.push({
@@ -296,24 +278,14 @@ const Index = () => {
           contentHash,
         });
 
-        // Small delay between classifications to avoid rate limiting
         if (i < imagesToProcess.length - 1) {
           await new Promise(r => setTimeout(r, 300));
         }
       }
 
-      // Log import summary
-      addLog('info', `📊 Import Summary:`);
-      addLog('info', `   Found: ${foundCount} URLs`);
-      addLog('info', `   Downloaded: ${downloadedCount} unique images`);
-      if (skippedDuplicateUrl > 0) {
-        addLog('info', `   Skipped (duplicate URL): ${skippedDuplicateUrl}`);
-      }
-      if (skippedDuplicateContent > 0) {
-        addLog('info', `   Skipped (duplicate content): ${skippedDuplicateContent}`);
-      }
+      // Track failed downloads
       if (newFailedDownloads.length > 0) {
-        addLog('warning', `   Failed downloads: ${newFailedDownloads.length}`);
+        addLog('warning', `⚠️ ${newFailedDownloads.length} image(s) failed to download`);
         setFailedDownloads(newFailedDownloads);
       } else {
         setFailedDownloads([]);
@@ -322,15 +294,30 @@ const Index = () => {
       if (newAssets.length > 0) {
         setAssets(prev => [...prev, ...newAssets]);
         setAssetSessionMap(newAssetSessionMap);
-        addLog('success', `✅ Imported ${newAssets.length} unique images with AI classification`);
-        toast({ title: 'Import Complete', description: `Added ${newAssets.length} unique images (${skippedDuplicateUrl + skippedDuplicateContent} duplicates removed)` });
+        
+        // Green success toast
+        toast({
+          title: '✅ Import Successful',
+          description: `Imported ${newAssets.length} images from Amazon`,
+        });
+
+        // Auto-scroll asset grid into view
+        setTimeout(() => {
+          assetGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
       } else {
         throw new Error('No images could be downloaded');
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Import failed';
-      addLog('error', msg);
-      toast({ title: 'Import Failed', description: msg, variant: 'destructive' });
+      
+      // Handle specific error: no images found → inline message, not toast
+      if (msg === 'NO_IMAGES') {
+        addLog('warning', 'No product images found. Please upload manually.');
+      } else {
+        addLog('error', msg);
+        toast({ title: 'Import Failed', description: msg, variant: 'destructive' });
+      }
     } finally {
       setIsImporting(false);
     }
@@ -1028,6 +1015,8 @@ const Index = () => {
               failedDownloads={failedDownloads}
               isRetrying={isRetrying}
               onRetryFailedDownloads={handleRetryFailedDownloads}
+              titlePulse={titlePulse}
+              assetGridRef={assetGridRef}
             />
             
             {/* Compliance Report Card - shown during/after analysis */}

@@ -46,6 +46,8 @@ interface ImageUploaderProps {
   failedDownloads?: FailedDownload[];
   isRetrying?: boolean;
   onRetryFailedDownloads?: () => void;
+  titlePulse?: boolean;
+  assetGridRef?: React.RefObject<HTMLDivElement>;
 }
 
 export function ImageUploader({
@@ -64,6 +66,8 @@ export function ImageUploader({
   failedDownloads = [],
   isRetrying = false,
   onRetryFailedDownloads,
+  titlePulse = false,
+  assetGridRef,
 }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
@@ -293,7 +297,7 @@ export function ImageUploader({
 
       {/* Image Grid Preview with Drag & Drop */}
       {assets.length > 0 && (
-        <Card>
+        <Card ref={assetGridRef as React.RefObject<HTMLDivElement>}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <span>Uploaded Assets ({assets.length})</span>
@@ -346,7 +350,7 @@ export function ImageUploader({
       )}
 
       {/* Listing Title */}
-      <Card>
+      <Card className={titlePulse ? 'ring-2 ring-green-500 transition-all duration-500' : 'transition-all duration-500'}>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Listing Title</CardTitle>
         </CardHeader>
@@ -355,7 +359,7 @@ export function ImageUploader({
             placeholder="Enter your Amazon listing title for content consistency check..."
             value={listingTitle}
             onChange={(e) => onListingTitleChange(e.target.value)}
-            className="min-h-[80px]"
+            className={`min-h-[80px] ${titlePulse ? 'bg-green-50 dark:bg-green-950/20' : ''} transition-colors duration-500`}
           />
         </CardContent>
       </Card>
