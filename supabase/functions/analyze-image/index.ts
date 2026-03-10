@@ -28,6 +28,8 @@ const MAIN_IMAGE_RULES = `UNIVERSAL MAIN IMAGE RULES (apply to ALL categories):
 BACKGROUND:
 - MUST be pure white RGB(255,255,255). Any shadow, gradient, or off-white tone = CRITICAL violation
 - No environmental backgrounds — countertops, tables, wooden surfaces, kitchen settings = CRITICAL violation
+- Any shadow that is NOT a natural drop shadow directly under the product: -15 points
+- Any visible background texture (wood grain, fabric, gradient, pattern): -35 points (CRITICAL)
 
 TEXT & BADGES:
 - ZERO tolerance for overlays. No badges, watermarks, promotional text, "Best Seller", "Amazon's Choice" = CRITICAL violation
@@ -35,6 +37,8 @@ TEXT & BADGES:
 PRODUCT PRESENTATION:
 - Product must fill 85%+ of frame. Under 70% = HIGH violation
 - Product must face forward with primary label readable. Sideways or back-facing = HIGH violation
+- Multiple products shown when listing is for a single unit: -20 points
+- Product packaging shown with price tag or retail sticker visible: -25 points
 
 IMAGE QUALITY:
 - Must be sharp, high-res, professionally lit. Blur or grain = MEDIUM violation`;
