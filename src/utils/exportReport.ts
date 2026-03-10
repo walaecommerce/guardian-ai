@@ -61,6 +61,7 @@ export function generateExportData(
   assets: ImageAsset[],
   listingTitle: string,
   competitorData?: CompetitorData | null,
+  aiComparison?: AIComparisonResult | null,
 ): ExportReport {
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const passCount = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS').length;
