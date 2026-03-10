@@ -8,6 +8,7 @@ import Session from "./pages/Session";
 import CampaignAudit from "./pages/CampaignAudit";
 import Studio from "./pages/Studio";
 import Tracker from "./pages/Tracker";
+import TestChecklist from "./pages/TestChecklist";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
