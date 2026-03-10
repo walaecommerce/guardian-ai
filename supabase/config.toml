@@ -73,3 +73,6 @@ verify_jwt = false
 
 [functions.check-policy-updates]
 verify_jwt = false
+
+[functions.compare-listings]
+verify_jwt = false
