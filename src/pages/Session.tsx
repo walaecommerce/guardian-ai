@@ -309,7 +309,7 @@ const Session = () => {
               productAsin: productAsin || extractAsin(amazonUrl) || undefined,
               customPrompt,
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
-              imageCategory: asset.analysisResult?.category || asset.category || undefined
+              imageCategory: asset.analysisResult?.productCategory || undefined
             }
           });
 
