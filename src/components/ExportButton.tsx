@@ -11,11 +11,13 @@ import { ImageAsset } from '@/types';
 import { generateExportData, exportToJSON, exportToPDF, exportToPDFSummary } from '@/utils/exportReport';
 import { exportFixedImagesAsZip, exportAllImagesAsZip } from '@/utils/zipExport';
 import { useToast } from '@/hooks/use-toast';
+import { CompetitorData } from '@/components/CompetitorAudit';
 
 interface ExportButtonProps {
   assets: ImageAsset[];
   listingTitle: string;
   productAsin?: string;
+  competitorData?: CompetitorData | null;
   disabled?: boolean;
 }
 
