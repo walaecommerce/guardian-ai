@@ -10,6 +10,8 @@ import { ExportButton } from '@/components/ExportButton';
 import { CompetitorData } from '@/components/CompetitorAudit';
 import { ScoreTrendBadge } from '@/components/ScoreTrendBadge';
 import { getScoreTrend } from '@/components/ComplianceHistory';
+import { NewRuleTag } from '@/components/PolicyUpdates';
+import { PolicyUpdate } from '@/hooks/usePolicyUpdates';
 
 interface AnalysisResultsProps {
   assets: ImageAsset[];
