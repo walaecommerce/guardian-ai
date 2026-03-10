@@ -76,3 +76,6 @@ verify_jwt = false
 
 [functions.compare-listings]
 verify_jwt = false
+
+[functions.generate-suggestions]
+verify_jwt = false
