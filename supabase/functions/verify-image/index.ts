@@ -223,7 +223,7 @@ Score each component 0-100, then calculate weighted average.
 Return ONLY valid JSON:
 {
   "score": <0-100 weighted final score>,
-  "isSatisfactory": <true if score >= 80 AND productMatch is true AND no critical text issues>,
+  "isSatisfactory": <true if score >= 99 AND productMatch is true AND no critical text issues>,
   "productMatch": <boolean - is this visually the SAME product?>,
   "textPreserved": <boolean - is all original text still visible and readable?>,
   "noElementsAdded": <boolean - were NO new elements added to the image?>,
