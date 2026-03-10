@@ -1295,6 +1295,14 @@ const Index = () => {
               assetGridRef={assetGridRef}
             />
 
+            {/* Competitor URL Input */}
+            <CompetitorUrlInput
+              isImporting={isImportingCompetitor}
+              hasAudit={assets.some(a => a.analysisResult)}
+              importProgress={competitorProgress}
+              onImportCompetitor={handleImportCompetitor}
+            />
+
             {/* FEATURE 1: Bulk URL Import */}
             <BulkUrlImport
               isImporting={isImporting}
