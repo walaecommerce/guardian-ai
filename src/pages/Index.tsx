@@ -49,6 +49,9 @@ const Index = () => {
   const [showHero, setShowHero] = useState(true);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const [activeTab, setActiveTab] = useState('results');
+  const [competitorData, setCompetitorData] = useState<CompetitorData | null>(null);
+  const [isImportingCompetitor, setIsImportingCompetitor] = useState(false);
+  const [competitorProgress, setCompetitorProgress] = useState<{ current: number; total: number } | null>(null);
   const { toast } = useToast();
   
   const uploadSectionRef = useRef<HTMLDivElement>(null);
