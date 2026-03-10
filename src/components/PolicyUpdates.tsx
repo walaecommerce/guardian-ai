@@ -96,9 +96,12 @@ export function PolicySidebar({ data, loading, onRefresh }: PolicySidebarProps) 
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-foreground leading-tight">{u.policy_area}</p>
                       <p className="text-muted-foreground mt-0.5 leading-tight">{u.change_description}</p>
-                      <div className="flex items-center gap-1 mt-1 text-muted-foreground">
+                      <div className="flex items-center gap-2 mt-1 text-muted-foreground">
                         <Clock className="w-3 h-3" />
                         <span>{dateStr}</span>
+                        {u.source_url && (
+                          <a href={u.source_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">Source ↗</a>
+                        )}
                       </div>
                     </div>
                   </div>
