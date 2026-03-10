@@ -435,6 +435,7 @@ const Index = () => {
         a.id === asset.id ? { ...a, isAnalyzing: true } : a
       ));
 
+      setAnalyzingProgress({ current: i + 1, total: assets.length });
       addLog('processing', `🔬 Scanning ${asset.type} image: ${asset.name}`);
       addLog('info', `   ├─ Phase 1: Background pixel analysis...`);
       addLog('info', `   ├─ Phase 2: Badge & text detection...`);
