@@ -50,7 +50,7 @@ export function ExportButton({ assets, listingTitle, productAsin, competitorData
 
   const handleExportPDFSummary = () => {
     try {
-      const data = generateExportData(assets, listingTitle);
+      const data = generateExportData(assets, listingTitle, competitorData);
       exportToPDFSummary(data);
     } catch {
       toast({ title: 'Export Failed', description: 'Could not open print dialog', variant: 'destructive' });
