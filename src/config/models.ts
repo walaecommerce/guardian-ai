@@ -19,5 +19,5 @@ export const RATE_LIMITS = {
   batchCooldownDuration: 20000,
   retryDelayBase: 10000,
   maxRetries: 3,
-  verificationThreshold: 99
+  verificationThreshold: 85
 } as const;
