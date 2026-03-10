@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guardian AI — Full Report</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1a1f2e;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: #232F3E;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 2px solid #FF9900;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-logo { font-size: 28px; }
+    .header h1 { font-size: 16px; color: #FF9900; font-weight: 700; }
+    .header p { font-size: 10px; color: #888; }
+
+    .content { padding: 16px 20px; }
+
+    /* Product Card */
+    .product-card {
+      background: #232F3E;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .product-asin { font-size: 10px; color: #FF9900; font-weight: 700; letter-spacing: 0.5px; }
+    .product-title { font-size: 13px; color: #ccc; margin-top: 4px; line-height: 1.4; }
+    .product-marketplace {
+      display: inline-block;
+      background: #FF9900;
+      color: #232F3E;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-top: 6px;
+    }
+
+    /* Score Overview */
+    .score-overview {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: #232F3E;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .score-ring {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 5px solid #555;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      flex-shrink: 0;
+      transition: all 0.5s ease;
+    }
+    .score-ring.pass { border-color: #00C851; color: #00C851; box-shadow: 0 0 20px rgba(0, 200, 81, 0.2); }
+    .score-ring.warning { border-color: #FFB700; color: #FFB700; box-shadow: 0 0 20px rgba(255, 183, 0, 0.2); }
+    .score-ring.fail { border-color: #FF4444; color: #FF4444; box-shadow: 0 0 20px rgba(255, 68, 68, 0.2); }
+    .score-meta h2 { font-size: 18px; font-weight: 700; }
+    .score-meta .pass-text { color: #00C851; }
+    .score-meta .fail-text { color: #FF4444; }
+    .score-summary { font-size: 12px; color: #aaa; margin-top: 4px; }
+
+    /* Image Grid */
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #FF9900;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .image-card {
+      background: #232F3E;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .image-card:hover { transform: scale(1.03); }
+    .image-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+    }
+    .image-badge {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      font-size: 8px;
+      font-weight: 800;
+      padding: 2px 5px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .badge-main { background: #FF9900; color: #232F3E; }
+    .badge-secondary { background: #232F3E; color: #fff; border: 1px solid #555; }
+    .badge-aplus { background: #4488FF; color: #fff; }
+    .image-score {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .image-score.pass { background: rgba(0, 200, 81, 0.9); color: #fff; }
+    .image-score.fail { background: rgba(255, 68, 68, 0.9); color: #fff; }
+    .image-status-dot {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .dot-pass { background: #00C851; }
+    .dot-fail { background: #FF4444; }
+    .dot-pending { background: #555; }
+
+    /* Violations */
+    .violations-section { margin-bottom: 16px; }
+    .violation-card {
+      background: #232F3E;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      border-left: 3px solid;
+      animation: fadeSlide 0.3s ease-out;
+    }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateX(-8px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .violation-card.sev-critical { border-color: #FF4444; }
+    .violation-card.sev-high { border-color: #FF8800; }
+    .violation-card.sev-medium { border-color: #FFB700; }
+    .violation-card.sev-low { border-color: #4488FF; }
+    .violation-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .severity-badge {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .severity-badge.critical { background: #FF4444; color: #fff; }
+    .severity-badge.high { background: #FF8800; color: #fff; }
+    .severity-badge.medium { background: #FFB700; color: #232F3E; }
+    .severity-badge.low { background: #4488FF; color: #fff; }
+    .violation-rule { font-size: 12px; font-weight: 700; }
+    .violation-desc { font-size: 11px; color: #aaa; line-height: 1.4; }
+    .violation-rec {
+      font-size: 11px;
+      color: #888;
+      font-style: italic;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid #333;
+      display: none;
+    }
+    .violation-toggle {
+      font-size: 10px;
+      color: #FF9900;
+      cursor: pointer;
+      margin-top: 4px;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+    }
+
+    /* Recommendations */
+    .recommendations {
+      background: #232F3E;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .rec-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid #333;
+      font-size: 12px;
+      color: #ccc;
+    }
+    .rec-item:last-child { border-bottom: none; }
+    .rec-icon { flex-shrink: 0; }
+
+    /* Actions */
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: #FF9900; color: #232F3E; }
+    .btn-primary:hover { background: #e88a00; }
+    .btn-primary:disabled { background: #555; color: #888; cursor: not-allowed; }
+    .btn-outline {
+      background: transparent;
+      color: #FF9900;
+      border: 1px solid #FF9900;
+    }
+    .btn-outline:hover { background: rgba(255, 153, 0, 0.1); }
+    .btn-ghost {
+      background: transparent;
+      color: #aaa;
+      border: 1px solid #333;
+    }
+    .btn-ghost:hover { border-color: #666; color: #fff; }
+
+    /* Competitor Section */
+    .competitor-section {
+      background: #232F3E;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .competitor-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: #131921;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 12px;
+      outline: none;
+      margin-bottom: 8px;
+      font-family: inherit;
+    }
+    .competitor-input:focus { border-color: #FF9900; }
+
+    /* Loading */
+    .loading-overlay {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #333;
+      border-top-color: #FF9900;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Progress */
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #FF9900;
+      transition: width 0.5s ease;
+      border-radius: 2px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">🛡️</div>
+    <div>
+      <h1>Guardian AI</h1>
+      <p>Full Compliance Report</p>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="spinner"></div>
+    <div style="font-size: 14px; color: #ccc;" id="loading-message">Loading audit data...</div>
+    <div class="progress-bar" id="progress-bar" style="display: none; margin-top: 12px;">
+      <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" id="empty-state" style="display: none;">
+    <div style="font-size: 48px; margin-bottom: 12px;">🛡️</div>
+    <div style="font-size: 14px; color: #aaa;">No audit data available</div>
+    <div style="font-size: 12px; color: #666; margin-top: 8px;">Run an audit from the extension popup first</div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="content" id="main-content" style="display: none;">
+    <!-- Product Card -->
+    <div class="product-card" id="product-card">
+      <div class="product-asin" id="product-asin"></div>
+      <div class="product-title" id="product-title"></div>
+      <span class="product-marketplace" id="product-marketplace"></span>
+    </div>
+
+    <!-- Score Overview -->
+    <div class="score-overview" id="score-overview">
+      <div class="score-ring" id="main-score-ring">—</div>
+      <div class="score-meta">
+        <h2 id="score-label">—</h2>
+        <div class="score-summary" id="score-summary"></div>
+      </div>
+    </div>
+
+    <!-- Image Grid -->
+    <div class="section-title">📸 Images Analyzed</div>
+    <div class="image-grid" id="image-grid"></div>
+
+    <!-- Violations -->
+    <div class="violations-section" id="violations-section">
+      <div class="section-title">⚠️ Violations</div>
+      <div id="violations-list"></div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="section-title">💡 Recommendations</div>
+    <div class="recommendations" id="recommendations"></div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-fix-all">✨ Fix All Failures</button>
+      <button class="btn btn-outline" id="btn-export">📄 Export Report (JSON)</button>
+    </div>
+
+    <!-- Fix Progress -->
+    <div id="fix-progress" style="display: none; margin-bottom: 16px;">
+      <div style="font-size: 12px; color: #aaa; margin-bottom: 6px;" id="fix-progress-text">Fixing images...</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="fix-progress-fill" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Competitor Comparison -->
+    <div class="section-title">🔍 Compare with Competitor</div>
+    <div class="competitor-section">
+      <input class="competitor-input" id="competitor-url" type="url" placeholder="Paste competitor Amazon URL...">
+      <button class="btn btn-ghost" id="btn-compare">Compare Listings</button>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

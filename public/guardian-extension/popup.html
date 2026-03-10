@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guardian AI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 380px;
+      min-height: 480px;
+      background: #1a1f2e;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+    }
+
+    /* Header */
+    .header {
+      background: #232F3E;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 2px solid #FF9900;
+    }
+    .header-logo { font-size: 28px; }
+    .header-text h1 { font-size: 15px; color: #FF9900; font-weight: 700; }
+    .header-text p { font-size: 10px; color: #888; margin-top: 2px; }
+
+    /* Status Bar */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #131921;
+      font-size: 11px;
+      color: #aaa;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-green { background: #00C851; box-shadow: 0 0 6px rgba(0, 200, 81, 0.5); }
+    .dot-orange { background: #FF9900; }
+    .dot-gray { background: #555; }
+    .dot-red { background: #FF4444; }
+
+    /* Tabs */
+    .tab-bar {
+      display: flex;
+      border-bottom: 1px solid #333;
+      background: #131921;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-size: 11px;
+      color: #aaa;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      font-family: inherit;
+    }
+    .tab.active { color: #FF9900; border-bottom-color: #FF9900; }
+    .tab:hover { color: #fff; }
+    .tab-content { display: none; padding: 16px; }
+    .tab-content.active { display: block; }
+
+    /* Score Circle */
+    .score-section {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding: 16px;
+      background: #232F3E;
+      border-radius: 12px;
+    }
+    .score-circle {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 4px solid #555;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 800;
+      transition: all 0.4s ease;
+    }
+    .score-pass { border-color: #00C851; color: #00C851; box-shadow: 0 0 16px rgba(0, 200, 81, 0.25); }
+    .score-warning { border-color: #FFB700; color: #FFB700; box-shadow: 0 0 16px rgba(255, 183, 0, 0.25); }
+    .score-fail { border-color: #FF4444; color: #FF4444; box-shadow: 0 0 16px rgba(255, 68, 68, 0.25); }
+    .score-status { font-size: 14px; font-weight: 600; }
+    .score-violations { font-size: 11px; color: #aaa; }
+
+    /* Page Info */
+    .page-info {
+      display: none;
+      background: #232F3E;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .page-asin {
+      font-size: 10px;
+      color: #FF9900;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .page-title {
+      font-size: 12px;
+      color: #ccc;
+      margin-top: 4px;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .marketplace-badge {
+      display: inline-block;
+      background: #FF9900;
+      color: #232F3E;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-top: 6px;
+    }
+
+    /* Violations List */
+    .violations-list {
+      display: none;
+      margin-top: 12px;
+    }
+    .violation-card {
+      background: #1a1f2e;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border-left: 3px solid;
+    }
+    .violation-card.sev-critical { border-color: #FF4444; }
+    .violation-card.sev-high { border-color: #FF8800; }
+    .violation-card.sev-medium { border-color: #FFB700; }
+    .violation-card.sev-low { border-color: #4488FF; }
+    .violation-rule {
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .violation-desc {
+      font-size: 11px;
+      color: #999;
+      line-height: 1.4;
+    }
+    .violation-more {
+      text-align: center;
+      font-size: 11px;
+      color: #FF9900;
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background: #FF9900;
+      color: #232F3E;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: inherit;
+      margin-bottom: 8px;
+    }
+    .btn-primary:hover { background: #e88a00; }
+    .btn-primary:disabled { background: #555; color: #888; cursor: not-allowed; }
+
+    .btn-secondary {
+      display: none;
+      width: 100%;
+      padding: 10px;
+      background: transparent;
+      color: #FF9900;
+      border: 1px solid #FF9900;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      margin-bottom: 8px;
+    }
+    .btn-secondary:hover { background: rgba(255, 153, 0, 0.1); }
+
+    .btn-ghost {
+      display: none;
+      width: 100%;
+      padding: 10px;
+      background: transparent;
+      color: #aaa;
+      border: 1px solid #333;
+      border-radius: 10px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      margin-bottom: 8px;
+    }
+    .btn-ghost:hover { border-color: #666; color: #fff; }
+
+    /* Loading */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #333;
+      border-top-color: #FF9900;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 12px; color: #aaa; }
+    .loading-sub { font-size: 10px; color: #666; margin-top: 4px; }
+
+    /* Not Amazon */
+    .not-amazon {
+      display: none;
+      text-align: center;
+      padding: 32px 16px;
+      color: #666;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    /* Settings */
+    .settings-group { margin-bottom: 16px; }
+    .settings-label {
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .settings-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: #131921;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 12px;
+      outline: none;
+      font-family: monospace;
+    }
+    .settings-input:focus { border-color: #FF9900; }
+    .settings-input::placeholder { color: #555; }
+    .settings-status {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 8px;
+      min-height: 16px;
+    }
+
+    /* Fix Tab */
+    .fix-preview {
+      display: none;
+      margin-bottom: 12px;
+    }
+    .fix-preview-label {
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 6px;
+    }
+    .fix-preview-img {
+      width: 100%;
+      max-height: 200px;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #131921;
+    }
+    .fix-result {
+      display: none;
+      margin-top: 12px;
+    }
+    .fix-result-label {
+      font-size: 11px;
+      color: #00C851;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .fix-result-img {
+      width: 100%;
+      max-height: 200px;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 12px;
+      border-top: 1px solid #232F3E;
+      font-size: 10px;
+      color: #555;
+      line-height: 1.6;
+    }
+    .footer a { color: #FF9900; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">🛡️</div>
+    <div class="header-text">
+      <h1>Guardian AI</h1>
+      <p>Amazon Compliance</p>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="status-dot dot-gray" id="status-dot"></div>
+    <span id="status-text">Checking page...</span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab active" data-tab="audit">Audit</button>
+    <button class="tab" data-tab="fix">Fix Image</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </div>
+
+  <!-- AUDIT TAB -->
+  <div class="tab-content active" id="tab-audit">
+    <div class="not-amazon" id="not-amazon">
+      Navigate to an Amazon product page to use Guardian AI
+    </div>
+
+    <div class="page-info" id="page-info">
+      <div class="page-asin" id="page-asin"></div>
+      <div class="page-title" id="page-title"></div>
+      <span class="marketplace-badge" id="marketplace-badge"></span>
+    </div>
+
+    <div class="score-section" id="score-section">
+      <div class="score-circle" id="score-circle">—</div>
+      <div class="score-status" id="score-status"></div>
+      <div class="score-violations" id="score-violations"></div>
+    </div>
+
+    <div class="violations-list" id="violations-list"></div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loading-text">Analyzing images...</div>
+      <div class="loading-sub">This may take 10–30 seconds</div>
+    </div>
+
+    <button class="btn-primary" id="btn-audit">🔍 Audit This Listing</button>
+    <button class="btn-secondary" id="btn-full-report">Open Full Report in Guardian AI</button>
+    <button class="btn-ghost" id="btn-save">💾 Save to Guardian AI</button>
+  </div>
+
+  <!-- FIX TAB -->
+  <div class="tab-content" id="tab-fix">
+    <p style="font-size: 12px; color: #aaa; margin-bottom: 12px;">
+      Fix the main product image for Amazon compliance
+    </p>
+
+    <div class="fix-preview" id="fix-preview">
+      <div class="fix-preview-label">Current main image:</div>
+      <img class="fix-preview-img" id="fix-preview-img" alt="Current main image">
+    </div>
+
+    <button class="btn-primary" id="btn-fix-main">✨ Fix Main Image with AI</button>
+
+    <div class="fix-result" id="fix-result">
+      <div class="fix-result-label">✅ Fixed image:</div>
+      <img class="fix-result-img" id="fix-result-img" alt="Fixed image">
+      <button class="btn-primary" id="btn-download-fix" style="margin-top: 10px;">⬇️ Download Fixed Image</button>
+    </div>
+
+    <div class="loading" id="fix-loading">
+      <div class="spinner"></div>
+      <div class="loading-text">Generating compliant image...</div>
+      <div class="loading-sub">This takes 15–30 seconds</div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="tab-content" id="tab-settings">
+    <div class="settings-group">
+      <div class="settings-label">Gemini API Key (fallback)</div>
+      <input class="settings-input" id="input-gemini-key" type="password" placeholder="AIza...">
+    </div>
+    <div class="settings-group">
+      <div class="settings-label">Guardian AI URL</div>
+      <input class="settings-input" id="input-guardian-url" type="url" placeholder="https://your-project.supabase.co">
+    </div>
+    <button class="btn-primary" id="btn-save-settings">Save Settings</button>
+    <button class="btn-ghost" id="btn-test-connection" style="display: block;">Test Connection</button>
+    <div class="settings-status" id="settings-status"></div>
+
+    <div class="footer">
+      <div>Guardian AI Chrome Extension v1.0</div>
+      <div>Powered by Gemini 3.1 Pro</div>
+      <div><a href="https://amazon-listing-guardian.lovable.app" target="_blank">Open Guardian AI Web App</a></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
