@@ -44,6 +44,13 @@ export interface ExportReport {
     competitor_weaknesses: string[];
     recommendations: string[];
     image_count_advantage: 'yours' | 'competitor' | 'tied';
+    ai_intelligence?: {
+      score_comparison: any;
+      image_types_competitor_has_you_dont: any[];
+      competitor_violations: any[];
+      your_advantages: string[];
+      priority_actions: any[];
+    };
   };
 }
 
