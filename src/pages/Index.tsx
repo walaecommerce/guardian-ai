@@ -1300,6 +1300,9 @@ const Index = () => {
                   competitorData={competitorData}
                 />
               </TabsContent>
+              <TabsContent value="recommendations">
+                <AIRecommendations assets={assets} listingTitle={listingTitle} />
+              </TabsContent>
               <TabsContent value="scorecard">
                 <ListingScoreCard assets={assets} listingTitle={listingTitle} />
               </TabsContent>
