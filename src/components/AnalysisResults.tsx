@@ -332,7 +332,8 @@ export function AnalysisResults({
   isBatchFixing,
   batchFixProgress,
   productAsin,
-  competitorData
+  competitorData,
+  getMatchingPolicyUpdate,
 }: AnalysisResultsProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult || a.isAnalyzing);
 
