@@ -1459,7 +1459,11 @@ const Index = () => {
                 />
               </TabsContent>
               <TabsContent value="recommendations">
-                <AIRecommendations assets={assets} listingTitle={listingTitle} />
+                <RecommendationsPanel
+                  assets={assets}
+                  listingTitle={listingTitle}
+                  onApplyFix={(assetId, prompt) => handleRequestFix(assetId, undefined, prompt)}
+                />
               </TabsContent>
               <TabsContent value="scorecard">
                 <ListingScoreCard assets={assets} listingTitle={listingTitle} />
