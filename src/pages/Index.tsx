@@ -1023,6 +1023,8 @@ const Index = () => {
               onImportFromAmazon={handleImportFromAmazon}
               onRunAudit={handleRunAudit}
               isAnalyzing={isAnalyzing}
+              analyzingProgress={analyzingProgress}
+              auditComplete={auditComplete}
               failedDownloads={failedDownloads}
               isRetrying={isRetrying}
               onRetryFailedDownloads={handleRetryFailedDownloads}
