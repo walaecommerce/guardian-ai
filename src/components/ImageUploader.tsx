@@ -41,6 +41,8 @@ interface ImageUploaderProps {
   onImportFromAmazon: (maxImages: MaxImagesOption) => void;
   onRunAudit: () => void;
   isAnalyzing: boolean;
+  analyzingProgress?: { current: number; total: number };
+  auditComplete?: { passed: number; failed: number } | null;
   failedDownloads?: FailedDownload[];
   isRetrying?: boolean;
   onRetryFailedDownloads?: () => void;
