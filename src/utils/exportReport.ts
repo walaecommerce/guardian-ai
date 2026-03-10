@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { ImageAsset } from '@/types';
-import { CompetitorData, buildComparisonReport } from '@/components/CompetitorAudit';
+import { CompetitorData, buildComparisonReport, AIComparisonResult } from '@/components/CompetitorAudit';
 
 // Extend jsPDF type to include autoTable
 declare module 'jspdf' {
@@ -44,6 +44,13 @@ export interface ExportReport {
     competitor_weaknesses: string[];
     recommendations: string[];
     image_count_advantage: 'yours' | 'competitor' | 'tied';
+    ai_intelligence?: {
+      score_comparison: any;
+      image_types_competitor_has_you_dont: any[];
+      competitor_violations: any[];
+      your_advantages: string[];
+      priority_actions: any[];
+    };
   };
 }
 
@@ -54,6 +61,7 @@ export function generateExportData(
   assets: ImageAsset[],
   listingTitle: string,
   competitorData?: CompetitorData | null,
+  aiComparison?: AIComparisonResult | null,
 ): ExportReport {
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const passCount = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS').length;
@@ -107,6 +115,13 @@ export function generateExportData(
       competitor_weaknesses: comparison.competitorWeaknesses,
       recommendations: comparison.recommendations,
       image_count_advantage: comparison.imageCountAdvantage,
+      ai_intelligence: aiComparison ? {
+        score_comparison: aiComparison.score_comparison,
+        image_types_competitor_has_you_dont: aiComparison.image_types_competitor_has_you_dont,
+        competitor_violations: aiComparison.competitor_violations,
+        your_advantages: aiComparison.your_advantages,
+        priority_actions: aiComparison.priority_actions,
+      } : undefined,
     };
   }
 

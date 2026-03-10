@@ -5,13 +5,14 @@ import { HeroSection } from '@/components/HeroSection';
 import { ImageUploader, MaxImagesOption } from '@/components/ImageUploader';
 import { AnalysisResults } from '@/components/AnalysisResults';
 import { ComplianceReportCard } from '@/components/ComplianceReportCard';
+import { Card, CardContent } from '@/components/ui/card';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
 import { SessionHistory } from '@/components/SessionHistory';
 import { ComplianceHistory, saveAuditToHistory, AuditHistoryEntry } from '@/components/ComplianceHistory';
 import { BulkUrlImport } from '@/components/BulkUrlImport';
-import { CompetitorAudit, CompetitorData, buildComparisonReport } from '@/components/CompetitorAudit';
+import { CompetitorAudit, CompetitorData, buildComparisonReport, AIComparisonResult } from '@/components/CompetitorAudit';
 import { ListingScoreCard } from '@/components/ListingScoreCard';
 import { AIRecommendations } from '@/components/AIRecommendations';
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
@@ -24,10 +25,84 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Save, Loader2, Wand2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Save, Loader2, Wand2, Swords, Import } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { uploadImage } from '@/services/imageStorage';
 import { loadDemoImages, DEMO_PRODUCT } from '@/components/DemoImages';
+
+// ── Competitor URL Input (left panel) ──
+function CompetitorUrlInput({
+  isImporting, hasAudit, importProgress, onImportCompetitor,
+}: {
+  isImporting: boolean;
+  hasAudit: boolean;
+  importProgress: { current: number; total: number } | null;
+  onImportCompetitor: (url: string) => void;
+}) {
+  const [enabled, setEnabled] = useState(false);
+  const [url, setUrl] = useState('');
+
+  if (!enabled) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Swords className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-medium cursor-pointer">Enable Competitor Analysis</Label>
+            </div>
+            <Switch checked={enabled} onCheckedChange={setEnabled} />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Swords className="w-4 h-4 text-primary" />
+            <Label className="text-sm font-semibold">Competitor Product URL</Label>
+          </div>
+          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        </div>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Paste competitor Amazon URL..."
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            disabled={isImporting || !hasAudit}
+            className="text-sm"
+          />
+          <Button
+            size="sm"
+            onClick={() => onImportCompetitor(url)}
+            disabled={!url || isImporting || !hasAudit}
+          >
+            {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Import className="w-4 h-4 mr-1" />}
+            {isImporting ? 'Analyzing...' : 'Analyze'}
+          </Button>
+        </div>
+        {!hasAudit && (
+          <p className="text-xs text-muted-foreground">Run your audit first before comparing</p>
+        )}
+        {importProgress && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">
+              Analyzing competitor image {importProgress.current}/{importProgress.total}...
+            </p>
+            <Progress value={(importProgress.current / importProgress.total) * 100} className="h-1.5" />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // Map to track asset ID -> session_image ID for updates
 type AssetSessionMap = Map<string, string>;
@@ -57,6 +132,8 @@ const Index = () => {
   const [competitorData, setCompetitorData] = useState<CompetitorData | null>(null);
   const [isImportingCompetitor, setIsImportingCompetitor] = useState(false);
   const [competitorProgress, setCompetitorProgress] = useState<{ current: number; total: number } | null>(null);
+  const [aiComparison, setAiComparison] = useState<AIComparisonResult | null>(null);
+  const [isLoadingAIComparison, setIsLoadingAIComparison] = useState(false);
   const { toast } = useToast();
   const { data: policyData, loading: policyLoading, highImpactUpdates, getMatchingUpdate, refresh: refreshPolicy } = usePolicyUpdates();
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -1085,10 +1162,64 @@ const Index = () => {
     link.click();
   };
 
+  // ── AI Comparison via edge function ──
+  const triggerAIComparison = async (compData: CompetitorData) => {
+    setIsLoadingAIComparison(true);
+    setAiComparison(null);
+    addLog('processing', '🧠 Running AI competitive intelligence analysis...');
+
+    try {
+      const yourAnalysis = {
+        title: listingTitle,
+        imageCount: assets.length,
+        images: assets.filter(a => a.analysisResult).map(a => ({
+          type: a.type,
+          category: a.name.split('_')[0],
+          score: a.analysisResult?.overallScore,
+          status: a.analysisResult?.status,
+          violations: a.analysisResult?.violations?.map(v => ({ severity: v.severity, message: v.message })) || [],
+        })),
+      };
+
+      const competitorAnalysis = {
+        title: compData.title,
+        imageCount: compData.imageCount,
+        images: compData.assets.filter(a => a.analysisResult).map(a => ({
+          type: a.type,
+          category: a.name.split('_')[0],
+          score: a.analysisResult?.overallScore,
+          status: a.analysisResult?.status,
+          violations: a.analysisResult?.violations?.map(v => ({ severity: v.severity, message: v.message })) || [],
+        })),
+      };
+
+      const { data, error } = await supabase.functions.invoke('compare-listings', {
+        body: {
+          yourAnalysis,
+          competitorAnalysis,
+          yourTitle: listingTitle,
+          competitorTitle: compData.title,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setAiComparison(data as AIComparisonResult);
+      addLog('success', '✅ AI competitive analysis complete');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'AI comparison failed';
+      addLog('error', `❌ AI comparison failed: ${msg}`);
+    } finally {
+      setIsLoadingAIComparison(false);
+    }
+  };
+
   // ── Competitor Import & Audit ──
   const handleImportCompetitor = async (url: string) => {
     setIsImportingCompetitor(true);
     setCompetitorData(null);
+    setAiComparison(null);
     addLog('processing', '🔍 Importing competitor listing...');
 
     try {
@@ -1161,7 +1292,7 @@ const Index = () => {
         }))
       );
 
-      setCompetitorData({
+      const compData: CompetitorData = {
         url,
         asin: product.asin !== 'UNKNOWN' ? product.asin : null,
         title: product.title || 'Unknown Competitor',
@@ -1171,11 +1302,15 @@ const Index = () => {
         overallScore: avgScore,
         categories,
         violations: allViolations,
-      });
+      };
 
+      setCompetitorData(compData);
       setActiveTab('compare');
       addLog('success', `✅ Competitor audit complete — ${compAssets.length} images, ${avgScore}% score`);
       toast({ title: 'Competitor Audit Complete', description: `Analyzed ${compAssets.length} images from competitor listing` });
+
+      // Trigger AI comparison
+      triggerAIComparison(compData);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Competitor import failed';
       addLog('error', msg);
@@ -1233,6 +1368,14 @@ const Index = () => {
               onRetryFailedDownloads={handleRetryFailedDownloads}
               titlePulse={titlePulse}
               assetGridRef={assetGridRef}
+            />
+
+            {/* Competitor URL Input */}
+            <CompetitorUrlInput
+              isImporting={isImportingCompetitor}
+              hasAudit={assets.some(a => a.analysisResult)}
+              importProgress={competitorProgress}
+              onImportCompetitor={handleImportCompetitor}
             />
 
             {/* FEATURE 1: Bulk URL Import */}
@@ -1336,6 +1479,8 @@ const Index = () => {
                   isImporting={isImportingCompetitor}
                   importProgress={competitorProgress}
                   onImportCompetitor={handleImportCompetitor}
+                  aiComparison={aiComparison}
+                  isLoadingAIComparison={isLoadingAIComparison}
                 />
               </TabsContent>
               <TabsContent value="history">
