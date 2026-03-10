@@ -385,7 +385,7 @@ const Index = () => {
     setIsRetrying(false);
   };
 
-  const analyzeAsset = async (asset: ImageAsset): Promise<AnalysisResult | null> => {
+  const analyzeAsset = async (asset: ImageAsset, attempt = 0): Promise<AnalysisResult | null> => {
     try {
       const base64 = await fileToBase64(asset.file);
       
@@ -393,11 +393,29 @@ const Index = () => {
         body: { imageBase64: base64, imageType: asset.type, listingTitle }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Handle 429 rate limit with 30s pause and retry
+        const status = (error as any)?.context?.status;
+        if (status === 429 && attempt < 3) {
+          addLog('warning', '⏳ Rate limit hit — pausing 30 seconds...');
+          await new Promise(r => setTimeout(r, 30000));
+          return analyzeAsset(asset, attempt + 1);
+        }
+        throw error;
+      }
       return data as AnalysisResult;
     } catch (error) {
       console.error('Analysis error:', error);
       return null;
+    }
+  };
+
+  // Countdown cooldown helper
+  const countdownCooldown = async (ms: number) => {
+    const seconds = ms / 1000;
+    for (let i = seconds; i > 0; i--) {
+      addLog('processing', `Batch cooldown — resuming in ${i}s...`);
+      await new Promise(r => setTimeout(r, 1000));
     }
   };
 
@@ -417,7 +435,6 @@ const Index = () => {
     for (let i = 0; i < assets.length; i++) {
       const asset = assets[i];
       
-      // Mark as analyzing
       setAssets(prev => prev.map(a => 
         a.id === asset.id ? { ...a, isAnalyzing: true } : a
       ));
@@ -430,7 +447,6 @@ const Index = () => {
       
       const result = await analyzeAsset(asset);
       
-      // Update with result
       setAssets(prev => prev.map(a => 
         a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined } : a
       ));
@@ -444,7 +460,6 @@ const Index = () => {
         else failedCount++;
         scores.push(result.overallScore);
         
-        // Update session_image in database
         const sessionImageId = assetSessionMap.get(asset.id);
         if (sessionImageId) {
           const imageStatus = result.status === 'PASS' ? 'passed' : 'failed';
@@ -457,7 +472,6 @@ const Index = () => {
             .eq('id', sessionImageId);
         }
         
-        // Log critical violations
         const criticalViolations = result.violations?.filter(v => v.severity === 'critical') || [];
         if (criticalViolations.length > 0) {
           criticalViolations.forEach(v => {
@@ -468,29 +482,20 @@ const Index = () => {
         addLog('error', `❌ Failed to analyze ${asset.name}`);
       }
 
-      // Rate limit delays
+      // Rate limit delays between images
       if (i < assets.length - 1) {
-        const imageNumber = i + 1; // 1-indexed count of completed images
-        
-        // Every N images, do a cooldown
+        addLog('info', `Cooling down before next image...`);
+        await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
+
+        const imageNumber = i + 1;
         if (imageNumber % RATE_LIMITS.batchCooldownEvery === 0) {
-          const cooldownSec = Math.round(RATE_LIMITS.batchCooldownDuration / 1000);
           addLog('info', `⏳ Rate limit cooldown after ${imageNumber} images...`);
-          for (let sec = cooldownSec; sec > 0; sec--) {
-            addLog('processing', `   Cooldown: resuming in ${sec}s...`);
-            await new Promise(r => setTimeout(r, 1000));
-          }
+          await countdownCooldown(RATE_LIMITS.batchCooldownDuration);
           addLog('success', `   ✓ Cooldown complete, resuming...`);
-        } else {
-          // Standard delay between images
-          const delaySec = Math.round(RATE_LIMITS.delayBetweenRequests / 1000);
-          addLog('info', `⏳ Rate limit pause (${delaySec}s)...`);
-          await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
         }
       }
     }
 
-    // Update session summary
     if (currentSessionId) {
       const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
       await supabase
@@ -508,7 +513,6 @@ const Index = () => {
     setAnalyzingProgress(undefined);
     setAuditComplete({ passed: passedCount, failed: failedCount });
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
-    // Reset completion message after 3 seconds
     setTimeout(() => setAuditComplete(null), 3000);
   };
 
