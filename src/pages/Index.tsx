@@ -32,6 +32,7 @@ import { Save, Loader2, Wand2, Swords, Import } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { uploadImage } from '@/services/imageStorage';
 import { loadDemoImages, DEMO_PRODUCT } from '@/components/DemoImages';
+import { sendSlackNotification } from '@/components/NotificationSettings';
 
 // ── Competitor URL Input (left panel) ──
 function CompetitorUrlInput({
