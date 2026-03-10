@@ -554,7 +554,12 @@ const Index = () => {
       const base64 = await fileToBase64(asset.file);
       
       const { data, error } = await supabase.functions.invoke('analyze-image', {
-        body: { imageBase64: base64, imageType: asset.type, listingTitle }
+        body: {
+          imageBase64: base64,
+          imageType: asset.type,
+          listingTitle,
+          forcedCategory: selectedCategory !== 'AUTO' ? selectedCategory : undefined,
+        }
       });
 
       if (error) {
