@@ -593,6 +593,11 @@ export async function scrapeAmazonProduct(url: string): Promise<ScrapedProduct |
   // Try backend scraping first (more reliable)
   const backendResult = await scrapeViaBackend(url);
   
+  // If backend returned a specific error, throw it
+  if (backendResult?.error) {
+    throw new Error(backendResult.error);
+  }
+  
   if (backendResult?.html) {
     console.log(`[Scraper] Received HTML (${backendResult.html.length} chars)`);
     const title = extractTitle(backendResult.html);
