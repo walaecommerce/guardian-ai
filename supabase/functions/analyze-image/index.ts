@@ -47,12 +47,25 @@ ALLOWED & ENCOURAGED:
 - Comparison images showing size reference or product scale — ALLOWED
 - Multiple product variants or flavors shown together — ALLOWED
 
-PROHIBITED (still enforced):
-- "Best Seller" badges, "Amazon's Choice" badges, competitor brand logos = CRITICAL violation
-- Competitor product comparisons using their actual brand names/logos = HIGH violation
+PROHIBITED — SCORE DEDUCTIONS (apply ALL that are present, deductions are cumulative from 100):
+- Missing product in frame (no product visible at all): -40 points
+- Text is blurry, pixelated, or under 20pt equivalent: -25 points
+- Cluttered layout with more than 6 callouts on one image: -20 points
+- Low contrast text (text color too similar to background): -20 points
+- Missing brand name or logo anywhere on image: -15 points
+- Image resolution appears under 1000px on shortest side: -15 points
+- Watermarks, stock photo artifacts, or visible compression: -15 points
+- Competitor brand logos or trademarks visible: -40 points (CRITICAL)
+- Amazon restricted badges (Best Seller, Amazon's Choice, #1 Best Seller): -30 points (CRITICAL)
+- Claims without substantiation ("clinically proven", "#1", "best"): -25 points
+- Before/after claims without FDA disclaimer: -30 points (CRITICAL for supplements/food)
+- Missing required supplement facts panel (for food/supplement products when expected): -35 points (CRITICAL)
 
-IMAGE QUALITY:
-- Must be readable and clear. Blurry or pixelated = MEDIUM violation`;
+INFOGRAPHIC-SPECIFIC RULES (apply when the image contains infographic/text overlay content):
+- Text NOT readable/legible at thumbnail size (300x300px): -20 points
+- No clear visual hierarchy (no size/weight/color differentiation in text): -15 points
+- Chart/graph shown with no axis labels or legend: -20 points
+- Lifestyle image shows person but face is obscured or cropped badly: -10 points`;
 
 const FOOD_RULES = `FOOD PRODUCT SPECIFIC RULES (apply when category is FOOD):
 
