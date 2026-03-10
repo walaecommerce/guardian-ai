@@ -189,9 +189,10 @@ PRESERVE EXACTLY:
 
 OUTPUT: Clean product photo on white background, professional quality.`;
     } else {
-      prompt = `Edit this product image by making ONLY these changes:
+      prompt = `Edit the second image by making ONLY these changes:
 
 TASK: Remove promotional overlays while keeping everything else identical.
+IMPORTANT: You MUST directly generate and return a modified image. Do NOT call any functions or tools. Output the edited image directly.
 
 REMOVE (if present):
 - Award badges or "best seller" ribbons
@@ -210,7 +211,7 @@ PRESERVE EXACTLY (do not modify):
 ${protectedZonesText ? `PROTECTED AREAS (do not touch):\n${protectedZonesText}\n` : ''}
 ${removalInstructions ? `SPECIFIC REMOVALS:\n${removalInstructions}\n` : ''}
 
-OUTPUT: Same image with only prohibited overlays removed via clean inpainting.`;
+OUTPUT: Return the edited image directly. Same image with only prohibited overlays removed.`;
     }
 
     if (previousCritique) {
