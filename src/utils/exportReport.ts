@@ -23,7 +23,6 @@ export interface ExportData {
   assets: {
     filename: string;
     type: string;
-    category?: string;
     score: number;
     status: string;
     violations: {
