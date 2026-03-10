@@ -1,0 +1,68 @@
+{
+  "manifest_version": 3,
+  "name": "Guardian AI — Amazon Compliance",
+  "version": "1.0.0",
+  "description": "Instant Amazon listing compliance audit, image fixing, and competitor analysis on any Amazon product page",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "*://www.amazon.com/*",
+    "*://www.amazon.co.uk/*",
+    "*://www.amazon.com.au/*",
+    "*://www.amazon.ca/*",
+    "*://www.amazon.de/*",
+    "*://www.amazon.fr/*",
+    "*://www.amazon.in/*",
+    "*://www.amazon.co.jp/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.amazon.com/dp/*",
+        "*://www.amazon.com/gp/product/*",
+        "*://www.amazon.co.uk/dp/*",
+        "*://www.amazon.com.au/dp/*",
+        "*://www.amazon.ca/dp/*",
+        "*://www.amazon.de/dp/*",
+        "*://www.amazon.fr/dp/*",
+        "*://www.amazon.in/dp/*",
+        "*://www.amazon.co.jp/dp/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["overlay.html", "icons/*"],
+      "matches": [
+        "*://www.amazon.com/*",
+        "*://www.amazon.co.uk/*",
+        "*://www.amazon.com.au/*",
+        "*://www.amazon.ca/*",
+        "*://www.amazon.de/*",
+        "*://www.amazon.fr/*",
+        "*://www.amazon.in/*",
+        "*://www.amazon.co.jp/*"
+      ]
+    }
+  ]
+}
