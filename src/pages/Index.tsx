@@ -1087,10 +1087,64 @@ const Index = () => {
     link.click();
   };
 
+  // ── AI Comparison via edge function ──
+  const triggerAIComparison = async (compData: CompetitorData) => {
+    setIsLoadingAIComparison(true);
+    setAiComparison(null);
+    addLog('processing', '🧠 Running AI competitive intelligence analysis...');
+
+    try {
+      const yourAnalysis = {
+        title: listingTitle,
+        imageCount: assets.length,
+        images: assets.filter(a => a.analysisResult).map(a => ({
+          type: a.type,
+          category: a.name.split('_')[0],
+          score: a.analysisResult?.overallScore,
+          status: a.analysisResult?.status,
+          violations: a.analysisResult?.violations?.map(v => ({ severity: v.severity, message: v.message })) || [],
+        })),
+      };
+
+      const competitorAnalysis = {
+        title: compData.title,
+        imageCount: compData.imageCount,
+        images: compData.assets.filter(a => a.analysisResult).map(a => ({
+          type: a.type,
+          category: a.name.split('_')[0],
+          score: a.analysisResult?.overallScore,
+          status: a.analysisResult?.status,
+          violations: a.analysisResult?.violations?.map(v => ({ severity: v.severity, message: v.message })) || [],
+        })),
+      };
+
+      const { data, error } = await supabase.functions.invoke('compare-listings', {
+        body: {
+          yourAnalysis,
+          competitorAnalysis,
+          yourTitle: listingTitle,
+          competitorTitle: compData.title,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setAiComparison(data as AIComparisonResult);
+      addLog('success', '✅ AI competitive analysis complete');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'AI comparison failed';
+      addLog('error', `❌ AI comparison failed: ${msg}`);
+    } finally {
+      setIsLoadingAIComparison(false);
+    }
+  };
+
   // ── Competitor Import & Audit ──
   const handleImportCompetitor = async (url: string) => {
     setIsImportingCompetitor(true);
     setCompetitorData(null);
+    setAiComparison(null);
     addLog('processing', '🔍 Importing competitor listing...');
 
     try {
