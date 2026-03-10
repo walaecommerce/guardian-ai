@@ -1,12 +1,6 @@
 import { ScrapedProduct, ScrapedImage, ImageCategory } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
-// ── Icon / UI element filters ────────────────────────────────────
-const ICON_FILTERS = [
-  'icon', 'logo', 'button', 'zoom', 'magnify', 'spinner', 'play',
-  'star', 'pixel', 'sprite', 'transparent', 'nav_', 'arrow',
-];
-
 // ── ASIN extractor ───────────────────────────────────────────────
 export function extractAsin(url: string): string | null {
   const patterns = [
@@ -24,89 +18,196 @@ export function extractAsin(url: string): string | null {
 
 // ── Image ID extractor (for dedup) ───────────────────────────────
 export function getImageId(url: string): string {
-  const match = url.match(/\/(?:I|S|G)\/([a-zA-Z0-9\-+%]{9,})/);
-  return match ? match[1] : url.split('/').pop()?.split('.')[0] || url;
+  // Extract the Amazon image ID (the long alphanumeric string before the extension)
+  const match = url.match(/\/(?:I|S|G)\/([A-Za-z0-9\-+%]{9,})\./);
+  return match ? match[1] : url;
 }
 
 // ── Canonical key for dedup ──────────────────────────────────────
 export function getCanonicalImageKey(url: string): string {
-  return getImageId(cleanImageUrl(url)).toLowerCase();
+  const cleaned = cleanAmazonImageUrl(url);
+  return getImageId(cleaned || url).toLowerCase();
 }
 
-// ── URL cleanup pipeline ─────────────────────────────────────────
+// ── URL cleaning — BUG 3 FIX ────────────────────────────────────
+export function cleanAmazonImageUrl(url: string): string | null {
+  if (!url) return null;
 
-/** Step 1: Strip crop parameters */
-function stripCropParams(url: string): string {
-  return url
-    .replace(/\._AC_SX\d+_/g, '')
-    .replace(/\._SY\d+_/g, '')
-    .replace(/\._CR\d+,\d+,\d+,\d+_/g, '')
-    .replace(/\._AC_UL\d+_/g, '');
-}
+  // Remove query string entirely
+  let cleaned = url.split('?')[0];
 
-/** Step 2: Upgrade resolution */
-function upgradeResolution(url: string): string {
-  return url.replace(/\._SL\d+_/g, '._SL1500_');
-}
+  // Remove known crop/resize suffixes and upgrade to high-res
+  cleaned = cleaned
+    .replace(/\._[A-Z]{2}_[A-Z]{2}\d+_\./g, '.')
+    .replace(/\._AC_S[XY]\d+_\./g, '.')
+    .replace(/\._AC_UL\d+_\./g, '.')
+    .replace(/\._AC_\./g, '.')
+    .replace(/\._CR\d+,\d+,\d+,\d+_\./g, '.')
+    .replace(/\._SX\d+_\./g, '.')
+    .replace(/\._SY\d+_\./g, '.')
+    .replace(/\._SL\d+_\./g, '._SL1500_.')
+    .replace(/\._UX\d+_\./g, '.')
+    .replace(/\._UY\d+_\./g, '.');
 
-/** Step 3: Full cleanup */
-export function cleanImageUrl(url: string): string {
-  let cleaned = stripCropParams(url);
-  cleaned = upgradeResolution(cleaned);
-  // Remove any remaining Amazon size modifiers
-  cleaned = cleaned.replace(/\._[A-Z]{2}_[A-Z0-9_,]+_\./g, '.');
+  // Ensure URL still looks valid after cleaning
+  if (!cleaned.startsWith('http')) return null;
+
   return cleaned;
 }
 
-// ── Filters ──────────────────────────────────────────────────────
-
-function isIconOrSprite(url: string): boolean {
-  const lower = url.toLowerCase();
-  return ICON_FILTERS.some(f => lower.includes(f));
+// Keep old export name for backward compat
+export function cleanImageUrl(url: string): string {
+  return cleanAmazonImageUrl(url) || url;
 }
 
-function isAmazonProductImage(url: string): boolean {
-  return /\/images\/[ISG]\//i.test(url);
+// ── BUG 1 FIX — Image URL validation ────────────────────────────
+const BLOCKED_PATTERNS = [
+  '.js', '.css', '.html', '.json', '.xml',
+  'amazonui', 'jquery', 'analytics', 'tracking',
+  'pixel', 'beacon', 'metrics', 'log',
+  'icon', 'logo', 'button', 'zoom', 'magnify',
+  'spinner', 'play-button', 'star-rating',
+  'sprite', 'transparent', 'nav_', 'arrow',
+  'checkmark', 'badge', 'ribbon',
+];
+
+function isValidProductImage(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+
+  // Must be a real URL
+  if (!url.startsWith('http')) return false;
+
+  // Must contain Amazon image CDN path
+  const hasAmazonImagePath = (
+    url.includes('/images/I/') ||
+    url.includes('/images/S/') ||
+    url.includes('/images/G/') ||
+    url.includes('images-na.ssl-images-amazon.com') ||
+    url.includes('m.media-amazon.com/images') ||
+    url.includes('images-eu.ssl-images-amazon.com') ||
+    url.includes('images-fe.ssl-images-amazon.com')
+  );
+  if (!hasAmazonImagePath) return false;
+
+  // Must end with an image extension OR have no blocked extension
+  const hasImageExtension = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+  const hasBlockedExtension = /\.(js|css|html|json|xml|txt|svg|ico|woff|woff2|ttf)(\?|$)/i.test(url);
+  if (!hasImageExtension && hasBlockedExtension) return false;
+
+  // Block known non-image patterns
+  const lowerUrl = url.toLowerCase();
+  if (BLOCKED_PATTERNS.some(p => lowerUrl.includes(p))) return false;
+
+  // Must have a reasonable Amazon image ID
+  const imageId = url.match(/\/(?:I|S|G)\/([A-Za-z0-9\-+%]{9,})\./);
+  if (!imageId) return false;
+
+  return true;
 }
 
 // ── Title extraction from HTML ───────────────────────────────────
-
 function extractTitle(html: string): string {
-  // Strategy 1: h1#productTitle
   const productTitle = html.match(/id=["']productTitle["'][^>]*>([^<]+)/i);
   if (productTitle) return productTitle[1].trim();
 
-  // Strategy 2: og:title meta tag
   const ogTitle = html.match(/property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
   if (ogTitle) return ogTitle[1].trim();
 
-  // Strategy 3: document title
   const docTitle = html.match(/<title>([^<]+)/i);
   if (docTitle) return docTitle[1].split(':')[0].trim();
 
   return '';
 }
 
-// ── Image extraction from HTML ───────────────────────────────────
+// ── BUG 2 FIX — Gallery-only image extraction ───────────────────
 
-function extractAllImageUrls(html: string): string[] {
+/** Extract the specific gallery container HTML sections */
+function extractGalleryHtml(html: string): string {
+  const gallerySelectors = [
+    /id=["']imageBlock["'][^>]*>([\s\S]*?)(?=<\/div>\s*<div[^>]*id=["'](?!imageBlock))/i,
+    /id=["']altImages["'][^>]*>([\s\S]*?)(?=<\/div>\s*<div[^>]*id=["'](?!altImages))/i,
+    /id=["']imageBlockThumbs["'][^>]*>([\s\S]*?)(?=<\/div>\s*<div[^>]*id=["'](?!imageBlockThumbs))/i,
+    /id=["']imgTagWrapperId["'][^>]*>([\s\S]*?)(?=<\/div>)/i,
+  ];
+
+  let galleryHtml = '';
+  for (const selector of gallerySelectors) {
+    const match = html.match(selector);
+    if (match) galleryHtml += match[0] + '\n';
+  }
+  return galleryHtml;
+}
+
+/** Parse imageBlockState / colorImages JSON from inline scripts */
+function extractGalleryFromJson(html: string): string[] {
+  const urls: string[] = [];
+
+  // Strategy 1: Parse 'colorImages' JSON blob
+  const colorImagesMatch = html.match(/['"]colorImages['"]:\s*\{[^}]*['"]initial['"]:\s*(\[[\s\S]*?\])\s*\}/);
+  if (colorImagesMatch) {
+    try {
+      const items = JSON.parse(colorImagesMatch[1]);
+      for (const item of items) {
+        // hiRes is highest quality, then large, then thumb
+        const imgUrl = item.hiRes || item.large || item.thumb;
+        if (imgUrl) urls.push(imgUrl);
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
+  // Strategy 2: Parse 'imageGalleryData' JSON blob
+  const galleryDataMatch = html.match(/imageGalleryData\s*[=:]\s*(\[[\s\S]*?\])\s*[;,]/);
+  if (galleryDataMatch) {
+    try {
+      const items = JSON.parse(galleryDataMatch[1]);
+      for (const item of items) {
+        const imgUrl = item.mainUrl || item.thumbUrl;
+        if (imgUrl) urls.push(imgUrl);
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
+  return urls;
+}
+
+/** Extract images from gallery containers and JSON, filtered and validated */
+function extractProductImages(html: string): string[] {
   const urls = new Set<string>();
 
-  // Pattern 1: All src/data-old-hires values matching /images/I/, /images/S/, /images/G/
-  const srcMatches = html.matchAll(/(?:src|data-old-hires|data-src)=["'](https?:\/\/[^"']+\/images\/[ISG]\/[^"']+)["']/gi);
-  for (const m of srcMatches) urls.add(m[1]);
+  // Priority 1: Extract from gallery JSON blobs (most reliable)
+  const jsonUrls = extractGalleryFromJson(html);
+  for (const u of jsonUrls) urls.add(u);
 
-  // Pattern 2: URLs in JSON blobs (colorImages, imageGalleryData, etc.)
-  const jsonUrlMatches = html.matchAll(/["'](https?:\/\/[^"']+\/images\/[ISG]\/[^"']+)["']/gi);
-  for (const m of jsonUrlMatches) urls.add(m[1]);
+  // Priority 2: If JSON parsing found nothing, fall back to gallery HTML containers
+  if (urls.size === 0) {
+    const galleryHtml = extractGalleryHtml(html);
+    const htmlToSearch = galleryHtml || html; // absolute fallback to full HTML
 
-  // Pattern 3: A+ content images in #aplus, #aplusbody, .aplus-module containers
+    // Extract image URLs from gallery HTML only
+    const srcMatches = htmlToSearch.matchAll(
+      /(?:src|data-old-hires|data-src)=["'](https?:\/\/[^"']+\/images\/[ISG]\/[^"']+)["']/gi
+    );
+    for (const m of srcMatches) urls.add(m[1]);
+  }
+
+  // Priority 3: Also grab #landingImage specifically
+  const landingImg = html.match(/id=["']landingImage["'][^>]*src=["']([^"']+)["']/i);
+  if (landingImg) urls.add(landingImg[1]);
+
+  return Array.from(urls);
+}
+
+/** Extract A+ content images separately */
+function extractAplusImages(html: string): string[] {
+  const urls = new Set<string>();
   const aplusSection = html.match(/id=["'](?:aplus|aplusbody)["'][^>]*>([\s\S]*?)(?=<\/section>|<div[^>]*id=["'](?!aplus))/i) ||
     html.match(/class=["'][^"]*aplus-module[^"]*["'][^>]*>([\s\S]*?)(?=<\/section>|$)/i);
 
   if (aplusSection) {
-    const aplusSrcMatches = aplusSection[1].matchAll(/(?:src|data-src)=["'](https?:\/\/[^"']+\/images\/[ISG]\/[^"']+)["']/gi);
-    for (const m of aplusSrcMatches) urls.add(m[1]);
+    const srcMatches = aplusSection[1].matchAll(
+      /(?:src|data-src)=["'](https?:\/\/[^"']+\/images\/[ISG]\/[^"']+)["']/gi
+    );
+    for (const m of srcMatches) urls.add(m[1]);
   }
 
   return Array.from(urls);
@@ -115,10 +216,6 @@ function extractAllImageUrls(html: string): string[] {
 // ── Scrape via Firecrawl edge function ───────────────────────────
 
 export type ImportLogCallback = (level: 'info' | 'success' | 'warning' | 'error' | 'processing', message: string) => void;
-
-interface ScrapeResult {
-  product: ScrapedProduct;
-}
 
 export async function scrapeAmazonProduct(
   url: string,
@@ -156,7 +253,6 @@ export async function scrapeAmazonProduct(
     if (error) throw error;
 
     if (data && !data.success && data.error) {
-      // Firecrawl blocked by Amazon
       if (
         data.error.toLowerCase().includes('captcha') ||
         data.error.toLowerCase().includes('blocked') ||
@@ -185,21 +281,25 @@ export async function scrapeAmazonProduct(
     emit('info', `📦 Title: ${title.substring(0, 80)}${title.length > 80 ? '...' : ''}`);
   }
 
-  // ── Step 5: Discover raw images ──
-  emit('processing', 'Discovering product images...');
-  const rawUrls = extractAllImageUrls(html);
-  emit('info', `Found ${rawUrls.length} raw images — filtering UI elements...`);
+  // ── Step 5: Extract gallery images (BUG 2 fix — gallery-only) ──
+  emit('processing', 'Discovering product gallery images...');
+  const rawUrls = extractProductImages(html);
+  emit('info', `Found ${rawUrls.length} raw images from gallery`);
 
-  // ── Step 6: Filter icons/sprites ──
-  const filtered = rawUrls.filter(u => isAmazonProductImage(u) && !isIconOrSprite(u));
-  const iconCount = rawUrls.length - filtered.length;
-  if (iconCount > 0) {
-    emit('info', `Filtered out ${iconCount} UI elements (icons, sprites, buttons)`);
+  // ── Step 6: Validate every URL (BUG 1 fix) ──
+  const validated = rawUrls.filter(u => isValidProductImage(u));
+  const invalidCount = rawUrls.length - validated.length;
+  if (invalidCount > 0) {
+    emit('info', `Filtered out ${invalidCount} non-image URLs (JS, CSS, icons, sprites)`);
   }
 
-  // ── Step 7: Clean URLs for highest resolution ──
+  // ── Step 7: Clean URLs for highest resolution (BUG 3 fix) ──
   emit('processing', 'Cleaning image URLs for highest resolution...');
-  const cleaned = filtered.map(u => cleanImageUrl(u));
+  const cleaned: string[] = [];
+  for (const u of validated) {
+    const c = cleanAmazonImageUrl(u);
+    if (c) cleaned.push(c);
+  }
 
   // ── Step 8: Deduplicate by image ID ──
   const seen = new Set<string>();
@@ -212,23 +312,49 @@ export async function scrapeAmazonProduct(
     }
   }
   const dupeCount = cleaned.length - unique.length;
-  emit('processing', `Removing ${dupeCount} duplicates...`);
+  if (dupeCount > 0) {
+    emit('processing', `Removing ${dupeCount} duplicates...`);
+  }
 
-  // ── Step 9: Check we got images ──
-  if (unique.length === 0) {
+  // ── Step 9: Cap at 9 gallery images ──
+  const galleryImages = unique.slice(0, 9);
+
+  // ── Step 10: Extract A+ content images separately (capped at 5) ──
+  const aplusRaw = extractAplusImages(html);
+  const aplusValidated = aplusRaw.filter(u => isValidProductImage(u));
+  const aplusCleaned: string[] = [];
+  for (const u of aplusValidated) {
+    const c = cleanAmazonImageUrl(u);
+    if (c && !seen.has(getImageId(c))) {
+      seen.add(getImageId(c));
+      aplusCleaned.push(c);
+    }
+  }
+  const aplusImages = aplusCleaned.slice(0, 5);
+
+  // ── Step 11: Check we got images ──
+  if (galleryImages.length === 0 && aplusImages.length === 0) {
     throw new Error('NO_IMAGES');
   }
 
-  emit('processing', `Downloading ${unique.length} product images...`);
+  const totalCount = galleryImages.length + aplusImages.length;
+  emit('processing', `Downloading ${totalCount} product images...`);
 
-  // ── Step 10: Build ScrapedImage array ──
-  const images: ScrapedImage[] = unique.map((url, index) => ({
-    url,
-    category: (index === 0 ? 'PRODUCT_SHOT' : 'UNKNOWN') as ImageCategory,
-    index,
-  }));
+  // ── Step 12: Build ScrapedImage array ──
+  const images: ScrapedImage[] = [
+    ...galleryImages.map((url, index) => ({
+      url,
+      category: (index === 0 ? 'PRODUCT_SHOT' : 'UNKNOWN') as ImageCategory,
+      index,
+    })),
+    ...aplusImages.map((url, index) => ({
+      url,
+      category: 'APLUS' as ImageCategory,
+      index: galleryImages.length + index,
+    })),
+  ];
 
-  emit('success', `Import complete — ${images.length} images loaded`);
+  emit('success', `Import complete — ${images.length} images loaded (${galleryImages.length} gallery${aplusImages.length > 0 ? ` + ${aplusImages.length} A+` : ''})`);
 
   return {
     asin: asin || 'UNKNOWN',
