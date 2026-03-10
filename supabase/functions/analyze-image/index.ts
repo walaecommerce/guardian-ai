@@ -453,6 +453,8 @@ serve(async (req) => {
       fixRecommendations: rawResult.fix_recommendations || rawResult.fixRecommendations || [],
       generativePrompt: rawResult.generative_prompt || rawResult.generativePrompt || '',
       spatialAnalysis: rawResult.spatialAnalysis || rawResult.spatial_analysis || undefined,
+      textReadabilityScore: rawResult.text_readability_score ?? rawResult.textReadabilityScore ?? null,
+      emotionalAppealScore: rawResult.emotional_appeal_score ?? rawResult.emotionalAppealScore ?? null,
     };
 
     return new Response(JSON.stringify(mappedResult), {
