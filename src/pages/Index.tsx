@@ -32,6 +32,77 @@ import { Progress } from '@/components/ui/progress';
 import { uploadImage } from '@/services/imageStorage';
 import { loadDemoImages, DEMO_PRODUCT } from '@/components/DemoImages';
 
+// ── Competitor URL Input (left panel) ──
+function CompetitorUrlInput({
+  isImporting, hasAudit, importProgress, onImportCompetitor,
+}: {
+  isImporting: boolean;
+  hasAudit: boolean;
+  importProgress: { current: number; total: number } | null;
+  onImportCompetitor: (url: string) => void;
+}) {
+  const [enabled, setEnabled] = useState(false);
+  const [url, setUrl] = useState('');
+
+  if (!enabled) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Swords className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-medium cursor-pointer">Enable Competitor Analysis</Label>
+            </div>
+            <Switch checked={enabled} onCheckedChange={setEnabled} />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Swords className="w-4 h-4 text-primary" />
+            <Label className="text-sm font-semibold">Competitor Product URL</Label>
+          </div>
+          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        </div>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Paste competitor Amazon URL..."
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            disabled={isImporting || !hasAudit}
+            className="text-sm"
+          />
+          <Button
+            size="sm"
+            onClick={() => onImportCompetitor(url)}
+            disabled={!url || isImporting || !hasAudit}
+          >
+            {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Import className="w-4 h-4 mr-1" />}
+            {isImporting ? 'Analyzing...' : 'Analyze'}
+          </Button>
+        </div>
+        {!hasAudit && (
+          <p className="text-xs text-muted-foreground">Run your audit first before comparing</p>
+        )}
+        {importProgress && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">
+              Analyzing competitor image {importProgress.current}/{importProgress.total}...
+            </p>
+            <Progress value={(importProgress.current / importProgress.total) * 100} className="h-1.5" />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // Map to track asset ID -> session_image ID for updates
 type AssetSessionMap = Map<string, string>;
 
