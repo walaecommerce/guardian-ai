@@ -1,4 +1,4 @@
-import { Download, FileJson, FileText, FolderArchive, ImageIcon } from 'lucide-react';
+import { Download, FileJson, FileText, FolderArchive, ImageIcon, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ImageAsset } from '@/types';
-import { generateExportData, exportToJSON, exportToPDF } from '@/utils/exportReport';
+import { generateExportData, exportToJSON, exportToPDF, exportToPDFSummary } from '@/utils/exportReport';
 import { exportFixedImagesAsZip, exportAllImagesAsZip } from '@/utils/zipExport';
 import { useToast } from '@/hooks/use-toast';
 
@@ -30,16 +30,9 @@ export function ExportButton({ assets, listingTitle, productAsin, disabled }: Ex
     try {
       const data = generateExportData(assets, listingTitle);
       exportToJSON(data);
-      toast({
-        title: 'Export Complete',
-        description: 'JSON report downloaded successfully',
-      });
-    } catch (error) {
-      toast({
-        title: 'Export Failed',
-        description: 'Could not generate JSON report',
-        variant: 'destructive',
-      });
+      toast({ title: 'Export Complete', description: 'JSON report downloaded successfully' });
+    } catch {
+      toast({ title: 'Export Failed', description: 'Could not generate JSON report', variant: 'destructive' });
     }
   };
 
@@ -47,48 +40,36 @@ export function ExportButton({ assets, listingTitle, productAsin, disabled }: Ex
     try {
       const data = generateExportData(assets, listingTitle);
       exportToPDF(data);
-      toast({
-        title: 'Export Complete',
-        description: 'PDF report downloaded successfully',
-      });
-    } catch (error) {
-      toast({
-        title: 'Export Failed',
-        description: 'Could not generate PDF report',
-        variant: 'destructive',
-      });
+      toast({ title: 'Export Complete', description: 'PDF report downloaded successfully' });
+    } catch {
+      toast({ title: 'Export Failed', description: 'Could not generate PDF report', variant: 'destructive' });
+    }
+  };
+
+  const handleExportPDFSummary = () => {
+    try {
+      const data = generateExportData(assets, listingTitle);
+      exportToPDFSummary(data);
+    } catch {
+      toast({ title: 'Export Failed', description: 'Could not open print dialog', variant: 'destructive' });
     }
   };
 
   const handleExportFixedImages = async () => {
     try {
       await exportFixedImagesAsZip(assets, productAsin);
-      toast({
-        title: 'Export Complete',
-        description: `${fixedAssets.length} fixed images downloaded as ZIP`,
-      });
+      toast({ title: 'Export Complete', description: `${fixedAssets.length} fixed images downloaded as ZIP` });
     } catch (error) {
-      toast({
-        title: 'Export Failed',
-        description: error instanceof Error ? error.message : 'Could not export images',
-        variant: 'destructive',
-      });
+      toast({ title: 'Export Failed', description: error instanceof Error ? error.message : 'Could not export images', variant: 'destructive' });
     }
   };
 
   const handleExportAllImages = async () => {
     try {
       await exportAllImagesAsZip(assets, productAsin);
-      toast({
-        title: 'Export Complete',
-        description: 'All images downloaded as ZIP',
-      });
+      toast({ title: 'Export Complete', description: 'All images downloaded as ZIP' });
     } catch (error) {
-      toast({
-        title: 'Export Failed',
-        description: error instanceof Error ? error.message : 'Could not export images',
-        variant: 'destructive',
-      });
+      toast({ title: 'Export Failed', description: error instanceof Error ? error.message : 'Could not export images', variant: 'destructive' });
     }
   };
 
@@ -108,6 +89,10 @@ export function ExportButton({ assets, listingTitle, productAsin, disabled }: Ex
         <DropdownMenuItem onClick={handleExportPDF}>
           <FileText className="w-4 h-4 mr-2" />
           Export Report (PDF)
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleExportPDFSummary}>
+          <Printer className="w-4 h-4 mr-2" />
+          Export PDF Summary
         </DropdownMenuItem>
         
         {(fixedAssets.length > 0 || assets.length > 0) && (
