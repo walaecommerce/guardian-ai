@@ -1163,7 +1163,7 @@ const Index = () => {
         }))
       );
 
-      setCompetitorData({
+      const compData: CompetitorData = {
         url,
         asin: product.asin !== 'UNKNOWN' ? product.asin : null,
         title: product.title || 'Unknown Competitor',
@@ -1173,11 +1173,15 @@ const Index = () => {
         overallScore: avgScore,
         categories,
         violations: allViolations,
-      });
+      };
 
+      setCompetitorData(compData);
       setActiveTab('compare');
       addLog('success', `✅ Competitor audit complete — ${compAssets.length} images, ${avgScore}% score`);
       toast({ title: 'Competitor Audit Complete', description: `Analyzed ${compAssets.length} images from competitor listing` });
+
+      // Trigger AI comparison
+      triggerAIComparison(compData);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Competitor import failed';
       addLog('error', msg);
