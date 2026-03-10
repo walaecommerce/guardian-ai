@@ -1302,6 +1302,16 @@ const Index = () => {
                   onDownload={handleDownload}
                 />
               </TabsContent>
+              <TabsContent value="compare">
+                <CompetitorAudit
+                  yourAssets={assets}
+                  yourTitle={listingTitle}
+                  competitorData={competitorData}
+                  isImporting={isImportingCompetitor}
+                  importProgress={competitorProgress}
+                  onImportCompetitor={handleImportCompetitor}
+                />
+              </TabsContent>
               <TabsContent value="history">
                 <ComplianceHistory onLoadAudit={handleLoadAudit} />
               </TabsContent>
