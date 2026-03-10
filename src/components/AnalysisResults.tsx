@@ -120,7 +120,11 @@ const getSeverityBadgeClass = (severity: string) => {
 
 // ── Violation Card with expandable recommendation ──
 
-function ViolationItem({ violation, index }: { violation: AnalysisResult['violations'][0]; index: number }) {
+function ViolationItem({ violation, index, matchingUpdate }: {
+  violation: AnalysisResult['violations'][0];
+  index: number;
+  matchingUpdate?: PolicyUpdate | null;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -134,6 +138,7 @@ function ViolationItem({ violation, index }: { violation: AnalysisResult['violat
             {violation.severity}
           </span>
           <span className="text-xs font-bold text-foreground">{violation.category}</span>
+          {matchingUpdate && <NewRuleTag update={matchingUpdate} />}
         </div>
       </div>
       <p className="text-sm text-foreground mt-1">{violation.message}</p>
