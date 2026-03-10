@@ -8,18 +8,70 @@ const corsHeaders = {
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+// ── System instruction ────────────────────────────────────────────
+
+const SYSTEM_INSTRUCTION = `You are a professional Amazon product photographer and image editor. Your job is to generate a replacement image that will PASS Amazon's main image requirements:
+- Pure white background: RGB(255,255,255) — not off-white, not grey
+- Product occupies 85% or more of the frame
+- No text, logos, watermarks, or graphics overlaid on the image
+- No additional props or objects
+- No human models
+- Single product only (unless the listing is for a multi-pack)
+The generated image must look like a professional studio photograph, not a 3D render or illustration.`;
+
+// ── Category detection ───────────────────────────────────────────
+
+type FixCategory = 'FOOD_BEVERAGE' | 'APPAREL' | 'ELECTRONICS' | 'PET_SUPPLIES' | 'GENERAL';
+
+function detectFixCategory(imageCategory?: string, productTitle?: string): FixCategory {
+  const cat = (imageCategory || '').toUpperCase();
+  const title = (productTitle || '').toLowerCase();
+
+  // From analysis category
+  if (cat.includes('FOOD') || cat.includes('BEVERAGE')) return 'FOOD_BEVERAGE';
+  if (cat.includes('SUPPLEMENT')) return 'FOOD_BEVERAGE';
+  if (cat.includes('PET')) return 'PET_SUPPLIES';
+  if (cat.includes('BEAUTY')) return 'FOOD_BEVERAGE'; // packaging-centric like F&B
+  if (cat.includes('ELECTRON')) return 'ELECTRONICS';
+  if (cat.includes('APPAREL') || cat.includes('CLOTH')) return 'APPAREL';
+
+  // Fallback: keyword detection from title
+  const foodKw = ['food', 'snack', 'drink', 'beverage', 'sauce', 'coffee', 'tea', 'juice', 'candy', 'chocolate', 'cereal', 'bar', 'chip', 'cookie', 'supplement', 'vitamin', 'protein', 'capsule', 'probiotic', 'serum', 'cream', 'lotion', 'shampoo'];
+  const petKw = ['dog', 'cat', 'pet', 'puppy', 'kitten', 'treat', 'kibble', 'chew', 'leash', 'collar'];
+  const techKw = ['electronic', 'charger', 'cable', 'bluetooth', 'wireless', 'speaker', 'headphone', 'usb', 'hdmi', 'adapter', 'camera', 'phone', 'laptop', 'tablet', 'device'];
+  const apparelKw = ['shirt', 'pants', 'dress', 'jacket', 'hoodie', 'sweater', 'sock', 'shoe', 'boot', 'hat', 'glove', 'scarf', 'coat', 'blouse', 'skirt', 'jeans', 'legging', 'underwear', 'bra'];
+
+  if (apparelKw.some(kw => title.includes(kw))) return 'APPAREL';
+  if (foodKw.some(kw => title.includes(kw))) return 'FOOD_BEVERAGE';
+  if (petKw.some(kw => title.includes(kw))) return 'PET_SUPPLIES';
+  if (techKw.some(kw => title.includes(kw))) return 'ELECTRONICS';
+
+  return 'GENERAL';
+}
+
+// ── Category-specific prompt templates ───────────────────────────
+
+const CATEGORY_PROMPTS: Record<FixCategory, (title: string) => string> = {
+  FOOD_BEVERAGE: (title) =>
+    `Professional Amazon main image: ${title} photographed on pure white RGB(255,255,255) background. Studio lighting with soft shadows directly beneath. The packaging is the HERO — show the front label clearly and fully legible. The label text, flavor name, and brand logo must be crisp and readable. If a bottle: upright, centered, label facing camera. If a bag/pouch: standing upright, front panel filling 85% of frame. If a box: 3/4 angle showing front and one side. No props, no ingredients, no background elements. Product fills 90% of frame. Photorealistic, 4K quality.`,
+
+  APPAREL: (title) =>
+    `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Ghost mannequin or flat lay style. The garment fills 85% of frame. Show the full item — no cropping. Colors must be accurate to the actual product. All design elements, text prints, and logos on the garment must be clearly visible. No model, no props, no accessories unless part of the product. Evenly lit with no harsh shadows. Photorealistic, 4K quality.`,
+
+  ELECTRONICS: (title) =>
+    `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Product at slight 3/4 angle to show depth. All ports, buttons, indicators must be visible. If it has a screen: screen showing a clean UI or powered-on state. Chrome and glass surfaces rendered with clean reflections. Product fills 85% of frame. No cables unless the cable IS the product. No packaging, no accessories. Studio lighting, no harsh glare on surfaces. Photorealistic, 4K quality.`,
+
+  PET_SUPPLIES: (title) =>
+    `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Product centered and upright. If treat/food: show the bag or container front-facing with label fully legible, brand name prominent. If toy/accessory: show the product alone at a natural angle. If grooming: bottle or container upright, label facing camera. Warm, inviting studio lighting. Product fills 85% of frame. No pets in main image, no props, no lifestyle elements. Photorealistic, 4K quality.`,
+
+  GENERAL: (title) =>
+    `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Product centered, filling 85% of frame. All key features visible. Even studio lighting with soft natural shadow directly beneath product. No text, no props, no lifestyle elements. Photorealistic, 4K quality.`,
+};
+
 // ── Prompt builders ──────────────────────────────────────────────
 
-function buildMainImagePrompt(description: string): string {
-  return `Generate a product photograph. Requirements:
-- Pure white background RGB(255,255,255) — no shadows, gradients, or tints whatsoever
-- Remove ALL text overlays, badges, watermarks, promotional elements
-- Preserve exact product identity: same label design, colors, shape, size proportions
-- Product must fill 85% of the frame
-- Professional studio lighting, sharp focus, high resolution
-- Amazon main image compliant
-
-Product description: ${description}`;
+function buildMainImagePrompt(title: string, category: FixCategory): string {
+  return `${SYSTEM_INSTRUCTION}\n\n${CATEGORY_PROMPTS[category](title)}`;
 }
 
 function buildSecondaryImagePrompt(): string {
