@@ -475,9 +475,23 @@ const Index = () => {
         addLog('error', `❌ Failed to analyze ${asset.name}`);
       }
 
-      // Rate limit delay
+      // Rate limit delays
       if (i < assets.length - 1) {
-        await new Promise(r => setTimeout(r, 2000));
+        const imageNumber = i + 1; // 1-indexed count of completed images
+        
+        // Every 3 images, do a 20-second cooldown
+        if (imageNumber % 3 === 0) {
+          addLog('info', `⏳ Rate limit cooldown after ${imageNumber} images...`);
+          for (let sec = 20; sec > 0; sec--) {
+            addLog('processing', `   Cooldown: resuming in ${sec}s...`);
+            await new Promise(r => setTimeout(r, 1000));
+          }
+          addLog('success', `   ✓ Cooldown complete, resuming...`);
+        } else {
+          // Standard 10-second delay between images
+          addLog('info', `⏳ Rate limit pause (10s)...`);
+          await new Promise(r => setTimeout(r, 10000));
+        }
       }
     }
 
