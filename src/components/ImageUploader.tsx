@@ -59,6 +59,8 @@ export function ImageUploader({
   onImportFromAmazon,
   onRunAudit,
   isAnalyzing,
+  analyzingProgress,
+  auditComplete,
   failedDownloads = [],
   isRetrying = false,
   onRetryFailedDownloads,
