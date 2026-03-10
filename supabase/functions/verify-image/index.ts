@@ -3,62 +3,11 @@ import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MAX_RETRIES = 3;
-const INITIAL_DELAY_MS = 1000;
+const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const SATISFACTORY_THRESHOLD = 85;
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-// ── Error parser ─────────────────────────────────────────────────
-
-const parseGeminiError = (status: number, errorText: string): { message: string; errorType: string; retryable: boolean } => {
-  try {
-    const errorJson = JSON.parse(errorText);
-    const apiMessage = errorJson?.error?.message || '';
-    if (status === 429) return { message: "Rate limit exceeded. Please wait a moment and try again.", errorType: "rate_limit", retryable: true };
-    if (status === 403) return { message: "API key invalid or quota exceeded.", errorType: "auth_error", retryable: false };
-    if (status === 400) {
-      if (apiMessage.includes('safety')) return { message: "Image was blocked by safety filters.", errorType: "safety_block", retryable: false };
-      if (apiMessage.includes('MIME type')) return { message: `Invalid image format: ${apiMessage}`, errorType: "invalid_image", retryable: false };
-      return { message: `Invalid request: ${apiMessage}`, errorType: "bad_request", retryable: false };
-    }
-    if (status >= 500) return { message: "Google AI service temporarily unavailable. Retrying...", errorType: "server_error", retryable: true };
-    return { message: apiMessage || `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
-  } catch {
-    return { message: `API error (${status})`, errorType: "unknown", retryable: status >= 500 };
-  }
-};
-
-// ── Fetch with retry ─────────────────────────────────────────────
-
-const fetchWithRetry = async (url: string, options: RequestInit): Promise<Response> => {
-  let lastError: Error | null = null;
-  let delay = INITIAL_DELAY_MS;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.ok) return response;
-      const errorText = await response.text();
-      const parsed = parseGeminiError(response.status, errorText);
-      console.log(`[verify-image] Attempt ${attempt}/${MAX_RETRIES}: ${parsed.message}`);
-      if (!parsed.retryable || attempt === MAX_RETRIES) {
-        return new Response(errorText, { status: response.status, headers: response.headers });
-      }
-      await sleep(delay);
-      delay *= 2;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`[verify-image] Attempt ${attempt}/${MAX_RETRIES} failed:`, lastError.message);
-      if (attempt === MAX_RETRIES) throw lastError;
-      await sleep(delay);
-      delay *= 2;
-    }
-  }
-  throw lastError || new Error('Max retries exceeded');
-};
 
 // ── Image helpers ────────────────────────────────────────────────
 
@@ -78,16 +27,19 @@ const normalizeMimeType = (raw: string, b64: string): string => {
   return allowed.has(mt) ? mt : guessImageMimeType(b64);
 };
 
-const extractBase64 = (dataUrl: string | undefined | null): { data: string; mimeType: string } => {
-  if (!dataUrl) return { mimeType: 'image/jpeg', data: '' };
+const toDataUrl = (dataUrl: string | undefined | null): string => {
+  if (!dataUrl) return '';
   if (dataUrl.startsWith('data:')) {
     const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
     if (match) {
-      const data = (match[2] || '').trim();
-      return { mimeType: normalizeMimeType(match[1], data), data };
+      const rawMime = match[1];
+      const b64 = match[2];
+      const normalizedMime = normalizeMimeType(rawMime, b64);
+      if (rawMime !== normalizedMime) return `data:${normalizedMime};base64,${b64}`;
     }
+    return dataUrl;
   }
-  return { mimeType: 'image/jpeg', data: (dataUrl || '').trim() };
+  return `data:${guessImageMimeType(dataUrl)};base64,${dataUrl}`;
 };
 
 // ── Main handler ─────────────────────────────────────────────────
@@ -106,29 +58,27 @@ serve(async (req) => {
       previousCritique,
     } = await req.json();
 
-    const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GOOGLE_GEMINI_API_KEY) {
-      throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const isMain = imageType === 'MAIN';
 
-    // Validate required images
-    const originalImage = extractBase64(originalImageBase64);
-    const generatedImage = extractBase64(generatedImageBase64);
+    const originalUrl = toDataUrl(originalImageBase64);
+    const generatedUrl = toDataUrl(generatedImageBase64);
 
-    if (!originalImage.data || !generatedImage.data) {
-      console.error("[verify-image] Missing image data — original:", !!originalImage.data, "generated:", !!generatedImage.data);
+    if (!originalUrl || !generatedUrl) {
+      console.error("[verify-image] Missing image data — original:", !!originalUrl, "generated:", !!generatedUrl);
       return new Response(JSON.stringify({
         error: "Missing required image data. Both original and generated images are required.",
         errorType: "missing_images",
       }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`[verify-image] using model: ${MODELS.verification}`);
+    console.log(`[verify-image] using model: ${MODELS.verification} via Lovable AI gateway`);
     console.log(`[verify-image] Verifying ${imageType} image...`);
 
     // ── Build prompt ──
@@ -155,76 +105,69 @@ Return this EXACT JSON structure:
   "improvement_suggestion": "<specific actionable improvement>"
 }`;
 
-    // ── Build parts ──
+    // ── Build content parts ──
 
-    const parts: any[] = [
-      { text: systemText + "\n" + outputSchema },
-      { text: "ORIGINAL IMAGE:" },
-      { inline_data: { mime_type: originalImage.mimeType, data: originalImage.data } },
-      { text: "GENERATED FIX:" },
-      { inline_data: { mime_type: generatedImage.mimeType, data: generatedImage.data } },
+    const contentParts: any[] = [
+      { type: "text", text: systemText + "\n" + outputSchema },
+      { type: "text", text: "ORIGINAL IMAGE:" },
+      { type: "image_url", image_url: { url: originalUrl } },
+      { type: "text", text: "GENERATED FIX:" },
+      { type: "image_url", image_url: { url: generatedUrl } },
     ];
 
-    // Add main reference for secondary images
     if (!isMain && mainImageBase64) {
-      const mainImage = extractBase64(mainImageBase64);
-      if (mainImage.data) {
-        parts.push({ text: "MAIN PRODUCT REFERENCE (for product identity check):" });
-        parts.push({ inline_data: { mime_type: mainImage.mimeType, data: mainImage.data } });
+      const mainUrl = toDataUrl(mainImageBase64);
+      if (mainUrl) {
+        contentParts.push({ type: "text", text: "MAIN PRODUCT REFERENCE (for product identity check):" });
+        contentParts.push({ type: "image_url", image_url: { url: mainUrl } });
       }
     }
 
-    parts.push({ text: "Verify the generated image meets all requirements and return this JSON structure exactly." });
+    contentParts.push({ type: "text", text: "Verify the generated image meets all requirements and return this JSON structure exactly." });
 
-    // ── Make API request ──
+    // ── Make gateway request ──
 
-    const requestBody = {
-      model: MODELS.verification,
-      contents: [{ parts }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        thinkingConfig: {
-          thinkingLevel: "High",
-        },
+    const response = await fetch(GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
-    };
+      body: JSON.stringify({
+        model: MODELS.verification,
+        messages: [{ role: "user", content: contentParts }],
+      }),
+    });
 
-    const response = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.verification}:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      }
-    );
+    if (response.status === 429) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded.", errorType: "rate_limit" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (response.status === 402) {
+      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
+        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      const parsed = parseGeminiError(response.status, errorText);
-      console.error("[verify-image] API error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: parsed.message, errorType: parsed.errorType }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.error("[verify-image] Gateway error:", response.status, errorText);
+      return new Response(JSON.stringify({ error: `AI gateway error (${response.status})`, errorType: "gateway_error" }), {
+        status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-
-    // ── Parse response: skip thinking tokens ──
-
-    const textBlock = (data.candidates?.[0]?.content?.parts || [])
-      .filter((p: any) => !p.thought && p.text)
-      .map((p: any) => p.text)
-      .join("");
+    const textBlock = data.choices?.[0]?.message?.content || '';
 
     if (!textBlock) {
-      console.error("[verify-image] No text content in response");
+      console.error("[verify-image] No content in response");
       return new Response(JSON.stringify({
-        error: "No text content returned from verification model",
+        error: "No content returned from verification model",
         errorType: "parse_error",
       }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -242,8 +185,7 @@ Return this EXACT JSON structure:
           errorType: "parse_error",
           rawSnippet: clean.substring(0, 240),
         }), {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       rawResult = JSON.parse(jsonMatch[0]);
@@ -255,14 +197,9 @@ Return this EXACT JSON structure:
     const score = rawResult.score ?? 0;
     const productMatch = checks.product_identity_preserved ?? rawResult.productMatch ?? true;
 
-    // Server-side threshold enforcement
     let isSatisfactory = rawResult.is_satisfactory ?? rawResult.isSatisfactory ?? false;
-    if (score < SATISFACTORY_THRESHOLD) {
-      isSatisfactory = false;
-    }
-    if (!productMatch) {
-      isSatisfactory = false;
-    }
+    if (score < SATISFACTORY_THRESHOLD) isSatisfactory = false;
+    if (!productMatch) isSatisfactory = false;
 
     const mappedResult = {
       score,
@@ -301,8 +238,7 @@ Return this EXACT JSON structure:
       error: error instanceof Error ? error.message : "Verification failed",
       errorType: "verification_failed",
     }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
