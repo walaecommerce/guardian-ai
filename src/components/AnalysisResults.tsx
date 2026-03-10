@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ImageAsset, AnalysisResult } from '@/types';
 import { ExportButton } from '@/components/ExportButton';
+import { CompetitorData } from '@/components/CompetitorAudit';
 import { ScoreTrendBadge } from '@/components/ScoreTrendBadge';
 import { getScoreTrend } from '@/components/ComplianceHistory';
 
