@@ -24,6 +24,7 @@ interface AnalysisResultsProps {
   batchFixProgress?: { current: number; total: number } | null;
   productAsin?: string;
   competitorData?: CompetitorData | null;
+  getMatchingPolicyUpdate?: (message: string, category: string) => PolicyUpdate | null;
 }
 
 // ── Score Gauge with animated counter + circular ring ──
