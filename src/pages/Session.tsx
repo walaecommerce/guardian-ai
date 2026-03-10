@@ -308,7 +308,8 @@ const Session = () => {
               productTitle: listingTitle || undefined,
               productAsin: productAsin || extractAsin(amazonUrl) || undefined,
               customPrompt,
-              spatialAnalysis: asset.analysisResult?.spatialAnalysis
+              spatialAnalysis: asset.analysisResult?.spatialAnalysis,
+              imageCategory: asset.analysisResult?.productCategory || undefined
             }
           });
 
