@@ -139,6 +139,7 @@ ${asinInfo}
 
 Analyze the image and determine which category it belongs to based on its visual characteristics.`;
 
+    console.log(`[classify-image] using model: ${MODELS.analysis}`);
     console.log('[Guardian] Calling Google Gemini API for image classification...');
 
     const guessImageMimeType = (base64DataRaw: string): string => {
