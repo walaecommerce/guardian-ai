@@ -158,7 +158,20 @@ Return this EXACT JSON structure:
       });
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    if (!responseText || responseText.trim().length === 0) {
+      console.error("[verify-image] Empty response from gateway");
+      return new Response(JSON.stringify({ error: "Empty response from AI gateway", errorType: "empty_response" }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    let data: any;
+    try { data = JSON.parse(responseText); } catch {
+      console.error("[verify-image] Invalid JSON from gateway:", responseText.substring(0, 300));
+      return new Response(JSON.stringify({ error: "Invalid JSON from AI gateway", errorType: "parse_error" }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const textBlock = data.choices?.[0]?.message?.content || '';
 
     if (!textBlock) {

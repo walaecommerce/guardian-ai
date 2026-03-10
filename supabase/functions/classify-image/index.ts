@@ -143,7 +143,20 @@ Analyze the image and determine which category it belongs to based on its visual
       );
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    if (!responseText || responseText.trim().length === 0) {
+      console.error("[classify-image] Empty response from gateway");
+      return new Response(JSON.stringify({ error: "Empty response from AI gateway", category: "UNKNOWN", confidence: 0 }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    let data: any;
+    try { data = JSON.parse(responseText); } catch {
+      console.error("[classify-image] Invalid JSON from gateway:", responseText.substring(0, 300));
+      return new Response(JSON.stringify({ error: "Invalid JSON from AI gateway", category: "UNKNOWN", confidence: 0 }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const content = data.choices?.[0]?.message?.content || '';
 
     console.log('[classify-image] AI response:', content);

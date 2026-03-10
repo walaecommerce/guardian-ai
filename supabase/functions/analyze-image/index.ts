@@ -404,11 +404,28 @@ serve(async (req) => {
       });
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    if (!responseText || responseText.trim().length === 0) {
+      console.error("[analyze-image] Empty response from gateway");
+      return new Response(JSON.stringify({ error: "Empty response from AI gateway — retry", errorType: "empty_response" }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let data: any;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.error("[analyze-image] Failed to parse gateway response:", responseText.substring(0, 500));
+      return new Response(JSON.stringify({ error: "Invalid JSON from AI gateway — retry", errorType: "parse_error" }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const content = data.choices?.[0]?.message?.content || '';
 
     if (!content) {
-      console.error("[analyze-image] No content in response");
+      console.error("[analyze-image] No content in response:", JSON.stringify(data).substring(0, 300));
       throw new Error("No content returned from analysis model");
     }
 
