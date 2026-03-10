@@ -11,15 +11,17 @@ import { ImageAsset } from '@/types';
 import { generateExportData, exportToJSON, exportToPDF, exportToPDFSummary } from '@/utils/exportReport';
 import { exportFixedImagesAsZip, exportAllImagesAsZip } from '@/utils/zipExport';
 import { useToast } from '@/hooks/use-toast';
+import { CompetitorData } from '@/components/CompetitorAudit';
 
 interface ExportButtonProps {
   assets: ImageAsset[];
   listingTitle: string;
   productAsin?: string;
+  competitorData?: CompetitorData | null;
   disabled?: boolean;
 }
 
-export function ExportButton({ assets, listingTitle, productAsin, disabled }: ExportButtonProps) {
+export function ExportButton({ assets, listingTitle, productAsin, competitorData, disabled }: ExportButtonProps) {
   const { toast } = useToast();
   
   const analyzedAssets = assets.filter(a => a.analysisResult);
@@ -28,7 +30,7 @@ export function ExportButton({ assets, listingTitle, productAsin, disabled }: Ex
 
   const handleExportJSON = () => {
     try {
-      const data = generateExportData(assets, listingTitle);
+      const data = generateExportData(assets, listingTitle, competitorData);
       exportToJSON(data);
       toast({ title: 'Export Complete', description: 'JSON report downloaded successfully' });
     } catch {
@@ -38,7 +40,7 @@ export function ExportButton({ assets, listingTitle, productAsin, disabled }: Ex
 
   const handleExportPDF = () => {
     try {
-      const data = generateExportData(assets, listingTitle);
+      const data = generateExportData(assets, listingTitle, competitorData);
       exportToPDF(data);
       toast({ title: 'Export Complete', description: 'PDF report downloaded successfully' });
     } catch {
@@ -48,7 +50,7 @@ export function ExportButton({ assets, listingTitle, productAsin, disabled }: Ex
 
   const handleExportPDFSummary = () => {
     try {
-      const data = generateExportData(assets, listingTitle);
+      const data = generateExportData(assets, listingTitle, competitorData);
       exportToPDFSummary(data);
     } catch {
       toast({ title: 'Export Failed', description: 'Could not open print dialog', variant: 'destructive' });

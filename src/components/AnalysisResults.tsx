@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ImageAsset, AnalysisResult } from '@/types';
 import { ExportButton } from '@/components/ExportButton';
+import { CompetitorData } from '@/components/CompetitorAudit';
 import { ScoreTrendBadge } from '@/components/ScoreTrendBadge';
 import { getScoreTrend } from '@/components/ComplianceHistory';
 
@@ -20,6 +21,7 @@ interface AnalysisResultsProps {
   isBatchFixing?: boolean;
   batchFixProgress?: { current: number; total: number } | null;
   productAsin?: string;
+  competitorData?: CompetitorData | null;
 }
 
 // ── Score Gauge with animated counter + circular ring ──
@@ -319,7 +321,8 @@ export function AnalysisResults({
   onBatchFix,
   isBatchFixing,
   batchFixProgress,
-  productAsin
+  productAsin,
+  competitorData
 }: AnalysisResultsProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult || a.isAnalyzing);
 
@@ -361,7 +364,7 @@ export function AnalysisResults({
                   {isBatchFixing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fixing...</> : <><Wand2 className="w-4 h-4 mr-2" />Fix All ({failCount})</>}
                 </Button>
               )}
-              <ExportButton assets={assets} listingTitle={listingTitle} productAsin={productAsin} />
+              <ExportButton assets={assets} listingTitle={listingTitle} productAsin={productAsin} competitorData={competitorData} />
             </div>
           </div>
         </CardHeader>

@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { ImageAsset } from '@/types';
+import { CompetitorData, buildComparisonReport } from '@/components/CompetitorAudit';
 
 // Extend jsPDF type to include autoTable
 declare module 'jspdf' {
@@ -29,17 +30,36 @@ export interface ExportReport {
     fixed: boolean;
     fixed_score: number | undefined;
   }[];
+  competitive_analysis?: {
+    competitor_title: string;
+    competitor_url: string;
+    your_score: number;
+    competitor_score: number;
+    your_image_count: number;
+    competitor_image_count: number;
+    max_allowed: number;
+    your_pass_rate: number;
+    competitor_pass_rate: number;
+    missing_categories: string[];
+    competitor_weaknesses: string[];
+    recommendations: string[];
+    image_count_advantage: 'yours' | 'competitor' | 'tied';
+  };
 }
 
 // Legacy compat alias
 export type ExportData = ExportReport;
 
-export function generateExportData(assets: ImageAsset[], listingTitle: string): ExportReport {
+export function generateExportData(
+  assets: ImageAsset[],
+  listingTitle: string,
+  competitorData?: CompetitorData | null,
+): ExportReport {
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const passCount = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS').length;
   const failCount = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL').length;
 
-  return {
+  const report: ExportReport = {
     timestamp: new Date().toISOString(),
     listing_title: listingTitle || 'Untitled Listing',
     overall_status: failCount > 0 ? 'FAIL' : 'PASS',
@@ -47,7 +67,6 @@ export function generateExportData(assets: ImageAsset[], listingTitle: string): 
     passed: passCount,
     failed: failCount,
     assets: analyzedAssets.map(asset => {
-      // Determine top severity from violations
       const violations = asset.analysisResult?.violations || [];
       const hasCritical = violations.some(v => v.severity === 'critical');
       const hasWarning = violations.some(v => v.severity === 'warning');
@@ -66,10 +85,32 @@ export function generateExportData(assets: ImageAsset[], listingTitle: string): 
           recommendation: v.recommendation,
         })),
         fixed: !!asset.fixedImage,
-        fixed_score: undefined, // Populated if re-verification data exists
+        fixed_score: undefined,
       };
     }),
   };
+
+  // Add competitive analysis if competitor data exists
+  if (competitorData) {
+    const comparison = buildComparisonReport(assets, listingTitle, competitorData);
+    report.competitive_analysis = {
+      competitor_title: competitorData.title,
+      competitor_url: competitorData.url,
+      your_score: comparison.yourListing.overallScore,
+      competitor_score: comparison.competitor.overallScore,
+      your_image_count: comparison.yourListing.imageCount,
+      competitor_image_count: comparison.competitor.imageCount,
+      max_allowed: 9,
+      your_pass_rate: comparison.yourListing.passRate,
+      competitor_pass_rate: comparison.competitor.passRate,
+      missing_categories: comparison.missingCategories,
+      competitor_weaknesses: comparison.competitorWeaknesses,
+      recommendations: comparison.recommendations,
+      image_count_advantage: comparison.imageCountAdvantage,
+    };
+  }
+
+  return report;
 }
 
 export function exportToJSON(data: ExportReport): void {
