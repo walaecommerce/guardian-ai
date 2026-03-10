@@ -79,3 +79,6 @@ verify_jwt = false
 
 [functions.generate-suggestions]
 verify_jwt = false
+
+[functions.generate-studio-image]
+verify_jwt = false
