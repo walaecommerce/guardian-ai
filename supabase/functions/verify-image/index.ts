@@ -436,8 +436,17 @@ Be STRICT. Better to flag for retry than pass a flawed image.`;
       }
       verification = JSON.parse(jsonMatch[0]);
     }
+
+    // Server-side threshold enforcement (overrides AI judgment)
+    const SATISFACTORY_THRESHOLD = 85; // Server-side threshold (change to 99 for testing retry loop)
+    if (verification.score < SATISFACTORY_THRESHOLD) {
+      verification.isSatisfactory = false;
+    }
+    if (!verification.productMatch) {
+      verification.isSatisfactory = false;
+    }
     
-    console.log(`[Guardian] Verification complete. Score: ${verification.score}%, Satisfactory: ${verification.isSatisfactory}`);
+    console.log(`[Guardian] Verification complete. Score: ${verification.score}%, Satisfactory: ${verification.isSatisfactory} (threshold: ${SATISFACTORY_THRESHOLD})`);
     console.log(`[Guardian] Product match: ${verification.productMatch}`);
     if (verification.failedChecks?.length > 0) {
       console.log(`[Guardian] Failed checks: ${verification.failedChecks.join(', ')}`);
