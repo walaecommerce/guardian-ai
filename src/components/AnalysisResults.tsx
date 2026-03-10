@@ -175,8 +175,7 @@ function AssetResultCard({
   onReverify?: (assetId: string) => void;
   getMatchingPolicyUpdate?: (message: string, category: string) => PolicyUpdate | null;
 }) {
-  onReverify?: (id: string) => void;
-}) {
+  const result = asset.analysisResult;
   const result = asset.analysisResult;
 
   const categoryMatch = asset.name.match(/^(MAIN|INFOGRAPHIC|LIFESTYLE|PRODUCT_IN_USE|SIZE_CHART|COMPARISON|PACKAGING|DETAIL|UNKNOWN)_/);
