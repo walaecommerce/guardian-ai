@@ -11,7 +11,7 @@ import { ActivityLog } from '@/components/ActivityLog';
 import { SessionHistory } from '@/components/SessionHistory';
 import { ComplianceHistory, saveAuditToHistory, AuditHistoryEntry } from '@/components/ComplianceHistory';
 import { BulkUrlImport } from '@/components/BulkUrlImport';
-import { CompetitorAudit, CompetitorData, buildComparisonReport } from '@/components/CompetitorAudit';
+import { CompetitorAudit, CompetitorData, buildComparisonReport, AIComparisonResult } from '@/components/CompetitorAudit';
 import { ListingScoreCard } from '@/components/ListingScoreCard';
 import { AIRecommendations } from '@/components/AIRecommendations';
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
