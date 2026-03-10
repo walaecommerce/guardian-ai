@@ -1281,10 +1281,13 @@ const Index = () => {
                   <TabsTrigger value="history">History</TabsTrigger>
                 </TabsList>
                 {assets.some(a => a.analysisResult) && (
-                  <Button onClick={handleSaveReport} variant="outline" size="sm">
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Report
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <ClientReportGenerator assets={assets} listingTitle={listingTitle} productAsin={productAsin} />
+                    <Button onClick={handleSaveReport} variant="outline" size="sm">
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Report
+                    </Button>
+                  </div>
                 )}
               </div>
               <TabsContent value="results">
