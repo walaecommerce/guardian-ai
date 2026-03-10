@@ -50,7 +50,19 @@ const normalizeMimeType = (raw: string, b64: string): string => {
 };
 
 const toDataUrl = (dataUrl: string): string => {
-  if (dataUrl.startsWith('data:')) return dataUrl;
+  if (dataUrl.startsWith('data:')) {
+    // Normalize MIME type even for existing data URLs (e.g. application/octet-stream)
+    const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      const rawMime = match[1];
+      const b64 = match[2];
+      const normalizedMime = normalizeMimeType(rawMime, b64);
+      if (rawMime !== normalizedMime) {
+        return `data:${normalizedMime};base64,${b64}`;
+      }
+    }
+    return dataUrl;
+  }
   const mimeType = guessImageMimeType(dataUrl);
   return `data:${mimeType};base64,${dataUrl}`;
 };
