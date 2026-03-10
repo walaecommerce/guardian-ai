@@ -1272,6 +1272,7 @@ const Index = () => {
                 <TabsList>
                   <TabsTrigger value="results">Analysis Results</TabsTrigger>
                   <TabsTrigger value="comparison">Before / After</TabsTrigger>
+                  <TabsTrigger value="compare">Compare</TabsTrigger>
                   <TabsTrigger value="history">History</TabsTrigger>
                 </TabsList>
                 {assets.some(a => a.analysisResult) && (
