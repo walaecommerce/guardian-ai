@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ImageAsset } from '@/types';
+import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
 import { SuggestionsData } from '@/components/recommendations/types';
 import { ScorecardData } from '@/components/ListingScoreCard';
 import { AIComparisonResult } from '@/components/CompetitorAudit';
@@ -329,6 +330,27 @@ export function ClientReportGenerator({
     Each image is scored 0–100 across multiple compliance dimensions. A threshold of 85% is
     required to pass. The Listing Health Score is a weighted composite of six quality dimensions.
   </div>
+  ${(() => {
+    // Detect primary category from analyzed assets
+    const categories = analyzedAssets
+      .map(a => a.analysisResult?.productCategory)
+      .filter(Boolean) as string[];
+    const primaryCat = categories.length > 0
+      ? (categories.sort((a, b) =>
+          categories.filter(v => v === b).length - categories.filter(v => v === a).length
+        )[0])
+      : null;
+    const catKey = primaryCat ? (GEMINI_CATEGORY_MAP[primaryCat] || primaryCat) : null;
+    const catRules = catKey ? CATEGORY_RULES[catKey as ProductCategory] : null;
+    if (!catRules) return '';
+    return `
+  <h3 style="font-size:14px;font-weight:600;color:${theme.accent};margin-bottom:8px;margin-top:16px">
+    ${catRules.icon} Category-Specific Compliance Notes — ${catRules.name}
+  </h3>
+  <ul style="font-size:12px;color:#6b7280;line-height:1.8;list-style:disc;padding-left:20px;margin-bottom:24px">
+    ${catRules.report_notes.map(n => `<li>${n}</li>`).join('')}
+  </ul>`;
+  })()}
   <h3 style="font-size:14px;font-weight:600;color:${theme.accent};margin-bottom:8px">Full Audit Data</h3>
   <pre>${jsonData.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
   <div style="margin-top:32px;text-align:center;padding-top:24px;border-top:1px solid #e5e7eb">

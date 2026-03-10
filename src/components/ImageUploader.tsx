@@ -48,6 +48,8 @@ interface ImageUploaderProps {
   onRetryFailedDownloads?: () => void;
   titlePulse?: boolean;
   assetGridRef?: React.RefObject<HTMLDivElement>;
+  selectedCategory?: string;
+  onCategoryChange?: (category: string) => void;
 }
 
 export function ImageUploader({
@@ -68,6 +70,8 @@ export function ImageUploader({
   onRetryFailedDownloads,
   titlePulse = false,
   assetGridRef,
+  selectedCategory = 'AUTO',
+  onCategoryChange,
 }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
@@ -348,6 +352,32 @@ export function ImageUploader({
           </CardContent>
         </Card>
       )}
+
+      {/* Product Category */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Product Category</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select value={selectedCategory} onValueChange={v => onCategoryChange?.(v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Auto-Detect" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="AUTO">🤖 Auto-Detect</SelectItem>
+              <SelectItem value="FOOD_BEVERAGE">🍎 Food & Beverage</SelectItem>
+              <SelectItem value="SUPPLEMENTS">💊 Health & Supplements</SelectItem>
+              <SelectItem value="PET_SUPPLIES">🐾 Pet Supplies</SelectItem>
+              <SelectItem value="BEAUTY_PERSONAL_CARE">✨ Beauty & Personal Care</SelectItem>
+              <SelectItem value="ELECTRONICS">🔌 Electronics</SelectItem>
+              <SelectItem value="GENERAL_MERCHANDISE">📦 General Merchandise</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1.5">
+            {selectedCategory === 'AUTO' ? 'AI will detect category from product image' : 'Category-specific rules will be applied'}
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Listing Title */}
       <Card className={titlePulse ? 'ring-2 ring-green-500 transition-all duration-500' : 'transition-all duration-500'}>

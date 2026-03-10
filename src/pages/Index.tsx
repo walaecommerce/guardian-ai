@@ -111,6 +111,7 @@ const Index = () => {
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [listingTitle, setListingTitle] = useState('');
   const [amazonUrl, setAmazonUrl] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('AUTO');
   const [productAsin, setProductAsin] = useState<string | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [assetSessionMap, setAssetSessionMap] = useState<AssetSessionMap>(new Map());
@@ -553,7 +554,12 @@ const Index = () => {
       const base64 = await fileToBase64(asset.file);
       
       const { data, error } = await supabase.functions.invoke('analyze-image', {
-        body: { imageBase64: base64, imageType: asset.type, listingTitle }
+        body: {
+          imageBase64: base64,
+          imageType: asset.type,
+          listingTitle,
+          forcedCategory: selectedCategory !== 'AUTO' ? selectedCategory : undefined,
+        }
       });
 
       if (error) {
@@ -1368,6 +1374,8 @@ const Index = () => {
               onRetryFailedDownloads={handleRetryFailedDownloads}
               titlePulse={titlePulse}
               assetGridRef={assetGridRef}
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
             />
 
             {/* Competitor URL Input */}

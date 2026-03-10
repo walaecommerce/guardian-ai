@@ -16,10 +16,12 @@ const SYSTEM_PROMPT = `You are Guardian, an Amazon FBA compliance officer with f
 
 STEP 1 — CATEGORY DETECTION (do this first):
 Examine the product image and determine the category:
-- FOOD: packaged food, snacks, beverages, cooking ingredients, condiments
-- PET: pet food, pet treats, pet supplements
-- SUPPLEMENT: dietary supplements, vitamins, protein powders, health capsules
-- GENERAL: electronics, clothing, home goods, tools, toys, beauty, everything else
+- FOOD_BEVERAGE: packaged food, snacks, beverages, cooking ingredients, condiments
+- PET_SUPPLIES: pet food, pet treats, pet supplements, pet accessories
+- SUPPLEMENTS: dietary supplements, vitamins, protein powders, health capsules
+- BEAUTY_PERSONAL_CARE: skincare, haircare, cosmetics, personal hygiene products
+- ELECTRONICS: devices, gadgets, cables, chargers, tech accessories
+- GENERAL_MERCHANDISE: everything else (home goods, tools, toys, clothing, etc.)
 
 Apply the category-specific rules below in addition to the universal rules.`;
 
@@ -137,7 +139,7 @@ CONTENT CONSISTENCY CHECKS for supplements:
 - Count/quantity on packaging vs listing title = CRITICAL if mismatch
 - Key claims must match between packaging and title = HIGH if mismatch`;
 
-const GENERAL_RULES = `GENERAL MERCHANDISE RULES (apply when category is GENERAL):
+const GENERAL_RULES = `GENERAL MERCHANDISE RULES (apply when category is GENERAL_MERCHANDISE):
 
 MAIN IMAGE:
 - No hands holding product = MEDIUM violation
@@ -156,13 +158,65 @@ OCR EXTRACTION for general products — extract if visible:
 4. Country of origin
 5. Certifications (UL, CE, FCC, etc.)`;
 
+const BEAUTY_RULES = `BEAUTY & PERSONAL CARE RULES (apply when category is BEAUTY_PERSONAL_CARE):
+
+MAIN IMAGE:
+- Product must be clearly visible and centered = HIGH violation if not
+- No model wearing/using the product on main image = MEDIUM violation
+- No before/after imagery on main image = HIGH violation
+- Product label must face forward = HIGH violation if not
+
+SECONDARY IMAGES:
+- Model demonstrating product usage = ALLOWED and POSITIVE
+- Ingredient spotlight callouts = ALLOWED and POSITIVE
+- Skin type compatibility information = ALLOWED
+- Texture/consistency closeup shots = ALLOWED
+
+OCR EXTRACTION for beauty products — extract ALL of these if visible:
+1. Product/brand name
+2. Volume/weight (e.g. "1.7 oz", "50ml")
+3. Key ingredients listed on front label
+4. Skin type or hair type if specified
+5. SPF rating if applicable
+6. Certifications (cruelty-free, organic, dermatologist tested)
+
+CONTENT CONSISTENCY CHECKS for beauty:
+- Volume on packaging vs listing title = CRITICAL if mismatch
+- Key ingredient claims must match between packaging and title = HIGH if mismatch
+- SPF claims must be verifiable = CRITICAL if unsubstantiated`;
+
+const ELECTRONICS_RULES = `ELECTRONICS RULES (apply when category is ELECTRONICS):
+
+MAIN IMAGE:
+- Product should be shown out of box/packaging = MEDIUM violation if in box
+- No accessories not included in listing = MEDIUM violation
+- Product branding and model must be visible = HIGH violation if not
+
+SECONDARY IMAGES:
+- Product in use / lifestyle context = ALLOWED
+- Compatibility diagrams = ALLOWED and POSITIVE
+- Feature callout infographics = ALLOWED
+- What's in the box layout = ALLOWED and POSITIVE
+
+OCR EXTRACTION for electronics — extract ALL of these if visible:
+1. Product/brand name and model number
+2. Key specs (wattage, capacity, connectivity)
+3. Compatibility information
+4. Safety certifications (UL, CE, FCC)
+5. Voltage/power requirements
+
+CONTENT CONSISTENCY CHECKS for electronics:
+- Model number on product vs listing title = HIGH if mismatch
+- Compatibility claims must be accurate = HIGH if unverifiable
+- Safety certifications must be legitimate = CRITICAL if fake/misleading`;
+
 const OUTPUT_SCHEMA = `
 Return this EXACT JSON structure:
 {
   "overall_score": <0-100>,
   "status": "PASS" or "FAIL",
   "severity": "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-  "product_category": "FOOD" | "PET" | "SUPPLEMENT" | "GENERAL",
+  "product_category": "FOOD_BEVERAGE" | "PET_SUPPLIES" | "SUPPLEMENTS" | "BEAUTY_PERSONAL_CARE" | "ELECTRONICS" | "GENERAL_MERCHANDISE",
   "text_readability_score": <0-100 — for SECONDARY images only, rate how readable any text/infographic content would be on a mobile phone screen. Consider font size, contrast, text density, legibility. For MAIN images return null>,
   "emotional_appeal_score": <0-100 — for SECONDARY images only, rate the emotional appeal and aspirational quality. Consider: appetizing food, happy people, active lifestyle, professional photography, warm lighting. For MAIN images return null>,
   "violations": [
@@ -308,16 +362,21 @@ const extractBase64 = (dataUrl: string): { data: string; mimeType: string } => {
 
 // ── Build category-aware prompt ─────────────────────────────────
 
-const buildAnalysisPrompt = (isMain: boolean, listingTitle: string): string => {
+const buildAnalysisPrompt = (isMain: boolean, listingTitle: string, forcedCategory?: string): string => {
   const universalRules = isMain ? MAIN_IMAGE_RULES : SECONDARY_IMAGE_RULES;
+  const categoryBlock = forcedCategory
+    ? `--- FORCED CATEGORY: ${forcedCategory} — apply ONLY this category's rules ---`
+    : '--- CATEGORY-SPECIFIC RULES (apply the matching set after detection) ---';
   return [
     SYSTEM_PROMPT,
     universalRules,
-    '--- CATEGORY-SPECIFIC RULES (apply the matching set after detection) ---',
+    categoryBlock,
     FOOD_RULES,
     PET_RULES,
     SUPPLEMENT_RULES,
     GENERAL_RULES,
+    BEAUTY_RULES,
+    ELECTRONICS_RULES,
     OUTPUT_SCHEMA,
   ].join('\n\n');
 };
@@ -330,7 +389,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, imageType, listingTitle } = await req.json();
+    const { imageBase64, imageType, listingTitle, forcedCategory } = await req.json();
 
     const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GOOGLE_GEMINI_API_KEY) {
@@ -344,7 +403,7 @@ serve(async (req) => {
     console.log(`[analyze-image] Analyzing ${imageType} image with category detection...`);
 
     const imageData = extractBase64(imageBase64);
-    const systemPrompt = buildAnalysisPrompt(isMain, titleRef);
+    const systemPrompt = buildAnalysisPrompt(isMain, titleRef, forcedCategory || undefined);
 
     const requestBody = {
       model: MODELS.analysis,
@@ -352,7 +411,7 @@ serve(async (req) => {
         parts: [
           { text: systemPrompt },
           { inline_data: { mime_type: imageData.mimeType, data: imageData.data } },
-          { text: `Analyze this ${imageType} image. First detect the product category (FOOD/PET/SUPPLEMENT/GENERAL), then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}` },
+          { text: `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}` },
         ],
       }],
       generationConfig: {
