@@ -184,8 +184,8 @@ serve(async (req) => {
 
     if (isMain) {
       // PATTERN A — MAIN image: text-to-image (with optional reference)
-      const description = productTitle || generativePrompt || 'Amazon product';
-      let prompt = customPrompt || buildMainImagePrompt(description);
+      const title = productTitle || generativePrompt || 'Amazon product';
+      let prompt = customPrompt || buildMainImagePrompt(title, fixCategory);
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
