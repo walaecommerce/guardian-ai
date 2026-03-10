@@ -46,6 +46,8 @@ interface ImageUploaderProps {
   failedDownloads?: FailedDownload[];
   isRetrying?: boolean;
   onRetryFailedDownloads?: () => void;
+  titlePulse?: boolean;
+  assetGridRef?: React.RefObject<HTMLDivElement>;
 }
 
 export function ImageUploader({
