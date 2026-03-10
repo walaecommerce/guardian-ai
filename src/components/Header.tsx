@@ -1,4 +1,4 @@
-import { Shield, Zap, BarChart3, Sparkles } from 'lucide-react';
+import { Shield, Zap, BarChart3, Sparkles, Activity } from 'lucide-react';
 import { HeaderNavLink } from './NavLink';
 
 export function Header() {
@@ -24,6 +24,7 @@ export function Header() {
               <HeaderNavLink to="/" label="Single Audit" />
               <HeaderNavLink to="/campaign" label="Campaign Audit" icon={<BarChart3 className="w-3.5 h-3.5" />} />
               <HeaderNavLink to="/studio" label="Studio" icon={<Sparkles className="w-3.5 h-3.5" />} />
+              <HeaderNavLink to="/tracker" label="Tracker" icon={<Activity className="w-3.5 h-3.5" />} />
             </nav>
           </div>
           

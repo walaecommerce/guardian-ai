@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Session from "./pages/Session";
 import CampaignAudit from "./pages/CampaignAudit";
 import Studio from "./pages/Studio";
+import Tracker from "./pages/Tracker";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/campaign" element={<CampaignAudit />} />
           <Route path="/studio" element={<Studio />} />
+          <Route path="/tracker" element={<Tracker />} />
           <Route path="/session/:sessionId" element={<Session />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
