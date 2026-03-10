@@ -1,4 +1,4 @@
-import { Shield, Zap, BarChart3, Sparkles } from 'lucide-react';
+import { Shield, Zap, BarChart3, Sparkles, Activity } from 'lucide-react';
 import { HeaderNavLink } from './NavLink';
 
 export function Header() {
