@@ -10,6 +10,8 @@ import { ExportButton } from '@/components/ExportButton';
 import { CompetitorData } from '@/components/CompetitorAudit';
 import { ScoreTrendBadge } from '@/components/ScoreTrendBadge';
 import { getScoreTrend } from '@/components/ComplianceHistory';
+import { NewRuleTag } from '@/components/PolicyUpdates';
+import { PolicyUpdate } from '@/hooks/usePolicyUpdates';
 
 interface AnalysisResultsProps {
   assets: ImageAsset[];
@@ -22,6 +24,7 @@ interface AnalysisResultsProps {
   batchFixProgress?: { current: number; total: number } | null;
   productAsin?: string;
   competitorData?: CompetitorData | null;
+  getMatchingPolicyUpdate?: (message: string, category: string) => PolicyUpdate | null;
 }
 
 // ── Score Gauge with animated counter + circular ring ──
@@ -117,7 +120,11 @@ const getSeverityBadgeClass = (severity: string) => {
 
 // ── Violation Card with expandable recommendation ──
 
-function ViolationItem({ violation, index }: { violation: AnalysisResult['violations'][0]; index: number }) {
+function ViolationItem({ violation, index, matchingUpdate }: {
+  violation: AnalysisResult['violations'][0];
+  index: number;
+  matchingUpdate?: PolicyUpdate | null;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -131,6 +138,7 @@ function ViolationItem({ violation, index }: { violation: AnalysisResult['violat
             {violation.severity}
           </span>
           <span className="text-xs font-bold text-foreground">{violation.category}</span>
+          {matchingUpdate && <NewRuleTag update={matchingUpdate} />}
         </div>
       </div>
       <p className="text-sm text-foreground mt-1">{violation.message}</p>
@@ -159,11 +167,13 @@ function AssetResultCard({
   onRequestFix,
   onViewDetails,
   onReverify,
+  getMatchingPolicyUpdate,
 }: {
   asset: ImageAsset;
   onRequestFix: (id: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
-  onReverify?: (id: string) => void;
+  onReverify?: (assetId: string) => void;
+  getMatchingPolicyUpdate?: (message: string, category: string) => PolicyUpdate | null;
 }) {
   const result = asset.analysisResult;
 
@@ -276,7 +286,7 @@ function AssetResultCard({
         {sortedViolations.length > 0 && (
           <div className="max-h-32 overflow-y-auto space-y-2">
             {sortedViolations.slice(0, 2).map((v, i) => (
-              <ViolationItem key={i} violation={v} index={i} />
+              <ViolationItem key={i} violation={v} index={i} matchingUpdate={getMatchingPolicyUpdate?.(v.message, v.category)} />
             ))}
             {sortedViolations.length > 2 && (
               <p className="text-xs text-muted-foreground py-1">
@@ -322,7 +332,8 @@ export function AnalysisResults({
   isBatchFixing,
   batchFixProgress,
   productAsin,
-  competitorData
+  competitorData,
+  getMatchingPolicyUpdate,
 }: AnalysisResultsProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult || a.isAnalyzing);
 
@@ -412,7 +423,7 @@ export function AnalysisResults({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {analyzedAssets.map((asset) => (
-          <AssetResultCard key={asset.id} asset={asset} onRequestFix={onRequestFix} onViewDetails={onViewDetails} onReverify={onReverify} />
+          <AssetResultCard key={asset.id} asset={asset} onRequestFix={onRequestFix} onViewDetails={onViewDetails} onReverify={onReverify} getMatchingPolicyUpdate={getMatchingPolicyUpdate} />
         ))}
       </div>
     </div>

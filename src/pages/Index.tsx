@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { RATE_LIMITS } from '@/config/models';
 import { Header } from '@/components/Header';
 import { HeroSection } from '@/components/HeroSection';
@@ -15,6 +15,8 @@ import { CompetitorAudit, CompetitorData, buildComparisonReport } from '@/compon
 import { ListingScoreCard } from '@/components/ListingScoreCard';
 import { AIRecommendations } from '@/components/AIRecommendations';
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
+import { PolicyBanner, PolicySidebar } from '@/components/PolicyUpdates';
+import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
@@ -56,6 +58,8 @@ const Index = () => {
   const [isImportingCompetitor, setIsImportingCompetitor] = useState(false);
   const [competitorProgress, setCompetitorProgress] = useState<{ current: number; total: number } | null>(null);
   const { toast } = useToast();
+  const { data: policyData, loading: policyLoading, highImpactUpdates, getMatchingUpdate, refresh: refreshPolicy } = usePolicyUpdates();
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   
   const uploadSectionRef = useRef<HTMLDivElement>(null);
 
@@ -1202,7 +1206,12 @@ const Index = () => {
         />
       )}
       
-      <main className="flex-1 container mx-auto px-4 py-6">
+      <main className="flex-1 container mx-auto px-4 py-6 space-y-4">
+        {/* Policy Update Banner */}
+        {!bannerDismissed && highImpactUpdates.length > 0 && (
+          <PolicyBanner updates={highImpactUpdates} onDismiss={() => setBannerDismissed(true)} />
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
           {/* Left Panel - Input */}
           <div className="lg:col-span-4 space-y-4" ref={uploadSectionRef}>
@@ -1264,6 +1273,7 @@ const Index = () => {
               />
             )}
             
+            <PolicySidebar data={policyData} loading={policyLoading} onRefresh={refreshPolicy} />
             <ActivityLog logs={logs} onClear={() => setLogs([])} />
             <SessionHistory currentSessionId={currentSessionId || undefined} />
           </div>
@@ -1302,6 +1312,7 @@ const Index = () => {
                   batchFixProgress={batchFixProgress}
                   productAsin={productAsin || undefined}
                   competitorData={competitorData}
+                  getMatchingPolicyUpdate={getMatchingUpdate}
                 />
               </TabsContent>
               <TabsContent value="recommendations">
