@@ -1,5 +1,5 @@
 import { Shield, Zap, BarChart3 } from 'lucide-react';
-import { NavLink } from './NavLink';
+import { HeaderNavLink } from './NavLink';
 
 export function Header() {
   return (
