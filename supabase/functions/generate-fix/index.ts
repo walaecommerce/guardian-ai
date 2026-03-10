@@ -230,6 +230,10 @@ OUTPUT: Same image with only prohibited overlays removed via clean inpainting.`;
     const prevImage = previousGeneratedImage ? extractBase64(previousGeneratedImage) : null;
     const mainRefImage = !isMain && mainImageBase64 ? extractBase64(mainImageBase64) : null;
 
+    if (mainRefImage) {
+      console.log("[Guardian] Cross-referencing with main image for secondary fix");
+    }
+
     // --- Build request parts based on image type ---
 
     const buildParts = (promptText: string) => {
