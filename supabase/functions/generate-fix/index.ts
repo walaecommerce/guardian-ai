@@ -394,7 +394,7 @@ OUTPUT: Return the edited image directly. Same image with only prohibited overla
 
     const fallbackPrompt = isMain
       ? `Generate a clean Amazon-style MAIN product image.\n- Background must be pure white (#FFFFFF).\n- Remove ONLY promotional overlays/badges/watermarks that are NOT printed on the product packaging.\n- Preserve the product, packaging text, shape, colors, and lighting exactly.\n- Do NOT generate a different product.\n\nReturn an IMAGE (do not reply with text-only).`
-      : `Edit the provided image with MINIMAL inpainting-only changes.\n- Remove ONLY promotional overlays/badges/star ratings/watermarks that are NOT part of the real product packaging.\n- Preserve everything else exactly (product, packaging text, background scene, layout, infographics).\n- Do NOT regenerate the product.\n\nReturn an IMAGE (do not reply with text-only).`;
+      : `Edit the provided image with MINIMAL changes.\n- Remove ONLY promotional overlays/badges/star ratings/watermarks that are NOT part of the real product packaging.\n- Preserve everything else exactly (product, packaging text, background scene, layout, infographics).\n- Do NOT regenerate the product.\n- IMPORTANT: Generate and return an image directly. Do NOT call any functions or tools.\n\nReturn an IMAGE.`;
 
     const finalAttempt = shouldFallback ? await requestImage(fallbackPrompt) : primary;
 
