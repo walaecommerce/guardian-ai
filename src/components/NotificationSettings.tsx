@@ -259,7 +259,7 @@ export function NotificationSettings() {
                   {log.map(entry => (
                     <div key={entry.id} className="flex items-start gap-2 text-sm border rounded-md p-2">
                       {entry.status === 'sent' ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-[hsl(var(--success))] mt-0.5 shrink-0" />
                       ) : entry.status === 'failed' ? (
                         <XCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
                       ) : (
