@@ -221,9 +221,9 @@ serve(async (req) => {
       model: MODELS.analysis,
       contents: [{
         parts: [
-          { text: `${SYSTEM_PROMPT}\n\n${rules}\n\n${OUTPUT_SCHEMA}` },
+          { text: `${SYSTEM_PROMPT}\n\n${rules}\n\n${OCR_INSTRUCTIONS}\n\n${OUTPUT_SCHEMA}` },
           { inline_data: { mime_type: imageData.mimeType, data: imageData.data } },
-          { text: `Analyze this image against the rules above. Listing title for OCR cross-reference: ${titleRef}` },
+          { text: `Analyze this ${imageType} image against all rules above. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}` },
         ],
       }],
       generationConfig: {
