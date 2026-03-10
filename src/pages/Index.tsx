@@ -111,6 +111,7 @@ const Index = () => {
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [listingTitle, setListingTitle] = useState('');
   const [amazonUrl, setAmazonUrl] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('AUTO');
   const [productAsin, setProductAsin] = useState<string | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [assetSessionMap, setAssetSessionMap] = useState<AssetSessionMap>(new Map());
