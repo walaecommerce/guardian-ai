@@ -410,6 +410,10 @@ export function AnalysisResults({
                 <p className="text-xs text-muted-foreground">Passed</p>
               </div>
               <div className="text-center">
+                <p className="text-2xl font-bold text-[hsl(38,92%,50%)]">{warningCount}</p>
+                <p className="text-xs text-muted-foreground">Warning</p>
+              </div>
+              <div className="text-center">
                 <p className="text-2xl font-bold text-red-500">{failCount}</p>
                 <p className="text-xs text-muted-foreground">Failed</p>
               </div>
