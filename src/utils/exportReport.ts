@@ -201,7 +201,7 @@ export function exportToPDF(data: ExportData): void {
     doc.text(`${asset.name} - Violations`, 14, currentY);
     currentY += 6;
     
-    const violationData = asset.violations.map(v => [
+    const violationData = (asset.violations || []).map(v => [
       v.severity.toUpperCase(),
       v.category,
       v.message.length > 50 ? v.message.substring(0, 47) + '...' : v.message,
