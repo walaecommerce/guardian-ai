@@ -185,7 +185,11 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
 
   const handleDownload = () => {
     if (asset.fixedImage) {
-      onDownload(asset.fixedImage, `fixed-${asset.name}`);
+      // Extract base64 data for direct download
+      const link = document.createElement('a');
+      link.href = asset.fixedImage;
+      link.download = `guardian-fixed-${Date.now()}.png`;
+      link.click();
     }
   };
 
@@ -423,47 +427,54 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
               {/* Left: Original Image */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium flex items-center gap-1.5">
+                  <span className="text-sm font-bold flex items-center gap-1.5 uppercase tracking-wide">
                     <Eye className="w-4 h-4" />
-                    Original Image
+                    Original
                   </span>
                   {result && (
-                    <Badge variant={result.status === 'PASS' ? 'default' : 'destructive'}>
-                      {result.overallScore}% Score
+                    <Badge variant="destructive" className="font-bold">
+                      {result.status === 'FAIL' ? 'FAIL' : result.status} • {result.overallScore}%
                     </Badge>
                   )}
                 </div>
                 <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
-                  <img
-                    src={asset.preview}
-                    alt="Original"
-                    className="w-full h-full object-contain"
-                  />
+                  <img src={asset.preview} alt="Original" className="w-full h-full object-contain" />
                 </div>
               </div>
 
               {/* Right: Generated/Fixed Image */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium flex items-center gap-1.5">
+                  <span className="text-sm font-bold flex items-center gap-1.5 uppercase tracking-wide">
                     <Sparkles className="w-4 h-4 text-primary" />
-                    {isGenerating ? 'Generating...' : 'AI-Fixed Version'}
+                    AI Fixed
                   </span>
-                  {selectedAttempt?.verification && (
-                    <Badge variant={selectedAttempt.verification.isSatisfactory ? 'default' : 'destructive'}>
-                      {selectedAttempt.verification.score}% Score
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Score comparison arrow */}
+                    {result && selectedAttempt?.verification && (
+                      <span className="text-xs font-mono font-bold">
+                        <span className="text-red-500">{result.overallScore}</span>
+                        <ArrowRight className="w-3 h-3 inline mx-1 text-muted-foreground" />
+                        <span className="text-green-500">{selectedAttempt.verification.score}</span>
+                      </span>
+                    )}
+                    {selectedAttempt?.verification?.isSatisfactory && (
+                      <Badge className="bg-green-500 text-white font-bold text-xs">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        COMPLIANT
+                      </Badge>
+                    )}
+                    {selectedAttempt?.verification && !selectedAttempt.verification.isSatisfactory && (
+                      <Badge variant="destructive">
+                        {selectedAttempt.verification.score}%
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted relative">
                   {displayImage ? (
                     <>
-                      <img
-                        src={displayImage}
-                        alt="Generated"
-                        className="w-full h-full object-contain"
-                      />
-                      {/* Overlay for current status */}
+                      <img src={displayImage} alt="Generated" className="w-full h-full object-contain" />
                       {isGenerating && fixProgress?.currentStep === 'verifying' && (
                         <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
                           <div className="text-center space-y-2">
@@ -494,6 +505,25 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                 </div>
               </div>
             </div>
+
+            {/* Verification Critique - collapsed section */}
+            {selectedAttempt?.verification?.critique && !isGenerating && (
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground w-full p-2 rounded-lg hover:bg-muted transition-colors">
+                  <ChevronDown className="w-4 h-4" />
+                  Verification Details
+                  {selectedAttempt.verification.isSatisfactory
+                    ? <Badge variant="outline" className="ml-auto text-xs text-green-500 border-green-500">Passed</Badge>
+                    : <Badge variant="outline" className="ml-auto text-xs text-red-500 border-red-500">Issues Found</Badge>
+                  }
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="p-3 rounded-lg bg-muted text-sm text-muted-foreground mt-1">
+                    {selectedAttempt.verification.critique}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
 
             {/* Attempt History Strip */}
             {fixProgress && fixProgress.attempts.length > 0 && (

@@ -32,6 +32,8 @@ const Index = () => {
   const [assetSessionMap, setAssetSessionMap] = useState<AssetSessionMap>(new Map());
   const [isImporting, setIsImporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzingProgress, setAnalyzingProgress] = useState<{ current: number; total: number } | undefined>(undefined);
+  const [auditComplete, setAuditComplete] = useState<{ passed: number; failed: number } | null>(null);
   const [isBatchFixing, setIsBatchFixing] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<ImageAsset | null>(null);
@@ -416,6 +418,8 @@ const Index = () => {
     if (assets.length === 0) return;
     
     setIsAnalyzing(true);
+    setAuditComplete(null);
+    setAnalyzingProgress({ current: 0, total: assets.length });
     addLog('processing', `🔍 Guardian initializing batch audit...`);
     addLog('info', `📦 ${assets.length} images queued for compliance check`);
 
@@ -431,6 +435,7 @@ const Index = () => {
         a.id === asset.id ? { ...a, isAnalyzing: true } : a
       ));
 
+      setAnalyzingProgress({ current: i + 1, total: assets.length });
       addLog('processing', `🔬 Scanning ${asset.type} image: ${asset.name}`);
       addLog('info', `   ├─ Phase 1: Background pixel analysis...`);
       addLog('info', `   ├─ Phase 2: Badge & text detection...`);
@@ -513,7 +518,11 @@ const Index = () => {
 
     addLog('success', '🎯 Guardian batch audit complete');
     setIsAnalyzing(false);
+    setAnalyzingProgress(undefined);
+    setAuditComplete({ passed: passedCount, failed: failedCount });
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
+    // Reset completion message after 3 seconds
+    setTimeout(() => setAuditComplete(null), 3000);
   };
 
   const handleSaveReport = async () => {
@@ -1014,6 +1023,8 @@ const Index = () => {
               onImportFromAmazon={handleImportFromAmazon}
               onRunAudit={handleRunAudit}
               isAnalyzing={isAnalyzing}
+              analyzingProgress={analyzingProgress}
+              auditComplete={auditComplete}
               failedDownloads={failedDownloads}
               isRetrying={isRetrying}
               onRetryFailedDownloads={handleRetryFailedDownloads}
@@ -1027,7 +1038,7 @@ const Index = () => {
               />
             )}
             
-            <ActivityLog logs={logs} />
+            <ActivityLog logs={logs} onClear={() => setLogs([])} />
             <SessionHistory currentSessionId={currentSessionId || undefined} />
           </div>
 

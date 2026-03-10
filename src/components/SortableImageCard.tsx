@@ -124,10 +124,10 @@ export function SortableImageCard({ asset, index, onRemove, onCrop, isOverlay = 
       {/* Position Badge (1st, 2nd, 3rd, etc.) */}
       <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${
         isLandingPosition 
-          ? 'bg-amber-400 text-amber-900' 
-          : 'bg-muted-foreground/80 text-background'
+          ? 'bg-[hsl(33,100%,50%)] text-white' 
+          : 'bg-[hsl(213,27%,23%)] text-white'
       }`}>
-        {isLandingPosition ? '1st • Landing' : `${position}${getOrdinalSuffix(position)}`}
+        {isLandingPosition ? '1st • MAIN' : `${position}${getOrdinalSuffix(position)} • SEC`}
       </div>
 
       {/* AI Category Badge */}
@@ -144,6 +144,15 @@ export function SortableImageCard({ asset, index, onRemove, onCrop, isOverlay = 
       >
         <X className="w-3 h-3" />
       </button>
+
+      {/* Status dot indicator */}
+      <div className={`absolute top-8 left-2 w-2.5 h-2.5 rounded-full border border-white/50 ${
+        asset.analysisResult
+          ? asset.analysisResult.status === 'PASS'
+            ? 'bg-green-500'
+            : 'bg-red-500'
+          : 'bg-gray-400'
+      }`} />
 
       {/* Analysis Status */}
       {asset.isAnalyzing && (
@@ -166,10 +175,10 @@ export function SortableImageCard({ asset, index, onRemove, onCrop, isOverlay = 
         <div className={`
           absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-bold
           ${asset.analysisResult.overallScore >= 85 
-            ? 'bg-success text-success-foreground'
+            ? 'bg-green-500 text-white'
             : asset.analysisResult.overallScore >= 70
-            ? 'bg-warning text-warning-foreground'
-            : 'bg-destructive text-destructive-foreground'
+            ? 'bg-yellow-500 text-black'
+            : 'bg-red-500 text-white'
           }
         `}>
           {asset.analysisResult.overallScore}%
