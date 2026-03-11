@@ -43,6 +43,8 @@ function detectFixCategory(imageCategory?: string, productTitle?: string): FixCa
   const techKw = ['electronic', 'charger', 'cable', 'bluetooth', 'wireless', 'speaker', 'headphone', 'usb', 'hdmi', 'adapter', 'camera', 'phone', 'laptop', 'tablet', 'device'];
   const apparelKw = ['shirt', 'pants', 'dress', 'jacket', 'hoodie', 'sweater', 'sock', 'shoe', 'boot', 'hat', 'glove', 'scarf', 'coat', 'blouse', 'skirt', 'jeans', 'legging', 'underwear', 'bra'];
 
+  if (supplementKw.some(kw => title.includes(kw))) return 'SUPPLEMENTS';
+  if (beautyKw.some(kw => title.includes(kw))) return 'BEAUTY';
   if (apparelKw.some(kw => title.includes(kw))) return 'APPAREL';
   if (foodKw.some(kw => title.includes(kw))) return 'FOOD_BEVERAGE';
   if (petKw.some(kw => title.includes(kw))) return 'PET_SUPPLIES';
