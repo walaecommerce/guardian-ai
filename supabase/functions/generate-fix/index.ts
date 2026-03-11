@@ -29,9 +29,9 @@ function detectFixCategory(imageCategory?: string, productTitle?: string): FixCa
 
   // From analysis category
   if (cat.includes('FOOD') || cat.includes('BEVERAGE')) return 'FOOD_BEVERAGE';
-  if (cat.includes('SUPPLEMENT')) return 'FOOD_BEVERAGE';
+  if (cat.includes('SUPPLEMENT') || cat.includes('VITAMIN')) return 'SUPPLEMENTS';
   if (cat.includes('PET')) return 'PET_SUPPLIES';
-  if (cat.includes('BEAUTY')) return 'FOOD_BEVERAGE'; // packaging-centric like F&B
+  if (cat.includes('BEAUTY') || cat.includes('PERSONAL') || cat.includes('SKINCARE') || cat.includes('COSMETIC')) return 'BEAUTY';
   if (cat.includes('ELECTRON')) return 'ELECTRONICS';
   if (cat.includes('APPAREL') || cat.includes('CLOTH')) return 'APPAREL';
 
