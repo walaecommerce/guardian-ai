@@ -36,7 +36,9 @@ function detectFixCategory(imageCategory?: string, productTitle?: string): FixCa
   if (cat.includes('APPAREL') || cat.includes('CLOTH')) return 'APPAREL';
 
   // Fallback: keyword detection from title
-  const foodKw = ['food', 'snack', 'drink', 'beverage', 'sauce', 'coffee', 'tea', 'juice', 'candy', 'chocolate', 'cereal', 'bar', 'chip', 'cookie', 'supplement', 'vitamin', 'protein', 'capsule', 'probiotic', 'serum', 'cream', 'lotion', 'shampoo'];
+  const supplementKw = ['supplement', 'vitamin', 'protein', 'capsule', 'probiotic', 'collagen', 'omega', 'multivitamin', 'creatine', 'amino', 'magnesium', 'zinc', 'iron', 'calcium', 'biotin', 'melatonin', 'ashwagandha', 'turmeric', 'elderberry', 'gummy', 'tablet', 'softgel'];
+  const beautyKw = ['serum', 'cream', 'lotion', 'shampoo', 'conditioner', 'moisturizer', 'cleanser', 'toner', 'sunscreen', 'foundation', 'mascara', 'lipstick', 'concealer', 'eyeshadow', 'blush', 'primer', 'perfume', 'cologne', 'deodorant', 'body wash', 'face wash', 'skincare', 'makeup', 'cosmetic', 'hair oil', 'nail polish'];
+  const foodKw = ['food', 'snack', 'drink', 'beverage', 'sauce', 'coffee', 'tea', 'juice', 'candy', 'chocolate', 'cereal', 'bar', 'chip', 'cookie'];
   const petKw = ['dog', 'cat', 'pet', 'puppy', 'kitten', 'treat', 'kibble', 'chew', 'leash', 'collar'];
   const techKw = ['electronic', 'charger', 'cable', 'bluetooth', 'wireless', 'speaker', 'headphone', 'usb', 'hdmi', 'adapter', 'camera', 'phone', 'laptop', 'tablet', 'device'];
   const apparelKw = ['shirt', 'pants', 'dress', 'jacket', 'hoodie', 'sweater', 'sock', 'shoe', 'boot', 'hat', 'glove', 'scarf', 'coat', 'blouse', 'skirt', 'jeans', 'legging', 'underwear', 'bra'];
