@@ -49,6 +49,8 @@ function detectFixCategory(imageCategory?: string, productTitle?: string): FixCa
 
   if (supplementKw.some(kw => title.includes(kw))) return 'SUPPLEMENTS';
   if (beautyKw.some(kw => title.includes(kw))) return 'BEAUTY';
+  if (homeKw.some(kw => title.includes(kw))) return 'HOME_GARDEN';
+  if (toyKw.some(kw => title.includes(kw))) return 'TOYS_GAMES';
   if (apparelKw.some(kw => title.includes(kw))) return 'APPAREL';
   if (foodKw.some(kw => title.includes(kw))) return 'FOOD_BEVERAGE';
   if (petKw.some(kw => title.includes(kw))) return 'PET_SUPPLIES';
