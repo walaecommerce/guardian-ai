@@ -32,6 +32,8 @@ function detectFixCategory(imageCategory?: string, productTitle?: string): FixCa
   if (cat.includes('SUPPLEMENT') || cat.includes('VITAMIN')) return 'SUPPLEMENTS';
   if (cat.includes('PET')) return 'PET_SUPPLIES';
   if (cat.includes('BEAUTY') || cat.includes('PERSONAL') || cat.includes('SKINCARE') || cat.includes('COSMETIC')) return 'BEAUTY';
+  if (cat.includes('HOME') || cat.includes('GARDEN') || cat.includes('KITCHEN') || cat.includes('OUTDOOR')) return 'HOME_GARDEN';
+  if (cat.includes('TOY') || cat.includes('GAME') || cat.includes('PUZZLE')) return 'TOYS_GAMES';
   if (cat.includes('ELECTRON')) return 'ELECTRONICS';
   if (cat.includes('APPAREL') || cat.includes('CLOTH')) return 'APPAREL';
 
