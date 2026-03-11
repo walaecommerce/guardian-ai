@@ -28,8 +28,8 @@ serve(async (req) => {
       
       // Try with different strategies
       const strategies = [
-        { waitFor: 15000, location: { country: 'US', languages: ['en'] } },
-        { waitFor: 20000 },  // Longer wait fallback
+        { waitFor: 10000, timeout: 30000, location: { country: 'US', languages: ['en'] } },
+        { waitFor: 12000, timeout: 30000 },  // Longer wait fallback without geo
       ];
 
       let html: string | null = null;
@@ -48,6 +48,7 @@ serve(async (req) => {
             url,
             formats: ['rawHtml'],
             waitFor: strategy.waitFor,
+            timeout: strategy.timeout,
             onlyMainContent: false,
             ...(strategy.location && { location: strategy.location }),
           }),
