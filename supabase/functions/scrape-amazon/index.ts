@@ -48,6 +48,7 @@ serve(async (req) => {
             url,
             formats: ['rawHtml'],
             waitFor: strategy.waitFor,
+            timeout: strategy.timeout,
             onlyMainContent: false,
             ...(strategy.location && { location: strategy.location }),
           }),
