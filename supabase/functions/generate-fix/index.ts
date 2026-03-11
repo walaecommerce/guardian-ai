@@ -21,7 +21,7 @@ The generated image must look like a professional studio photograph, not a 3D re
 
 // ── Category detection ───────────────────────────────────────────
 
-type FixCategory = 'FOOD_BEVERAGE' | 'APPAREL' | 'ELECTRONICS' | 'PET_SUPPLIES' | 'GENERAL';
+type FixCategory = 'FOOD_BEVERAGE' | 'APPAREL' | 'ELECTRONICS' | 'PET_SUPPLIES' | 'BEAUTY' | 'SUPPLEMENTS' | 'GENERAL';
 
 function detectFixCategory(imageCategory?: string, productTitle?: string): FixCategory {
   const cat = (imageCategory || '').toUpperCase();
@@ -29,18 +29,22 @@ function detectFixCategory(imageCategory?: string, productTitle?: string): FixCa
 
   // From analysis category
   if (cat.includes('FOOD') || cat.includes('BEVERAGE')) return 'FOOD_BEVERAGE';
-  if (cat.includes('SUPPLEMENT')) return 'FOOD_BEVERAGE';
+  if (cat.includes('SUPPLEMENT') || cat.includes('VITAMIN')) return 'SUPPLEMENTS';
   if (cat.includes('PET')) return 'PET_SUPPLIES';
-  if (cat.includes('BEAUTY')) return 'FOOD_BEVERAGE'; // packaging-centric like F&B
+  if (cat.includes('BEAUTY') || cat.includes('PERSONAL') || cat.includes('SKINCARE') || cat.includes('COSMETIC')) return 'BEAUTY';
   if (cat.includes('ELECTRON')) return 'ELECTRONICS';
   if (cat.includes('APPAREL') || cat.includes('CLOTH')) return 'APPAREL';
 
   // Fallback: keyword detection from title
-  const foodKw = ['food', 'snack', 'drink', 'beverage', 'sauce', 'coffee', 'tea', 'juice', 'candy', 'chocolate', 'cereal', 'bar', 'chip', 'cookie', 'supplement', 'vitamin', 'protein', 'capsule', 'probiotic', 'serum', 'cream', 'lotion', 'shampoo'];
+  const supplementKw = ['supplement', 'vitamin', 'protein', 'capsule', 'probiotic', 'collagen', 'omega', 'multivitamin', 'creatine', 'amino', 'magnesium', 'zinc', 'iron', 'calcium', 'biotin', 'melatonin', 'ashwagandha', 'turmeric', 'elderberry', 'gummy', 'tablet', 'softgel'];
+  const beautyKw = ['serum', 'cream', 'lotion', 'shampoo', 'conditioner', 'moisturizer', 'cleanser', 'toner', 'sunscreen', 'foundation', 'mascara', 'lipstick', 'concealer', 'eyeshadow', 'blush', 'primer', 'perfume', 'cologne', 'deodorant', 'body wash', 'face wash', 'skincare', 'makeup', 'cosmetic', 'hair oil', 'nail polish'];
+  const foodKw = ['food', 'snack', 'drink', 'beverage', 'sauce', 'coffee', 'tea', 'juice', 'candy', 'chocolate', 'cereal', 'bar', 'chip', 'cookie'];
   const petKw = ['dog', 'cat', 'pet', 'puppy', 'kitten', 'treat', 'kibble', 'chew', 'leash', 'collar'];
   const techKw = ['electronic', 'charger', 'cable', 'bluetooth', 'wireless', 'speaker', 'headphone', 'usb', 'hdmi', 'adapter', 'camera', 'phone', 'laptop', 'tablet', 'device'];
   const apparelKw = ['shirt', 'pants', 'dress', 'jacket', 'hoodie', 'sweater', 'sock', 'shoe', 'boot', 'hat', 'glove', 'scarf', 'coat', 'blouse', 'skirt', 'jeans', 'legging', 'underwear', 'bra'];
 
+  if (supplementKw.some(kw => title.includes(kw))) return 'SUPPLEMENTS';
+  if (beautyKw.some(kw => title.includes(kw))) return 'BEAUTY';
   if (apparelKw.some(kw => title.includes(kw))) return 'APPAREL';
   if (foodKw.some(kw => title.includes(kw))) return 'FOOD_BEVERAGE';
   if (petKw.some(kw => title.includes(kw))) return 'PET_SUPPLIES';
@@ -63,6 +67,12 @@ const CATEGORY_PROMPTS: Record<FixCategory, (title: string) => string> = {
 
   PET_SUPPLIES: (title) =>
     `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Product centered and upright. If treat/food: show the bag or container front-facing with label fully legible, brand name prominent. If toy/accessory: show the product alone at a natural angle. If grooming: bottle or container upright, label facing camera. Warm, inviting studio lighting. Product fills 85% of frame. No pets in main image, no props, no lifestyle elements. Photorealistic, 4K quality.`,
+
+  BEAUTY: (title) =>
+    `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Product bottle or container upright, centered, label facing camera at a slight 5-degree angle to show dimension. The brand name, product name, and key claims on the label must be crisp and fully legible. If pump bottle: pump facing right. If tube: cap on, standing upright. If jar: lid on, slight overhead angle to show both lid and label. Luxurious studio lighting with soft reflections on glossy surfaces — no harsh glare. If the product has a metallic, glass, or frosted finish, render the material texture accurately. Product fills 85% of frame. No props, no flowers, no lifestyle elements, no color swatches. Photorealistic, 4K quality, beauty editorial style.`,
+
+  SUPPLEMENTS: (title) =>
+    `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Supplement bottle or container upright, centered, label facing directly at camera. The Supplement Facts panel does NOT need to be visible — focus on the FRONT label. Brand name, product name, dosage/count, and key ingredient callouts on the front label must be crisp and fully readable. If bottle with cap: cap on, bottle standing straight. If pouch/bag: standing upright, front panel filling 85% of frame. If blister pack or box: show front face at slight 3/4 angle. Clean, clinical studio lighting — bright and trustworthy. No pills scattered around, no ingredients shown loose, no lifestyle props. Product fills 85% of frame. Photorealistic, 4K quality, health & wellness editorial style.`,
 
   GENERAL: (title) =>
     `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Product centered, filling 85% of frame. All key features visible. Even studio lighting with soft natural shadow directly beneath product. No text, no props, no lifestyle elements. Photorealistic, 4K quality.`,
