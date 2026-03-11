@@ -68,6 +68,12 @@ const CATEGORY_PROMPTS: Record<FixCategory, (title: string) => string> = {
   PET_SUPPLIES: (title) =>
     `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Product centered and upright. If treat/food: show the bag or container front-facing with label fully legible, brand name prominent. If toy/accessory: show the product alone at a natural angle. If grooming: bottle or container upright, label facing camera. Warm, inviting studio lighting. Product fills 85% of frame. No pets in main image, no props, no lifestyle elements. Photorealistic, 4K quality.`,
 
+  BEAUTY: (title) =>
+    `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Product bottle or container upright, centered, label facing camera at a slight 5-degree angle to show dimension. The brand name, product name, and key claims on the label must be crisp and fully legible. If pump bottle: pump facing right. If tube: cap on, standing upright. If jar: lid on, slight overhead angle to show both lid and label. Luxurious studio lighting with soft reflections on glossy surfaces — no harsh glare. If the product has a metallic, glass, or frosted finish, render the material texture accurately. Product fills 85% of frame. No props, no flowers, no lifestyle elements, no color swatches. Photorealistic, 4K quality, beauty editorial style.`,
+
+  SUPPLEMENTS: (title) =>
+    `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Supplement bottle or container upright, centered, label facing directly at camera. The Supplement Facts panel does NOT need to be visible — focus on the FRONT label. Brand name, product name, dosage/count, and key ingredient callouts on the front label must be crisp and fully readable. If bottle with cap: cap on, bottle standing straight. If pouch/bag: standing upright, front panel filling 85% of frame. If blister pack or box: show front face at slight 3/4 angle. Clean, clinical studio lighting — bright and trustworthy. No pills scattered around, no ingredients shown loose, no lifestyle props. Product fills 85% of frame. Photorealistic, 4K quality, health & wellness editorial style.`,
+
   GENERAL: (title) =>
     `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Product centered, filling 85% of frame. All key features visible. Even studio lighting with soft natural shadow directly beneath product. No text, no props, no lifestyle elements. Photorealistic, 4K quality.`,
 };
