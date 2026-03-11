@@ -40,6 +40,8 @@ function detectFixCategory(imageCategory?: string, productTitle?: string): FixCa
   // Fallback: keyword detection from title
   const supplementKw = ['supplement', 'vitamin', 'protein', 'capsule', 'probiotic', 'collagen', 'omega', 'multivitamin', 'creatine', 'amino', 'magnesium', 'zinc', 'iron', 'calcium', 'biotin', 'melatonin', 'ashwagandha', 'turmeric', 'elderberry', 'gummy', 'tablet', 'softgel'];
   const beautyKw = ['serum', 'cream', 'lotion', 'shampoo', 'conditioner', 'moisturizer', 'cleanser', 'toner', 'sunscreen', 'foundation', 'mascara', 'lipstick', 'concealer', 'eyeshadow', 'blush', 'primer', 'perfume', 'cologne', 'deodorant', 'body wash', 'face wash', 'skincare', 'makeup', 'cosmetic', 'hair oil', 'nail polish'];
+  const homeKw = ['garden', 'planter', 'vase', 'candle', 'lamp', 'rug', 'curtain', 'pillow', 'blanket', 'organizer', 'shelf', 'basket', 'hanger', 'towel', 'mat', 'mop', 'broom', 'storage', 'drawer', 'hook', 'wreath', 'pot', 'decor', 'furniture', 'patio', 'grill', 'hose', 'sprinkler', 'toolbox'];
+  const toyKw = ['toy', 'game', 'puzzle', 'lego', 'doll', 'action figure', 'board game', 'plush', 'stuffed', 'playset', 'building block', 'rc car', 'nerf', 'craft kit', 'play-doh', 'slime', 'figurine', 'dice', 'card game'];
   const foodKw = ['food', 'snack', 'drink', 'beverage', 'sauce', 'coffee', 'tea', 'juice', 'candy', 'chocolate', 'cereal', 'bar', 'chip', 'cookie'];
   const petKw = ['dog', 'cat', 'pet', 'puppy', 'kitten', 'treat', 'kibble', 'chew', 'leash', 'collar'];
   const techKw = ['electronic', 'charger', 'cable', 'bluetooth', 'wireless', 'speaker', 'headphone', 'usb', 'hdmi', 'adapter', 'camera', 'phone', 'laptop', 'tablet', 'device'];
