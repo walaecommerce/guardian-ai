@@ -26,17 +26,54 @@ serve(async (req) => {
     if (firecrawlKey) {
       console.log('Using Firecrawl to scrape Amazon...');
       
-      // Try with different strategies
+      // Stealth-oriented scraping strategies to bypass Amazon bot detection
       const strategies = [
-        { waitFor: 10000, timeout: 30000, location: { country: 'US', languages: ['en'] } },
-        { waitFor: 12000, timeout: 30000 },  // Longer wait fallback without geo
+        {
+          waitFor: 10000,
+          timeout: 45000,
+          location: { country: 'US', languages: ['en'] },
+          headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'max-age=0',
+            'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          },
+        },
+        {
+          waitFor: 12000,
+          timeout: 45000,
+          headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+          },
+        },
+        {
+          waitFor: 15000,
+          timeout: 60000,
+          location: { country: 'GB', languages: ['en'] },
+          headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-GB,en;q=0.9',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+          },
+        },
       ];
 
       let html: string | null = null;
       let lastError: string | null = null;
 
       for (const strategy of strategies) {
-        console.log(`[scrape-amazon] Trying strategy: waitFor=${strategy.waitFor}, location=${strategy.location?.country || 'default'}`);
+        console.log(`[scrape-amazon] Trying strategy: waitFor=${strategy.waitFor}, location=${strategy.location?.country || 'default'}, UA=${strategy.headers['User-Agent']?.slice(-20)}`);
         
         const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
           method: 'POST',
@@ -50,6 +87,7 @@ serve(async (req) => {
             waitFor: strategy.waitFor,
             timeout: strategy.timeout,
             onlyMainContent: false,
+            headers: strategy.headers,
             ...(strategy.location && { location: strategy.location }),
           }),
         });
