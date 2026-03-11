@@ -21,7 +21,7 @@ The generated image must look like a professional studio photograph, not a 3D re
 
 // ── Category detection ───────────────────────────────────────────
 
-type FixCategory = 'FOOD_BEVERAGE' | 'APPAREL' | 'ELECTRONICS' | 'PET_SUPPLIES' | 'GENERAL';
+type FixCategory = 'FOOD_BEVERAGE' | 'APPAREL' | 'ELECTRONICS' | 'PET_SUPPLIES' | 'BEAUTY' | 'SUPPLEMENTS' | 'GENERAL';
 
 function detectFixCategory(imageCategory?: string, productTitle?: string): FixCategory {
   const cat = (imageCategory || '').toUpperCase();
