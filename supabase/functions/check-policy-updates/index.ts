@@ -88,16 +88,22 @@ serve(async (req) => {
     if (!response.ok) {
       const errText = await response.text();
       console.error("AI gateway error:", response.status, errText);
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+
+      if (response.status === 429 || response.status === 402) {
+        return new Response(JSON.stringify({
+          error: response.status === 402 ? "AI credits exhausted" : "Rate limit exceeded",
+          updates: [],
+          last_checked: new Date().toISOString(),
+          current_rules_summary: {
+            main_image: [],
+            secondary_image: [],
+            prohibited_content: [],
+          },
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+
       throw new Error(`AI gateway returned ${response.status}`);
     }
 
