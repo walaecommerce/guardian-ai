@@ -63,14 +63,17 @@ export function usePolicyUpdates() {
     setLoading(true);
     try {
       const { data: result, error } = await supabase.functions.invoke('check-policy-updates');
-      if (error) throw error;
+      if (error) {
+        console.warn('Policy update check failed (non-critical):', error.message);
+        return;
+      }
       if (result && !result.error) {
         const policyData = result as PolicyData;
         setData(policyData);
         setCache(policyData);
       }
     } catch (e) {
-      console.error('Policy update check failed:', e);
+      console.warn('Policy update check failed (non-critical):', e);
     } finally {
       setLoading(false);
     }
