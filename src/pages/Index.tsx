@@ -804,7 +804,8 @@ const Index = () => {
             productAsin: productAsin || extractAsin(amazonUrl) || undefined,
             customPrompt: customPrompt,
             spatialAnalysis: asset.analysisResult?.spatialAnalysis,
-            imageCategory: asset.analysisResult?.productCategory || undefined
+            imageCategory: asset.analysisResult?.productCategory || undefined,
+            productIdentity: productIdentity || undefined,
           }
         });
 
@@ -895,7 +896,8 @@ const Index = () => {
             generatedImageBase64: genData.fixedImage,
             imageType: asset.type,
             mainImageBase64,
-            spatialAnalysis: asset.analysisResult?.spatialAnalysis
+            spatialAnalysis: asset.analysisResult?.spatialAnalysis,
+            productIdentity: productIdentity || undefined,
           }
         });
 
