@@ -574,6 +574,7 @@ const Index = () => {
     
     setIsAnalyzing(true);
     setAuditComplete(null);
+    setStyleConsistency(null);
     setAnalyzingProgress({ current: 0, total: assets.length });
     addLog('processing', `🔍 Guardian initializing batch audit...`);
     addLog('info', `📦 ${assets.length} images queued for compliance check`);
