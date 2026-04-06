@@ -193,18 +193,84 @@
     @apply text-destructive;
   }
 
-  /* Status badges */
+  /* Status badges with animated dots */
   .badge-pass {
     @apply bg-success/15 text-success border border-success/20;
   }
+  .badge-pass::before {
+    content: '';
+    @apply inline-block w-2 h-2 rounded-full bg-success mr-1.5;
+    animation: pulseDot 2s ease-in-out infinite;
+  }
+
   .badge-fail {
     @apply bg-destructive/15 text-destructive border border-destructive/20;
   }
+  .badge-fail::before {
+    content: '';
+    @apply inline-block w-2 h-2 rounded-full bg-destructive mr-1.5;
+    animation: pulseDot 1.5s ease-in-out infinite;
+  }
+
+  .badge-warning {
+    @apply bg-warning/15 text-warning border border-warning/20;
+  }
+  .badge-warning::before {
+    content: '';
+    @apply inline-block w-2 h-2 rounded-full bg-warning mr-1.5;
+    animation: pulseDot 1.8s ease-in-out infinite;
+  }
+
   .badge-analyzing {
     @apply bg-primary/15 text-primary border border-primary/20;
   }
+  .badge-analyzing::before {
+    content: '';
+    @apply inline-block w-2 h-2 rounded-full bg-primary mr-1.5;
+    animation: spin 1s linear infinite;
+  }
+
   .badge-fixed {
     @apply bg-secondary/15 text-secondary border border-secondary/20;
+  }
+  .badge-fixed::before {
+    content: '';
+    @apply inline-block w-2 h-2 rounded-full bg-secondary mr-1.5;
+  }
+
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.75); }
+  }
+
+  /* Upload drop zone drag-over animation */
+  .upload-dropzone {
+    @apply border-2 border-dashed border-muted-foreground/20 rounded-2xl transition-all duration-300;
+  }
+  .upload-dropzone:hover,
+  .upload-dropzone.drag-over {
+    border-color: hsl(var(--primary));
+    background: hsl(187 100% 50% / 0.03);
+    box-shadow: inset 0 0 30px hsl(187 100% 50% / 0.05);
+  }
+  .upload-dropzone.drag-over {
+    animation: dashDance 0.6s linear infinite;
+  }
+
+  @keyframes dashDance {
+    0% { border-color: hsl(187 100% 50% / 0.6); }
+    50% { border-color: hsl(187 100% 50% / 0.3); }
+    100% { border-color: hsl(187 100% 50% / 0.6); }
+  }
+
+  /* Tab content transition */
+  [data-state="active"][role="tabpanel"] {
+    animation: tabFadeIn 200ms ease-out;
+  }
+
+  @keyframes tabFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 }
 
