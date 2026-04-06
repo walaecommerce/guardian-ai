@@ -81,6 +81,7 @@ serve(async (req) => {
       imageType,
       mainImageBase64,
       previousCritique,
+      productIdentity,
     } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -106,28 +107,61 @@ serve(async (req) => {
     console.log(`[verify-image] using model: ${MODELS.verification} via Lovable AI gateway`);
     console.log(`[verify-image] Verifying ${imageType} image...`);
 
-    // ── Build prompt ──
+    // ── Build prompt with weighted rubric ──
 
-    let systemText = `You are a quality verification specialist for Amazon product images. Compare the generated image against the original and verify compliance. Return ONLY valid JSON.`;
+    let systemText = `You are a strict quality verification specialist for Amazon product images. Compare the generated image against the original and verify compliance using a WEIGHTED RUBRIC.`;
 
     if (previousCritique) {
       systemText = `Previous attempt critique: ${previousCritique}. Address these specific issues in your evaluation.\n\n${systemText}`;
     }
 
+    // Build identity verification section
+    let identitySection = '';
+    if (productIdentity) {
+      identitySection = `
+PRODUCT IDENTITY CARD (verify the generated image matches ALL of these):
+- Brand: ${productIdentity.brandName || 'Unknown'}
+- Product: ${productIdentity.productName || 'Unknown'}
+- Packaging type: ${productIdentity.packagingType || 'unknown'}
+- Dominant colors: ${(productIdentity.dominantColors || []).join(', ')}
+- Shape: ${productIdentity.shapeDescription || 'N/A'}
+- Key label text that MUST be present: ${(productIdentity.labelText || []).join(' | ')}
+- Visual features: ${(productIdentity.keyVisualFeatures || []).join(', ')}
+
+Check each identity attribute individually. If ANY label text is missing/changed or colors are wrong, product_identity_preserved MUST be false.`;
+    }
+
     const outputSchema = `
+WEIGHTED SCORING RUBRIC:
+- Product Identity (35%): Does the generated image show the EXACT same product? Same brand, labels, colors, shape.
+- Background Compliance (25%): ${isMain ? 'Pure white RGB(255,255,255) background' : 'Appropriate lifestyle/infographic context preserved'}.
+- Badge/Text Removal (20%): Are prohibited badges removed while legitimate text is preserved?
+- Image Quality (10%): Sharp, professional, no artifacts, proper lighting.
+- No New Issues (10%): No new elements added, no hallucinated features, no cropping errors.
+${identitySection}
+
 Return this EXACT JSON structure:
 {
-  "score": <0-100>,
-  "is_satisfactory": <true if score >= 80 AND product identity preserved>,
-  "critique": "<concise description of issues>",
+  "score": <0-100 weighted>,
+  "is_satisfactory": <true if score >= 85 AND product identity preserved>,
+  "critique": "<concise description of specific issues found>",
   "checks": {
     "background_compliant": <boolean>,
-    "text_removed": <boolean>,
-    "product_identity_preserved": <boolean>,
-    "occupancy_adequate": <boolean>,
-    "quality_acceptable": <boolean>
+    "text_removed": <boolean — prohibited badges/overlays removed>,
+    "product_identity_preserved": <boolean — EXACT same product, same labels, colors, shape>,
+    "occupancy_adequate": <boolean — product fills 85%+ for MAIN>,
+    "quality_acceptable": <boolean>,
+    "no_new_elements": <boolean — nothing hallucinated or added>,
+    "label_text_legible": <boolean — all original label text is crisp and readable>
   },
-  "improvement_suggestion": "<specific actionable improvement>"
+  "identity_details": {
+    "brand_match": <boolean>,
+    "color_match": <boolean>,
+    "shape_match": <boolean>,
+    "label_text_match": <boolean>,
+    "missing_features": ["<any identity features that are wrong or missing>"]
+  },
+  "improvement_suggestion": "<specific actionable improvement for the next retry>"
 }`;
 
     // ── Build content parts ──
@@ -148,7 +182,7 @@ Return this EXACT JSON structure:
       }
     }
 
-    contentParts.push({ type: "text", text: "Verify the generated image meets all requirements and return this JSON structure exactly." });
+    contentParts.push({ type: "text", text: "Verify the generated image against the weighted rubric and return the JSON structure exactly." });
 
     // ── Make gateway request with retry for transient errors ──
 
@@ -248,12 +282,18 @@ Return this EXACT JSON structure:
     // ── Map to frontend-compatible camelCase format ──
 
     const checks = rawResult.checks || {};
+    const identityDetails = rawResult.identity_details || {};
     const score = rawResult.score ?? 0;
     const productMatch = checks.product_identity_preserved ?? rawResult.productMatch ?? true;
 
     let isSatisfactory = rawResult.is_satisfactory ?? rawResult.isSatisfactory ?? false;
     if (score < SATISFACTORY_THRESHOLD) isSatisfactory = false;
     if (!productMatch) isSatisfactory = false;
+
+    // Check identity details for stricter matching
+    if (identityDetails.missing_features?.length > 0) {
+      console.log(`[verify-image] Identity missing features: ${identityDetails.missing_features.join(', ')}`);
+    }
 
     const mappedResult = {
       score,
@@ -267,12 +307,19 @@ Return this EXACT JSON structure:
       failedChecks: Object.entries(checks)
         .filter(([, v]) => v === false)
         .map(([k]) => k.replace(/_/g, ' ')),
+      identityDetails: {
+        brandMatch: identityDetails.brand_match ?? true,
+        colorMatch: identityDetails.color_match ?? true,
+        shapeMatch: identityDetails.shape_match ?? true,
+        labelTextMatch: identityDetails.label_text_match ?? true,
+        missingFeatures: identityDetails.missing_features || [],
+      },
       componentScores: {
-        identity: productMatch ? 90 : 30,
+        identity: productMatch ? (identityDetails.label_text_match === false ? 60 : 90) : 30,
         compliance: checks.background_compliant && checks.text_removed ? 90 : 40,
         quality: checks.quality_acceptable ? 90 : 50,
-        textLayout: 80,
-        noAdditions: 90,
+        textLayout: checks.label_text_legible ? 90 : 50,
+        noAdditions: checks.no_new_elements ? 90 : 40,
       },
     };
 
@@ -280,6 +327,9 @@ Return this EXACT JSON structure:
     console.log(`[verify-image] Product match: ${mappedResult.productMatch}`);
     if (mappedResult.failedChecks.length > 0) {
       console.log(`[verify-image] Failed checks: ${mappedResult.failedChecks.join(', ')}`);
+    }
+    if (mappedResult.identityDetails.missingFeatures.length > 0) {
+      console.log(`[verify-image] Missing identity features: ${mappedResult.identityDetails.missingFeatures.join(', ')}`);
     }
 
     return new Response(JSON.stringify(mappedResult), {

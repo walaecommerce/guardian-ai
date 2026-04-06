@@ -19,7 +19,7 @@ import { RecommendationsPanel } from '@/components/recommendations/Recommendatio
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
 import { PolicyBanner, PolicySidebar } from '@/components/PolicyUpdates';
 import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
-import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload } from '@/types';
+import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
 import { supabase } from '@/integrations/supabase/client';
@@ -130,6 +130,7 @@ const Index = () => {
   const [fixProgress, setFixProgress] = useState<FixProgressState | null>(null);
   const [failedDownloads, setFailedDownloads] = useState<FailedDownload[]>([]);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [productIdentity, setProductIdentity] = useState<ProductIdentityCard | null>(null);
   
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const [activeTab, setActiveTab] = useState('results');
@@ -619,6 +620,31 @@ const Index = () => {
     }
 
     addLog('success', '🎯 Guardian batch audit complete');
+
+    // Extract product identity from MAIN image for cross-image consistency
+    const mainAssetForIdentity = assets.find(a => a.type === 'MAIN');
+    if (mainAssetForIdentity) {
+      try {
+        addLog('processing', '🔗 Extracting product identity card from main image...');
+        const mainBase64 = await fileToBase64(mainAssetForIdentity.file);
+        const { data: idData, error: idError } = await supabase.functions.invoke('extract-product-identity', {
+          body: { imageBase64: mainBase64, productTitle: listingTitle }
+        });
+        if (!idError && idData?.identity) {
+          setProductIdentity(idData.identity);
+          addLog('success', `✅ Product identity extracted: ${idData.identity.brandName} - ${idData.identity.productName}`);
+          // Persist to session
+          if (currentSessionId) {
+            await supabase.from('enhancement_sessions').update({ product_identity: idData.identity }).eq('id', currentSessionId);
+          }
+        } else {
+          addLog('warning', '⚠️ Could not extract product identity — fixes will use image-only matching');
+        }
+      } catch (e) {
+        addLog('warning', '⚠️ Product identity extraction skipped');
+      }
+    }
+
     setIsAnalyzing(false);
     setAnalyzingProgress(undefined);
     setAuditComplete({ passed: passedCount, failed: failedCount });
@@ -778,7 +804,8 @@ const Index = () => {
             productAsin: productAsin || extractAsin(amazonUrl) || undefined,
             customPrompt: customPrompt,
             spatialAnalysis: asset.analysisResult?.spatialAnalysis,
-            imageCategory: asset.analysisResult?.productCategory || undefined
+            imageCategory: asset.analysisResult?.productCategory || undefined,
+            productIdentity: productIdentity || undefined,
           }
         });
 
@@ -869,7 +896,8 @@ const Index = () => {
             generatedImageBase64: genData.fixedImage,
             imageType: asset.type,
             mainImageBase64,
-            spatialAnalysis: asset.analysisResult?.spatialAnalysis
+            spatialAnalysis: asset.analysisResult?.spatialAnalysis,
+            productIdentity: productIdentity || undefined,
           }
         });
 
@@ -1045,6 +1073,7 @@ const Index = () => {
           imageType: asset.type,
           mainImageBase64,
           spatialAnalysis: asset.analysisResult?.spatialAnalysis,
+          productIdentity: productIdentity || undefined,
         }
       });
 

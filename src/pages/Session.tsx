@@ -8,7 +8,7 @@ import { ComplianceReportCard } from '@/components/ComplianceReportCard';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
-import { ImageAsset, LogEntry, AnalysisResult, FixAttempt, FixProgressState } from '@/types';
+import { ImageAsset, LogEntry, AnalysisResult, FixAttempt, FixProgressState, ProductIdentityCard } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSessionLoader } from '@/hooks/useSessionLoader';
@@ -48,6 +48,7 @@ const Session = () => {
   const [fixProgress, setFixProgress] = useState<FixProgressState | null>(null);
   const [sessionStatus, setSessionStatus] = useState<string>('');
   const [sessionCreatedAt, setSessionCreatedAt] = useState<string>('');
+  const [productIdentity, setProductIdentity] = useState<ProductIdentityCard | null>(null);
   const { toast } = useToast();
 
   const addLog = useCallback((level: LogEntry['level'], message: string) => {
@@ -76,6 +77,7 @@ const Session = () => {
         setProductAsin(data.session.product_asin);
         setSessionStatus(data.session.status);
         setSessionCreatedAt(data.session.created_at);
+        if (data.productIdentity) setProductIdentity(data.productIdentity);
         
         addLog('success', `✅ Loaded ${data.assets.length} images from session`);
         addLog('info', `📦 Product: ${data.session.listing_title || 'Untitled'}`);
@@ -313,7 +315,8 @@ const Session = () => {
               productAsin: productAsin || extractAsin(amazonUrl) || undefined,
               customPrompt,
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
-              imageCategory: asset.analysisResult?.productCategory || undefined
+              imageCategory: asset.analysisResult?.productCategory || undefined,
+              productIdentity: productIdentity || undefined,
             }
           });
 
@@ -347,6 +350,7 @@ const Session = () => {
               imageType: asset.type,
               mainImageBase64,
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
+              productIdentity: productIdentity || undefined,
             }
           });
 

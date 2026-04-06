@@ -1,0 +1,1 @@
+ALTER TABLE public.enhancement_sessions ADD COLUMN IF NOT EXISTS product_identity jsonb DEFAULT NULL;
