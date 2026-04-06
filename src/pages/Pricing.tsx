@@ -5,8 +5,9 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useCredits } from '@/hooks/useCredits';
 import { TIERS } from '@/config/subscriptionTiers';
 import { toast } from 'sonner';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { CheckoutSuccessModal } from '@/components/CheckoutSuccessModal';
 
 const ICONS = [Zap, Rocket, Crown, Building2];
 
@@ -22,12 +23,14 @@ export default function Pricing() {
   const { refresh: refreshCredits } = useCredits();
   const [searchParams] = useSearchParams();
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const navigate = useNavigate();
 
   // Handle checkout return
   useEffect(() => {
     const checkout = searchParams.get('checkout');
     if (checkout === 'success') {
-      toast.success('Subscription activated! Credits are being updated...');
+      setShowSuccess(true);
       // Refresh subscription & credits
       setTimeout(() => {
         checkSubscription();
@@ -187,6 +190,15 @@ export default function Pricing() {
           </p>
         </div>
       </main>
+
+      <CheckoutSuccessModal
+        open={showSuccess}
+        onClose={() => {
+          setShowSuccess(false);
+          navigate('/', { replace: true });
+        }}
+        plan={currentPlan}
+      />
     </div>
   );
 }
