@@ -158,6 +158,15 @@ const Index = () => {
     }]);
   }, []);
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const analyzeStyleConsistency = useCallback(async (currentAssets: ImageAsset[]) => {
     const analyzedAssets = currentAssets.filter(a => a.analysisResult);
     if (analyzedAssets.length < 2) return;
@@ -191,15 +200,6 @@ const Index = () => {
       setIsAnalyzingStyle(false);
     }
   }, [addLog, listingTitle]);
-
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
 
   const computeContentHash = async (file: File): Promise<string> => {
     const buffer = await file.arrayBuffer();
