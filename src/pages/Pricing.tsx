@@ -1,7 +1,7 @@
 import { Shield, Check, Zap, Crown, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Header } from '@/components/Header';
+
 
 const PLANS = [
   {

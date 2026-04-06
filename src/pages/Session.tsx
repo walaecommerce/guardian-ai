@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { RATE_LIMITS } from '@/config/models';
 import { useParams, Link } from 'react-router-dom';
-import { Header } from '@/components/Header';
+
 import { AnalysisResults } from '@/components/AnalysisResults';
 import { ComplianceReportCard } from '@/components/ComplianceReportCard';
 import { BatchComparisonView } from '@/components/BatchComparisonView';

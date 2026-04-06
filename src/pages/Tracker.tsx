@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Header } from '@/components/Header';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
