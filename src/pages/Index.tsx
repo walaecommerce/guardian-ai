@@ -110,6 +110,7 @@ function CompetitorUrlInput({
 type AssetSessionMap = Map<string, string>;
 
 const Index = () => {
+  const { guard: creditGate } = useCreditGate();
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [listingTitle, setListingTitle] = useState('');
   const [amazonUrl, setAmazonUrl] = useState('');
@@ -239,6 +240,7 @@ const Index = () => {
 
   const handleImportFromAmazon = async (maxImages: MaxImagesOption = '20') => {
     if (!amazonUrl) return;
+    if (!creditGate('scrape')) return;
     
     setShowHero(false);
     const maxCount = maxImages === 'all' ? Infinity : parseInt(maxImages, 10);
@@ -595,6 +597,7 @@ const Index = () => {
 
   const handleRunAudit = async () => {
     if (assets.length === 0) return;
+    if (!creditGate('analyze')) return;
     
     setIsAnalyzing(true);
     setAuditComplete(null);
@@ -771,6 +774,7 @@ const Index = () => {
   const handleRequestFix = async (assetId: string, previousGeneratedImage?: string, customPrompt?: string) => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
+    if (!creditGate('fix')) return;
 
     try {
       const mainAsset = assets.find(a => a.type === 'MAIN' && a.id !== assetId);
