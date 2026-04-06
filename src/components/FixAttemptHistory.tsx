@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
-import { FixAttempt } from '@/types';
-import { CheckCircle, XCircle, Loader2, Sparkles, Paintbrush } from 'lucide-react';
+import { FixAttempt, FixMethod } from '@/types';
+import { CheckCircle, XCircle, Loader2, Sparkles, Paintbrush, Layers, RefreshCw, Scissors } from 'lucide-react';
 
 interface FixAttemptHistoryProps {
   attempts: FixAttempt[];
@@ -82,20 +82,29 @@ export function FixAttemptHistory({
                 {attempt.attempt}
               </div>
               
-              {/* Tier badge */}
-              {attempt.fixTier && (
-                <div className={cn(
-                  "absolute top-0.5 right-5 px-1 py-px rounded text-[7px] font-bold flex items-center gap-0.5",
-                  attempt.fixTier === 'gemini-flash' 
-                    ? "bg-cyan-500/90 text-white" 
-                    : "bg-amber-500/90 text-white"
-                )} title={attempt.fixTier === 'gemini-flash' ? 'Tier 1: Gemini Flash' : 'Tier 2: OpenAI Inpainting'}>
-                  {attempt.fixTier === 'gemini-flash' 
-                    ? <><Sparkles className="w-2 h-2" />T1</>
-                    : <><Paintbrush className="w-2 h-2" />T2</>
-                  }
-                </div>
-              )}
+              {/* Tier badge with fix method detail */}
+              {attempt.fixTier && (() => {
+                const tierConfig = attempt.fixTier === 'gemini-flash'
+                  ? { label: 'T1', className: 'bg-cyan-500/90 text-white', Icon: Sparkles, title: 'Tier 1: Gemini Flash' }
+                  : { label: 'T2', className: 'bg-amber-500/90 text-white', Icon: Paintbrush, title: 'Tier 2: OpenAI Inpainting' };
+                // Check logs for fix method detail
+                const methodFromLogs = attempt.logs?.find(l => l.message.includes('BG Seg') || l.message.includes('Regen') || l.message.includes('Surgical') || l.message.includes('Inpaint'));
+                const methodLabel = methodFromLogs
+                  ? methodFromLogs.message.includes('BG Seg') ? 'A1'
+                    : methodFromLogs.message.includes('Regen') ? 'A2'
+                    : methodFromLogs.message.includes('Surgical') ? 'T1'
+                    : 'T2'
+                  : tierConfig.label;
+                return (
+                  <div className={cn(
+                    "absolute top-0.5 right-5 px-1 py-px rounded text-[7px] font-bold flex items-center gap-0.5",
+                    tierConfig.className
+                  )} title={tierConfig.title}>
+                    <tierConfig.Icon className="w-2 h-2" />
+                    {methodLabel}
+                  </div>
+                );
+              })()}
             </button>
           );
         })}
