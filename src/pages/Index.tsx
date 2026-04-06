@@ -346,7 +346,7 @@ const Index = () => {
 
   // ── FEATURE 1: Bulk URL Import ──
   const handleBulkImport = async (urls: string[]) => {
-    setShowHero(false);
+    
     setIsImporting(true);
     setBulkProgress({ current: 0, total: urls.length });
     addLog('processing', `📦 Starting bulk import of ${urls.length} URLs...`);
