@@ -90,8 +90,8 @@ serve(async (req) => {
 
     const isMain = imageType === 'MAIN';
 
-    const originalUrl = toDataUrl(originalImageBase64);
-    const generatedUrl = toDataUrl(generatedImageBase64);
+    const originalUrl = await fetchImageAsDataUrl(originalImageBase64);
+    const generatedUrl = await fetchImageAsDataUrl(generatedImageBase64);
 
     if (!originalUrl || !generatedUrl) {
       console.error("[verify-image] Missing image data — original:", !!originalUrl, "generated:", !!generatedUrl);
