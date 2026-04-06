@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ImageAsset, AnalysisResult, FixAttempt } from '@/types';
+import { ImageAsset, AnalysisResult, FixAttempt, ProductIdentityCard } from '@/types';
 
 interface EnhancementSession {
   id: string;
@@ -21,6 +21,7 @@ interface SessionData {
   session: EnhancementSession;
   assets: ImageAsset[];
   assetSessionMap: Map<string, string>;
+  productIdentity?: ProductIdentityCard;
 }
 
 export function useSessionLoader() {
@@ -87,10 +88,14 @@ export function useSessionLoader() {
         })
       );
 
+      // Extract product identity if stored
+      const productIdentity = (session as any).product_identity as ProductIdentityCard | undefined;
+
       return {
         session: session as EnhancementSession,
         assets,
         assetSessionMap,
+        productIdentity: productIdentity || undefined,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load session';
