@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -8,7 +7,7 @@ import {
   AlertTriangle, CheckCircle2, Loader2, TrendingUp,
   Lightbulb
 } from 'lucide-react';
-import { StyleConsistencyResult } from '@/types';
+import { StyleConsistencyResult, StyleDimensionScore } from '@/types';
 
 interface Props {
   result: StyleConsistencyResult | null;
@@ -26,10 +25,10 @@ const DIMENSION_CONFIG = {
 } as const;
 
 function getScoreColor(score: number): string {
-  if (score >= 85) return 'text-green-400';
-  if (score >= 70) return 'text-yellow-400';
-  if (score >= 50) return 'text-orange-400';
-  return 'text-red-400';
+  if (score >= 85) return 'text-primary';
+  if (score >= 70) return 'text-accent-foreground';
+  if (score >= 50) return 'text-destructive/80';
+  return 'text-destructive';
 }
 
 function getScoreLabel(score: number): string {
@@ -41,10 +40,10 @@ function getScoreLabel(score: number): string {
 }
 
 function getProgressColor(score: number): string {
-  if (score >= 85) return 'bg-green-500';
-  if (score >= 70) return 'bg-yellow-500';
-  if (score >= 50) return 'bg-orange-500';
-  return 'bg-red-500';
+  if (score >= 85) return 'bg-primary';
+  if (score >= 70) return 'bg-accent-foreground';
+  if (score >= 50) return 'bg-destructive/80';
+  return 'bg-destructive';
 }
 
 function ScoreGauge({ score }: { score: number }) {
@@ -85,7 +84,7 @@ export function StyleConsistencyPanel({ result, loading, imageCount }: Props) {
   if (!result) return null;
 
   const dimensions = result.dimensions;
-  const allIssues = Object.values(dimensions).flatMap(d => d.issues || []);
+  const allIssues = Object.values(dimensions).flatMap((d: StyleDimensionScore) => d.issues || []);
 
   return (
     <div className="space-y-4">
