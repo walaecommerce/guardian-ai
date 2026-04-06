@@ -722,6 +722,11 @@ const Index = () => {
 
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
     setTimeout(() => setAuditComplete(null), 3000);
+
+    // Auto-trigger style consistency analysis
+    if (assets.length >= 2) {
+      analyzeStyleConsistency(assets);
+    }
   };
 
   const handleSaveReport = async () => {
