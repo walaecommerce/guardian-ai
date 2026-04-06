@@ -31,6 +31,7 @@ import { uploadImage } from '@/services/imageStorage';
 import { extractAsin } from '@/services/amazonScraper';
 
 const Session = () => {
+  const { guard: creditGate } = useCreditGate();
   const { sessionId } = useParams<{ sessionId: string }>();
   const { loadSession, isLoading: isLoadingSession, error: loadError } = useSessionLoader();
   const [assets, setAssets] = useState<ImageAsset[]>([]);
