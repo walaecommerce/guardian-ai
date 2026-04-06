@@ -131,6 +131,7 @@ function filterByRange(audits: AuditRecord[], range: string): AuditRecord[] {
 // ── Component ────────────────────────────────────────────────
 
 const Tracker = () => {
+  const { guard: creditGate } = useCreditGate();
   const [tracker, setTracker] = useState<TrackerData>(loadTracker);
   const [alerts, setAlerts] = useState<TrackerAlert[]>(loadAlerts);
   const [urlInput, setUrlInput] = useState('');
