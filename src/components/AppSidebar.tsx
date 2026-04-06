@@ -178,7 +178,7 @@ export function AppSidebar() {
                 <CreditCard className="w-4 h-4" />
                 Upgrade Plan
               </DropdownMenuItem>
-              <DropdownMenuItem className="gap-2 cursor-pointer text-sm">
+              <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer text-sm">
                 <Settings className="w-4 h-4" />
                 Settings
               </DropdownMenuItem>

@@ -14,6 +14,7 @@ import Tracker from "./pages/Tracker";
 import TestChecklist from "./pages/TestChecklist";
 import Onboarding from "./pages/Onboarding";
 import Pricing from "./pages/Pricing";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
                     <Route path="/studio" element={<Studio />} />
                     <Route path="/tracker" element={<Tracker />} />
                     <Route path="/test-checklist" element={<TestChecklist />} />
+                    <Route path="/settings" element={<Settings />} />
                     <Route path="/session/:sessionId" element={<Session />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

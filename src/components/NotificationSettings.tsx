@@ -49,6 +49,10 @@ export function getNotificationPrefs(): NotificationPrefs {
   };
 }
 
+export function saveNotificationPrefs(prefs: NotificationPrefs) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+}
+
 export function getNotificationLog(): NotificationLogEntry[] {
   try {
     const stored = localStorage.getItem(LOG_KEY);
