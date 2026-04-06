@@ -280,6 +280,38 @@ export function ComplianceReportCard({ assets, isAnalyzing }: ComplianceReportCa
           />
         </div>
 
+        {/* Fix Method Statistics */}
+        {assets.filter(a => a.fixedImage && a.fixMethod).length > 0 && (
+          <div className="space-y-2">
+            <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+              Fix Methods Used
+            </h4>
+            <div className="grid grid-cols-2 gap-2">
+              {(() => {
+                const fixedAssets = assets.filter(a => a.fixedImage && a.fixMethod);
+                const counts: Record<string, { count: number; label: string; className: string }> = {};
+                const methodMeta: Record<string, { label: string; className: string }> = {
+                  'bg-segmentation': { label: 'A1 · BG Seg', className: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/30' },
+                  'full-regeneration': { label: 'A2 · Regen', className: 'bg-violet-500/10 text-violet-600 border-violet-500/30' },
+                  'surgical-edit': { label: 'T1 · Surgical', className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' },
+                  'openai-inpainting': { label: 'T2 · Inpaint', className: 'bg-amber-500/10 text-amber-600 border-amber-500/30' },
+                };
+                fixedAssets.forEach(a => {
+                  const m = a.fixMethod!;
+                  if (!counts[m]) counts[m] = { count: 0, ...methodMeta[m] };
+                  counts[m].count++;
+                });
+                return Object.entries(counts).map(([method, { count, label, className }]) => (
+                  <div key={method} className={`rounded-lg border p-2 text-center ${className}`}>
+                    <p className="text-xl font-bold">{count}</p>
+                    <p className="text-xs font-medium">{label}</p>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+
         {/* Violation Categories */}
         {violationsByCategory.size > 0 && (
           <div className="space-y-2">
