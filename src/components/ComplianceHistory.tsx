@@ -112,11 +112,15 @@ export function ComplianceHistory({ onLoadAudit }: ComplianceHistoryProps) {
 
   if (history.length === 0) {
     return (
-      <Card>
-        <CardContent className="text-center py-12">
-          <History className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No audit history yet.</p>
-          <p className="text-xs text-muted-foreground mt-1">Completed audits will appear here.</p>
+      <Card className="glass-card min-h-[400px] flex items-center justify-center">
+        <CardContent className="text-center py-16">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <History className="w-8 h-8 text-primary/30" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Reports Yet</h3>
+          <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
+            Completed audits will be saved here for future reference.
+          </p>
         </CardContent>
       </Card>
     );
