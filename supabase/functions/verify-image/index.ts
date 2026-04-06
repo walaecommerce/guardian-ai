@@ -141,7 +141,7 @@ Return this EXACT JSON structure:
     ];
 
     if (!isMain && mainImageBase64) {
-      const mainUrl = toDataUrl(mainImageBase64);
+      const mainUrl = await fetchImageAsDataUrl(mainImageBase64);
       if (mainUrl) {
         contentParts.push({ type: "text", text: "MAIN PRODUCT REFERENCE (for product identity check):" });
         contentParts.push({ type: "image_url", image_url: { url: mainUrl } });
