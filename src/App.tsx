@@ -16,6 +16,7 @@ import Onboarding from "./pages/Onboarding";
 import Pricing from "./pages/Pricing";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import Landing from "./pages/Landing";
 
 const queryClient = new QueryClient();
 
@@ -26,25 +27,28 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AuthGuard>
-            <Routes>
-              <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="*" element={
-                <DashboardLayout>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/pricing" element={<Pricing />} />
-                    <Route path="/campaign" element={<CampaignAudit />} />
-                    <Route path="/studio" element={<Studio />} />
-                    <Route path="/tracker" element={<Tracker />} />
-                    <Route path="/test-checklist" element={<TestChecklist />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/session/:sessionId" element={<Session />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </DashboardLayout>
-              } />
-            </Routes>
+          <Routes>
+            <Route path="/landing" element={<Landing />} />
+            <Route path="*" element={
+              <AuthGuard>
+                <Routes>
+                  <Route path="/onboarding" element={<Onboarding />} />
+                  <Route path="*" element={
+                    <DashboardLayout>
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/pricing" element={<Pricing />} />
+                        <Route path="/campaign" element={<CampaignAudit />} />
+                        <Route path="/studio" element={<Studio />} />
+                        <Route path="/tracker" element={<Tracker />} />
+                        <Route path="/test-checklist" element={<TestChecklist />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="/session/:sessionId" element={<Session />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </DashboardLayout>
+                  } />
+                </Routes>
               </AuthGuard>
             } />
           </Routes>
