@@ -244,11 +244,25 @@ export function ListingScoreCard({ assets, listingTitle }: ListingScoreCardProps
     }
   };
 
-  if (!hasAnalyzedAssets) return null;
+  if (!hasAnalyzedAssets) {
+    return (
+      <Card className="glass-card h-full flex items-center justify-center min-h-[400px]">
+        <CardContent className="text-center py-16">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Target className="w-8 h-8 text-primary/30" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Score Card Yet</h3>
+          <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
+            Run a compliance audit first, then generate a 6-dimension listing health score card.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!data) {
     return (
-      <Card className="border-primary/20">
+      <Card className="glass-card border-primary/20">
         <CardContent className="pt-6 flex flex-col items-center gap-4">
           <div className="text-center space-y-1">
             <h3 className="text-lg font-semibold flex items-center gap-2 justify-center">

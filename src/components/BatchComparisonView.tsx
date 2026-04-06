@@ -58,14 +58,14 @@ export function BatchComparisonView({ assets, onViewDetails, onDownload }: Batch
 
   if (analyzedAssets.length === 0) {
     return (
-      <Card className="h-full flex items-center justify-center">
-        <CardContent className="text-center py-12">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-            <Eye className="w-8 h-8 text-muted-foreground" />
+      <Card className="glass-card h-full flex items-center justify-center min-h-[400px]">
+        <CardContent className="text-center py-16">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Eye className="w-8 h-8 text-primary/30" />
           </div>
-          <h3 className="font-medium text-foreground mb-2">No Comparisons Yet</h3>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            Run an audit and generate fixes to see before/after comparisons here.
+          <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Fix Comparisons Yet</h3>
+          <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
+            Run an audit and generate AI fixes to see original vs. fixed comparisons here.
           </p>
         </CardContent>
       </Card>
