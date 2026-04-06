@@ -11,7 +11,7 @@ interface SubscriptionState {
 }
 
 export function useSubscription() {
-  const { user } = useAuth();
+  const { user, session, isLoading: authLoading } = useAuth();
   const [state, setState] = useState<SubscriptionState>({
     subscribed: false,
     plan: 'free',
@@ -21,7 +21,9 @@ export function useSubscription() {
   });
 
   const checkSubscription = useCallback(async () => {
-    if (!user) {
+    if (authLoading) return;
+
+    if (!user || !session?.access_token) {
       setState({ subscribed: false, plan: 'free', productId: null, subscriptionEnd: null, loading: false });
       return;
     }
@@ -41,7 +43,7 @@ export function useSubscription() {
       console.error('Subscription check failed:', err);
       setState(s => ({ ...s, loading: false }));
     }
-  }, [user]);
+  }, [authLoading, user, session]);
 
   useEffect(() => {
     checkSubscription();
@@ -49,10 +51,10 @@ export function useSubscription() {
 
   // Auto-refresh every 60 seconds
   useEffect(() => {
-    if (!user) return;
+    if (!user || !session?.access_token || authLoading) return;
     const interval = setInterval(checkSubscription, 60_000);
     return () => clearInterval(interval);
-  }, [user, checkSubscription]);
+  }, [authLoading, user, session, checkSubscription]);
 
   const startCheckout = useCallback(async (priceId: string) => {
     const { data, error } = await supabase.functions.invoke('create-checkout', {
