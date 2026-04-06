@@ -29,6 +29,13 @@ serve(async (req) => {
     { auth: { persistSession: false } }
   );
 
+  // Anon client with user's auth header for getClaims
+  const supabaseAuth = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } }
+  );
+
   try {
     logStep("Function started");
 
@@ -39,7 +46,7 @@ serve(async (req) => {
     if (!authHeader) throw new Error("No authorization header provided");
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseAdmin.auth.getClaims(token);
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
     if (claimsError || !claimsData?.claims) throw new Error(`Auth error: ${claimsError?.message || 'Invalid token'}`);
     
     const userId = claimsData.claims.sub as string;
