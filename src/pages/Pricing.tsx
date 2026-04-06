@@ -14,14 +14,8 @@ function formatCredit(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
   return n.toString();
 }
-import { useSubscription } from '@/hooks/useSubscription';
-import { useCredits } from '@/hooks/useCredits';
-import { TIERS } from '@/config/subscriptionTiers';
-import { toast } from 'sonner';
-import { useSearchParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 
-const ICONS = [Zap, Rocket, Crown, Building2];
+
 
 export default function Pricing() {
   const { plan: currentPlan, subscribed, startCheckout, openPortal, checkSubscription } = useSubscription();
