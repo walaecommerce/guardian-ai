@@ -160,6 +160,7 @@ serve(async (req) => {
       customPrompt,
       spatialAnalysis,
       imageCategory,
+      productIdentity,
     } = await req.json();
 
     // Detect category for prompt selection
