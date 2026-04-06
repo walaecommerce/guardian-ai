@@ -229,7 +229,7 @@ serve(async (req) => {
     if (isMain) {
       // PATTERN A — MAIN image: text-to-image (with optional reference)
       const title = productTitle || generativePrompt || 'Amazon product';
-      let prompt = customPrompt || buildMainImagePrompt(title, fixCategory);
+      let prompt = customPrompt || buildMainImagePrompt(title, fixCategory, productIdentity);
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
@@ -247,7 +247,7 @@ serve(async (req) => {
 
     } else if (mainImageBase64) {
       // PATTERN C — SECONDARY with main reference (two images)
-      let prompt = customPrompt || `Edit this secondary image. Remove ONLY: Best Seller badges, Amazon's Choice badges, competitor logos. PRESERVE everything else: lifestyle setting, people, props, infographic text, background. Ensure product matches the reference main image provided.`;
+      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity);
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
       if (previousCritique) {
