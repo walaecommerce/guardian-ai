@@ -268,7 +268,7 @@ serve(async (req) => {
 
     } else {
       // PATTERN B — SECONDARY without main reference (one image)
-      let prompt = customPrompt || buildSecondaryImagePrompt();
+      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity);
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
       if (previousCritique) {
