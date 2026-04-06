@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCreditGate } from '@/hooks/useCreditGate';
 import { RATE_LIMITS } from '@/config/models';
 import { useParams, Link } from 'react-router-dom';
 
