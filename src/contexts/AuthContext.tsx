@@ -126,17 +126,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-
+      (event, newSession) => {
         if (newSession?.user) {
-          // Use setTimeout to avoid potential deadlock with Supabase client
           setTimeout(() => {
-            fetchProfile(newSession.user.id, newSession.user.user_metadata)
-              .finally(() => setIsLoading(false));
+            (async () => {
+              const { data: validatedUser, error: validateError } = await supabase.auth.getUser();
+
+              if (validateError || !validatedUser.user) {
+                await supabase.auth.signOut();
+                setSession(null);
+                setUser(null);
+                setProfile(null);
+                setIsLoading(false);
+                return;
+              }
+
+              setSession(newSession);
+              setUser(validatedUser.user);
+              await fetchProfile(validatedUser.user.id, validatedUser.user.user_metadata);
+              setIsLoading(false);
+            })();
           }, 0);
         } else {
+          setSession(null);
+          setUser(null);
           setProfile(null);
           setIsLoading(false);
         }
