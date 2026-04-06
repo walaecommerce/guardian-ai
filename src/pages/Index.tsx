@@ -1513,11 +1513,18 @@ const Index = () => {
                 />
               </TabsContent>
               <TabsContent value="recommendations">
-                <RecommendationsPanel
-                  assets={assets}
-                  listingTitle={listingTitle}
-                  onApplyFix={(assetId, prompt) => handleRequestFix(assetId, undefined, prompt)}
-                />
+                <div className="space-y-4">
+                  <StyleConsistencyPanel
+                    result={styleConsistency}
+                    loading={isAnalyzingStyle}
+                    imageCount={assets.filter(a => a.analysisResult).length}
+                  />
+                  <RecommendationsPanel
+                    assets={assets}
+                    listingTitle={listingTitle}
+                    onApplyFix={(assetId, prompt) => handleRequestFix(assetId, undefined, prompt)}
+                  />
+                </div>
               </TabsContent>
               <TabsContent value="scorecard">
                 <ListingScoreCard assets={assets} listingTitle={listingTitle} />
