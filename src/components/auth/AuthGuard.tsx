@@ -27,7 +27,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   if (!user) {
-    return <LoginScreen />;
+    return <Navigate to="/landing" replace />;
   }
 
   // User exists but profile still loading
