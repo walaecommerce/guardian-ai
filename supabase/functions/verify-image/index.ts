@@ -282,12 +282,18 @@ Return this EXACT JSON structure:
     // ── Map to frontend-compatible camelCase format ──
 
     const checks = rawResult.checks || {};
+    const identityDetails = rawResult.identity_details || {};
     const score = rawResult.score ?? 0;
     const productMatch = checks.product_identity_preserved ?? rawResult.productMatch ?? true;
 
     let isSatisfactory = rawResult.is_satisfactory ?? rawResult.isSatisfactory ?? false;
     if (score < SATISFACTORY_THRESHOLD) isSatisfactory = false;
     if (!productMatch) isSatisfactory = false;
+
+    // Check identity details for stricter matching
+    if (identityDetails.missing_features?.length > 0) {
+      console.log(`[verify-image] Identity missing features: ${identityDetails.missing_features.join(', ')}`);
+    }
 
     const mappedResult = {
       score,
@@ -301,12 +307,19 @@ Return this EXACT JSON structure:
       failedChecks: Object.entries(checks)
         .filter(([, v]) => v === false)
         .map(([k]) => k.replace(/_/g, ' ')),
+      identityDetails: {
+        brandMatch: identityDetails.brand_match ?? true,
+        colorMatch: identityDetails.color_match ?? true,
+        shapeMatch: identityDetails.shape_match ?? true,
+        labelTextMatch: identityDetails.label_text_match ?? true,
+        missingFeatures: identityDetails.missing_features || [],
+      },
       componentScores: {
-        identity: productMatch ? 90 : 30,
+        identity: productMatch ? (identityDetails.label_text_match === false ? 60 : 90) : 30,
         compliance: checks.background_compliant && checks.text_removed ? 90 : 40,
         quality: checks.quality_acceptable ? 90 : 50,
-        textLayout: 80,
-        noAdditions: 90,
+        textLayout: checks.label_text_legible ? 90 : 50,
+        noAdditions: checks.no_new_elements ? 90 : 40,
       },
     };
 
@@ -314,6 +327,9 @@ Return this EXACT JSON structure:
     console.log(`[verify-image] Product match: ${mappedResult.productMatch}`);
     if (mappedResult.failedChecks.length > 0) {
       console.log(`[verify-image] Failed checks: ${mappedResult.failedChecks.join(', ')}`);
+    }
+    if (mappedResult.identityDetails.missingFeatures.length > 0) {
+      console.log(`[verify-image] Missing identity features: ${mappedResult.identityDetails.missingFeatures.join(', ')}`);
     }
 
     return new Response(JSON.stringify(mappedResult), {
