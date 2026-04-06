@@ -39,7 +39,32 @@ const toDataUrl = (dataUrl: string | undefined | null): string => {
     }
     return dataUrl;
   }
+  // If it's a URL, return it as-is — we'll handle fetching separately
+  if (dataUrl.startsWith('http://') || dataUrl.startsWith('https://')) {
+    return dataUrl;
+  }
   return `data:${guessImageMimeType(dataUrl)};base64,${dataUrl}`;
+};
+
+const fetchImageAsDataUrl = async (input: string): Promise<string> => {
+  if (!input) return '';
+  // Already a data URL or raw base64 converted to data URL
+  if (input.startsWith('data:')) return input;
+  // It's a URL — fetch and convert to base64
+  if (input.startsWith('http://') || input.startsWith('https://')) {
+    const resp = await fetch(input);
+    if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status} ${input}`);
+    const buf = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = btoa(binary);
+    const contentType = resp.headers.get('content-type') || 'image/png';
+    const mime = normalizeMimeType(contentType, b64);
+    return `data:${mime};base64,${b64}`;
+  }
+  // Raw base64
+  return `data:${guessImageMimeType(input)};base64,${input}`;
 };
 
 // ── Main handler ─────────────────────────────────────────────────
@@ -65,8 +90,8 @@ serve(async (req) => {
 
     const isMain = imageType === 'MAIN';
 
-    const originalUrl = toDataUrl(originalImageBase64);
-    const generatedUrl = toDataUrl(generatedImageBase64);
+    const originalUrl = await fetchImageAsDataUrl(originalImageBase64);
+    const generatedUrl = await fetchImageAsDataUrl(generatedImageBase64);
 
     if (!originalUrl || !generatedUrl) {
       console.error("[verify-image] Missing image data — original:", !!originalUrl, "generated:", !!generatedUrl);
@@ -116,7 +141,7 @@ Return this EXACT JSON structure:
     ];
 
     if (!isMain && mainImageBase64) {
-      const mainUrl = toDataUrl(mainImageBase64);
+      const mainUrl = await fetchImageAsDataUrl(mainImageBase64);
       if (mainUrl) {
         contentParts.push({ type: "text", text: "MAIN PRODUCT REFERENCE (for product identity check):" });
         contentParts.push({ type: "image_url", image_url: { url: mainUrl } });
