@@ -92,17 +92,38 @@ const CATEGORY_PROMPTS: Record<FixCategory, (title: string) => string> = {
 
 // ── Prompt builders ──────────────────────────────────────────────
 
-function buildMainImagePrompt(title: string, category: FixCategory): string {
-  return `${SYSTEM_INSTRUCTION}\n\n${CATEGORY_PROMPTS[category](title)}`;
+function buildMainImagePrompt(title: string, category: FixCategory, identity?: any): string {
+  let prompt = `${SYSTEM_INSTRUCTION}\n\n${CATEGORY_PROMPTS[category](title)}`;
+  if (identity) {
+    prompt += `\n\nPRODUCT IDENTITY CARD (preserve these details exactly):
+- Brand: ${identity.brandName || 'Unknown'}
+- Product: ${identity.productName || title}
+- Packaging: ${identity.packagingType || 'unknown'}
+- Shape: ${identity.shapeDescription || 'standard'}
+- Dominant colors: ${(identity.dominantColors || []).join(', ')}
+- Key label text: ${(identity.labelText || []).join(' | ')}
+- Visual features: ${(identity.keyVisualFeatures || []).join(', ')}
+
+CRITICAL: The generated image must show THIS EXACT product. Do NOT change any labels, colors, shape, or branding. It is better to leave a small background imperfection than to alter the product identity.`;
+  }
+  return prompt;
 }
 
-function buildSecondaryImagePrompt(): string {
-  return `Edit this product image with MINIMAL targeted changes only:
+function buildSecondaryImagePrompt(identity?: any): string {
+  let prompt = `Edit this product image with MINIMAL targeted changes only:
 - REMOVE: "Best Seller" badges, "Amazon's Choice" badges, competitor logos, unreadable text
 - PRESERVE EVERYTHING ELSE: lifestyle setting, background scene, people, props, infographic text, annotations, product context
 - Do NOT change the background
 - Do NOT remove informational text or callouts
+- Do NOT regenerate the product — it must remain pixel-identical
 - Make the smallest possible edit to achieve compliance`;
+  if (identity) {
+    prompt += `\n\nPRODUCT IDENTITY (must match exactly):
+- Brand: ${identity.brandName || 'Unknown'}, Product: ${identity.productName || 'Unknown'}
+- Colors: ${(identity.dominantColors || []).join(', ')}
+- ${identity.productDescriptor || ''}`;
+  }
+  return prompt;
 }
 
 // ── Image helpers ────────────────────────────────────────────────
