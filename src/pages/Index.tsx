@@ -169,71 +169,6 @@ const Index = () => {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   };
 
-  // Load demo images for hackathon demo
-  const handleLoadDemo = async () => {
-    setShowHero(false);
-    setIsImporting(true);
-    addLog('processing', '🎯 Loading demo images with intentional violations...');
-    
-    try {
-      const { files, product } = await loadDemoImages();
-      
-      setAmazonUrl(product.url);
-      setListingTitle(product.title);
-      setProductAsin(product.asin);
-      
-      addLog('success', `📦 Demo product: ${product.title}`);
-      addLog('info', `🔍 These images contain known violations for demonstration`);
-      
-      const newAssets: ImageAsset[] = [];
-      
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const base64 = await fileToBase64(file);
-        
-        addLog('processing', `🔍 Classifying demo image ${i + 1}/${files.length}...`);
-        const classification = await classifyImage(base64, product.title, product.asin);
-        
-        const aiCategory = classification.category as ImageCategory;
-        addLog('info', `   └─ Detected: ${aiCategory} (${classification.confidence}% confidence)`);
-        
-        const assetId = Math.random().toString(36).substring(2, 9);
-        
-        newAssets.push({
-          id: assetId,
-          file,
-          preview: URL.createObjectURL(file),
-          type: i === 0 ? 'MAIN' : 'SECONDARY',
-          name: `${aiCategory}_demo_${i + 1}.jpg`,
-          contentHash: await computeContentHash(file),
-        });
-        
-        await new Promise(r => setTimeout(r, 300));
-      }
-      
-      setAssets(newAssets);
-      addLog('success', `✅ Loaded ${newAssets.length} demo images`);
-      addLog('info', '💡 Click "Run Audit" to see Guardian detect the violations');
-      
-      toast({
-        title: 'Demo Images Loaded',
-        description: 'Pre-loaded images with intentional violations ready for audit'
-      });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to load demo';
-      addLog('error', msg);
-      toast({ title: 'Demo Load Failed', description: msg, variant: 'destructive' });
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const handleScrollToUpload = () => {
-    setShowHero(false);
-    setTimeout(() => {
-      uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  };
 
   const assetGridRef = useRef<HTMLDivElement>(null);
   const [titlePulse, setTitlePulse] = useState(false);
@@ -242,7 +177,6 @@ const Index = () => {
     if (!amazonUrl) return;
     if (!creditGate('scrape')) return;
     
-    setShowHero(false);
     const maxCount = maxImages === 'all' ? Infinity : parseInt(maxImages, 10);
     
     setIsImporting(true);
