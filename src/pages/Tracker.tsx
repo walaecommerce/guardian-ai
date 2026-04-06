@@ -156,6 +156,7 @@ const Tracker = () => {
 
   // ── Run audit on a product ────────────────────────────────
   const runAudit = useCallback(async (product: TrackedProduct) => {
+    if (!creditGate('scrape') || !creditGate('analyze')) return;
     setAuditingAsin(product.asin);
     try {
       const scraped = await scrapeAmazonProduct(product.url);
@@ -236,6 +237,7 @@ const Tracker = () => {
   // ── Add product ───────────────────────────────────────────
   const addProduct = async () => {
     if (!urlInput.trim()) return;
+    if (!creditGate('scrape')) return;
     const asin = extractAsin(urlInput.trim());
     if (tracker.products.some(p => p.asin === asin || p.url === urlInput.trim())) {
       toast({ title: 'Already tracked', variant: 'destructive' });
