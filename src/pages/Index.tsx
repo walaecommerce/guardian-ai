@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useCreditGate } from '@/hooks/useCreditGate';
 import { RATE_LIMITS } from '@/config/models';
 
 import { HeroSection } from '@/components/HeroSection';
