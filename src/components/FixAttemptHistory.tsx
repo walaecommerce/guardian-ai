@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { FixAttempt } from '@/types';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Sparkles, Paintbrush } from 'lucide-react';
 
 interface FixAttemptHistoryProps {
   attempts: FixAttempt[];

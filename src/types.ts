@@ -164,11 +164,14 @@ export interface VerificationResult {
 }
 
 // Fix Generation Types
+export type FixTier = 'gemini-flash' | 'openai-inpainting';
+
 export interface FixAttempt {
   attempt: number;
   generatedImage: string;
   verification?: VerificationResult;
   status: 'generating' | 'verifying' | 'passed' | 'failed' | 'error';
+  fixTier?: FixTier; // Which AI tier was used
   logs?: LogEntry[]; // Logs specific to this attempt
 }
 
