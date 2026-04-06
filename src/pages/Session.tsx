@@ -117,6 +117,7 @@ const Session = () => {
 
   const handleRunAudit = async () => {
     if (assets.length === 0) return;
+    if (!creditGate('analyze')) return;
     
     setIsAnalyzing(true);
     addLog('processing', `🔍 Guardian initializing batch audit...`);
@@ -254,6 +255,7 @@ const Session = () => {
   const handleRequestFix = async (assetId: string, previousGeneratedImage?: string, customPrompt?: string) => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
+    if (!creditGate('fix')) return;
 
     try {
       const mainAsset = assets.find(a => a.type === 'MAIN' && a.id !== assetId);
