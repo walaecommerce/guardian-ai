@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useCreditGate } from '@/hooks/useCreditGate';
 import { RATE_LIMITS } from '@/config/models';
 
-import { HeroSection } from '@/components/HeroSection';
+
 import { ImageUploader, MaxImagesOption } from '@/components/ImageUploader';
 import { AnalysisResults } from '@/components/AnalysisResults';
 import { ComplianceReportCard } from '@/components/ComplianceReportCard';
@@ -32,7 +32,7 @@ import { Switch } from '@/components/ui/switch';
 import { Save, Loader2, Wand2, Swords, Import } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { uploadImage } from '@/services/imageStorage';
-import { loadDemoImages, DEMO_PRODUCT } from '@/components/DemoImages';
+
 import { sendSlackNotification } from '@/components/NotificationSettings';
 
 // ── Competitor URL Input (left panel) ──
@@ -130,7 +130,7 @@ const Index = () => {
   const [fixProgress, setFixProgress] = useState<FixProgressState | null>(null);
   const [failedDownloads, setFailedDownloads] = useState<FailedDownload[]>([]);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [showHero, setShowHero] = useState(true);
+  
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const [activeTab, setActiveTab] = useState('results');
   const [competitorData, setCompetitorData] = useState<CompetitorData | null>(null);
