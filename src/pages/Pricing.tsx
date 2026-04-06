@@ -190,6 +190,15 @@ export default function Pricing() {
           </p>
         </div>
       </main>
+
+      <CheckoutSuccessModal
+        open={showSuccess}
+        onClose={() => {
+          setShowSuccess(false);
+          navigate('/', { replace: true });
+        }}
+        plan={currentPlan}
+      />
     </div>
   );
 }
