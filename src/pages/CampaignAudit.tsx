@@ -109,6 +109,7 @@ function scoreColor(score: number): string {
 // ── Component ────────────────────────────────────────────────
 
 const CampaignAudit = () => {
+  const { guard: creditGate } = useCreditGate();
   const [urls, setUrls] = useState('');
   const [campaignName, setCampaignName] = useState('');
   const [clientName, setClientName] = useState('');
@@ -249,6 +250,7 @@ const CampaignAudit = () => {
       toast({ title: 'No URLs', description: 'Paste at least one Amazon URL', variant: 'destructive' });
       return;
     }
+    if (!creditGate('scrape') || !creditGate('analyze')) return;
     if (urlList.length > 25) {
       toast({ title: 'Too many URLs', description: 'Maximum 25 products per campaign', variant: 'destructive' });
       return;
