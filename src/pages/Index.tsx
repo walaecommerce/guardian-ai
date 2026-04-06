@@ -1471,13 +1471,13 @@ const Index = () => {
           <div className="lg:col-span-8">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <TabsList>
-                  <TabsTrigger value="results">Results</TabsTrigger>
-                  <TabsTrigger value="recommendations">AI Recs</TabsTrigger>
+                <TabsList className="glass-card">
+                  <TabsTrigger value="results">Audit Results</TabsTrigger>
+                  <TabsTrigger value="recommendations">Overview</TabsTrigger>
                   <TabsTrigger value="scorecard">Score Card</TabsTrigger>
-                  <TabsTrigger value="comparison">Before / After</TabsTrigger>
-                  <TabsTrigger value="compare">Compare</TabsTrigger>
-                  <TabsTrigger value="history">History</TabsTrigger>
+                  <TabsTrigger value="comparison">Fix Images</TabsTrigger>
+                  <TabsTrigger value="compare">Competitor Intel</TabsTrigger>
+                  <TabsTrigger value="history">Reports</TabsTrigger>
                 </TabsList>
                 {assets.some(a => a.analysisResult) && (
                   <div className="flex items-center gap-2">
