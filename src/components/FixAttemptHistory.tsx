@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { FixAttempt } from '@/types';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Sparkles, Paintbrush } from 'lucide-react';
 
 interface FixAttemptHistoryProps {
   attempts: FixAttempt[];
@@ -81,6 +81,21 @@ export function FixAttemptHistory({
               <div className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-background/80 flex items-center justify-center text-[10px] font-bold">
                 {attempt.attempt}
               </div>
+              
+              {/* Tier badge */}
+              {attempt.fixTier && (
+                <div className={cn(
+                  "absolute top-0.5 right-5 px-1 py-px rounded text-[7px] font-bold flex items-center gap-0.5",
+                  attempt.fixTier === 'gemini-flash' 
+                    ? "bg-cyan-500/90 text-white" 
+                    : "bg-amber-500/90 text-white"
+                )} title={attempt.fixTier === 'gemini-flash' ? 'Tier 1: Gemini Flash' : 'Tier 2: OpenAI Inpainting'}>
+                  {attempt.fixTier === 'gemini-flash' 
+                    ? <><Sparkles className="w-2 h-2" />T1</>
+                    : <><Paintbrush className="w-2 h-2" />T2</>
+                  }
+                </div>
+              )}
             </button>
           );
         })}

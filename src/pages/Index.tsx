@@ -936,7 +936,8 @@ const Index = () => {
         const newAttempt: FixAttempt = {
           attempt,
           generatedImage: genData.fixedImage,
-          status: 'verifying'
+          status: 'verifying',
+          fixTier: genData.usedOpenAIInpainting ? 'openai-inpainting' : 'gemini-flash',
         };
 
         setFixProgress(prev => prev ? {
