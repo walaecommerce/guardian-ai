@@ -158,6 +158,40 @@ const Index = () => {
     }]);
   }, []);
 
+  const analyzeStyleConsistency = useCallback(async (currentAssets: ImageAsset[]) => {
+    const analyzedAssets = currentAssets.filter(a => a.analysisResult);
+    if (analyzedAssets.length < 2) return;
+
+    setIsAnalyzingStyle(true);
+    addLog('processing', `🎨 Analyzing style consistency across ${analyzedAssets.length} images...`);
+
+    try {
+      const images = await Promise.all(analyzedAssets.map(async (asset) => {
+        const base64 = await fileToBase64(asset.file);
+        return {
+          url: base64,
+          type: asset.type,
+          category: asset.analysisResult?.productCategory || 'unknown',
+        };
+      }));
+
+      const { data, error } = await supabase.functions.invoke('analyze-style-consistency', {
+        body: { images, listingTitle },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      setStyleConsistency(data as StyleConsistencyResult);
+      addLog('success', `✅ Style coherence score: ${data.overallScore}/100`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Style analysis failed';
+      addLog('error', `❌ Style consistency analysis failed: ${msg}`);
+    } finally {
+      setIsAnalyzingStyle(false);
+    }
+  }, [addLog, listingTitle]);
+
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
