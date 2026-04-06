@@ -224,7 +224,7 @@ const Studio = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+      
       <main className="flex-1 flex overflow-hidden" style={{ height: 'calc(100vh - 80px)' }}>
 
         {/* LEFT PANEL — Template Library */}
