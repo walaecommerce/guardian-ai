@@ -1,6 +1,18 @@
 // Asset Types
 export type AssetType = 'MAIN' | 'SECONDARY';
 
+// Product Identity Card — extracted from MAIN image for cross-image consistency
+export interface ProductIdentityCard {
+  brandName: string;
+  productName: string;
+  dominantColors: string[];  // hex values
+  packagingType: string;
+  shapeDescription: string;
+  labelText: string[];
+  keyVisualFeatures: string[];
+  productDescriptor: string; // paragraph for prompt injection
+}
+
 export interface ImageAsset {
   id: string;
   file: File;
@@ -127,23 +139,23 @@ export interface ComponentScores {
   compliance: number;
   quality: number;
   noNewIssues: number;
-  textLayout?: number; // NEW: Text/layout preservation score
-  noAdditions?: number; // NEW: No new elements added score
+  textLayout?: number; // Text/layout preservation score
+  noAdditions?: number; // No new elements added score
 }
 
 export interface VerificationResult {
   score: number;
   isSatisfactory: boolean;
   productMatch: boolean;
-  textPreserved?: boolean; // NEW: Were all text zones preserved?
-  noElementsAdded?: boolean; // NEW: Were no new elements added?
+  textPreserved?: boolean;
+  noElementsAdded?: boolean;
   componentScores?: ComponentScores;
   critique: string;
   improvements: string[];
   passedChecks: string[];
   failedChecks: string[];
-  textIssues?: string[]; // NEW: Specific text/callouts that were damaged
-  addedElements?: string[]; // NEW: Elements that were incorrectly added
+  textIssues?: string[];
+  addedElements?: string[];
   thinkingSteps?: string[]; // AI's step-by-step reasoning for live display
 }
 
@@ -211,6 +223,7 @@ export interface AppState {
   logs: LogEntry[];
   selectedAssetId: string | null;
   showFixModal: boolean;
+  productIdentity?: ProductIdentityCard; // Extracted from MAIN image
 }
 
 // Failed Download Types
