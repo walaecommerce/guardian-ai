@@ -1524,6 +1524,9 @@ const Index = () => {
               </TabsContent>
               <TabsContent value="recommendations">
                 <div className="space-y-4">
+                  {productIdentity && (
+                    <ProductIdentityPanel identity={productIdentity} />
+                  )}
                   <StyleConsistencyPanel
                     result={styleConsistency}
                     loading={isAnalyzingStyle}
