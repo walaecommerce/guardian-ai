@@ -133,6 +133,8 @@ const Index = () => {
   const [failedDownloads, setFailedDownloads] = useState<FailedDownload[]>([]);
   const [isRetrying, setIsRetrying] = useState(false);
   const [productIdentity, setProductIdentity] = useState<ProductIdentityCard | null>(null);
+  const [styleConsistency, setStyleConsistency] = useState<StyleConsistencyResult | null>(null);
+  const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
   
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const [activeTab, setActiveTab] = useState('results');
