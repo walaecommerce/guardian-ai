@@ -812,6 +812,7 @@ const Index = () => {
     const originalBase64 = await fileToBase64(asset.file);
     let previousCritique: string | undefined;
     let lastGeneratedImage: string | undefined = previousGeneratedImage;
+    let lastFixMethod: ImageAsset['fixMethod'];
     let finalImage: string | undefined;
     const maxAttempts = 3;
 
