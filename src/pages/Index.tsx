@@ -19,8 +19,9 @@ import { RecommendationsPanel } from '@/components/recommendations/Recommendatio
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
 import { PolicyBanner, PolicySidebar } from '@/components/PolicyUpdates';
 import { ProductIdentityPanel } from '@/components/ProductIdentityPanel';
+import { StyleConsistencyPanel } from '@/components/StyleConsistencyPanel';
 import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
-import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard } from '@/types';
+import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
 import { supabase } from '@/integrations/supabase/client';
@@ -132,6 +133,8 @@ const Index = () => {
   const [failedDownloads, setFailedDownloads] = useState<FailedDownload[]>([]);
   const [isRetrying, setIsRetrying] = useState(false);
   const [productIdentity, setProductIdentity] = useState<ProductIdentityCard | null>(null);
+  const [styleConsistency, setStyleConsistency] = useState<StyleConsistencyResult | null>(null);
+  const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
   
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const [activeTab, setActiveTab] = useState('results');
@@ -163,6 +166,40 @@ const Index = () => {
       reader.readAsDataURL(file);
     });
   };
+
+  const analyzeStyleConsistency = useCallback(async (currentAssets: ImageAsset[]) => {
+    const analyzedAssets = currentAssets.filter(a => a.analysisResult);
+    if (analyzedAssets.length < 2) return;
+
+    setIsAnalyzingStyle(true);
+    addLog('processing', `🎨 Analyzing style consistency across ${analyzedAssets.length} images...`);
+
+    try {
+      const images = await Promise.all(analyzedAssets.map(async (asset) => {
+        const base64 = await fileToBase64(asset.file);
+        return {
+          url: base64,
+          type: asset.type,
+          category: asset.analysisResult?.productCategory || 'unknown',
+        };
+      }));
+
+      const { data, error } = await supabase.functions.invoke('analyze-style-consistency', {
+        body: { images, listingTitle },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      setStyleConsistency(data as StyleConsistencyResult);
+      addLog('success', `✅ Style coherence score: ${data.overallScore}/100`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Style analysis failed';
+      addLog('error', `❌ Style consistency analysis failed: ${msg}`);
+    } finally {
+      setIsAnalyzingStyle(false);
+    }
+  }, [addLog, listingTitle]);
 
   const computeContentHash = async (file: File): Promise<string> => {
     const buffer = await file.arrayBuffer();
@@ -537,6 +574,7 @@ const Index = () => {
     
     setIsAnalyzing(true);
     setAuditComplete(null);
+    setStyleConsistency(null);
     setAnalyzingProgress({ current: 0, total: assets.length });
     addLog('processing', `🔍 Guardian initializing batch audit...`);
     addLog('info', `📦 ${assets.length} images queued for compliance check`);
@@ -685,6 +723,11 @@ const Index = () => {
 
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
     setTimeout(() => setAuditComplete(null), 3000);
+
+    // Auto-trigger style consistency analysis
+    if (assets.length >= 2) {
+      analyzeStyleConsistency(assets);
+    }
   };
 
   const handleSaveReport = async () => {
@@ -1471,11 +1514,18 @@ const Index = () => {
                 />
               </TabsContent>
               <TabsContent value="recommendations">
-                <RecommendationsPanel
-                  assets={assets}
-                  listingTitle={listingTitle}
-                  onApplyFix={(assetId, prompt) => handleRequestFix(assetId, undefined, prompt)}
-                />
+                <div className="space-y-4">
+                  <StyleConsistencyPanel
+                    result={styleConsistency}
+                    loading={isAnalyzingStyle}
+                    imageCount={assets.filter(a => a.analysisResult).length}
+                  />
+                  <RecommendationsPanel
+                    assets={assets}
+                    listingTitle={listingTitle}
+                    onApplyFix={(assetId, prompt) => handleRequestFix(assetId, undefined, prompt)}
+                  />
+                </div>
               </TabsContent>
               <TabsContent value="scorecard">
                 <ListingScoreCard assets={assets} listingTitle={listingTitle} />

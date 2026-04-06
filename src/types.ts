@@ -290,3 +290,25 @@ export interface EnhancementResult {
   qualityScoreAfter: number;
   productConsistency: boolean;
 }
+
+// Style Consistency Analysis
+export interface StyleDimensionScore {
+  score: number;
+  assessment: string;
+  issues: string[];
+}
+
+export interface StyleConsistencyResult {
+  overallScore: number;
+  verdict: string;
+  dimensions: {
+    colorPalette: StyleDimensionScore;
+    lighting: StyleDimensionScore;
+    typography: StyleDimensionScore;
+    productAngle: StyleDimensionScore;
+    background: StyleDimensionScore;
+    brandIdentity: StyleDimensionScore;
+  };
+  recommendations: string[];
+  weakestPairs: Array<{ imageA: number; imageB: number; reason: string }>;
+}
