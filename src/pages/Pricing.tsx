@@ -134,7 +134,6 @@ export default function Pricing() {
                     <div className="text-xs font-bold text-foreground">{tier.credits.fix.toLocaleString()}</div>
                     <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Fixes</div>
                   </div>
-                  </div>
                 </div>
 
                 <div className="flex-1 space-y-2.5 mb-6">
