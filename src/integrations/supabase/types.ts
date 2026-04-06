@@ -67,6 +67,7 @@ export type Database = {
           listing_title: string | null
           passed_count: number
           product_asin: string | null
+          product_identity: Json | null
           status: string
           total_images: number
           updated_at: string
@@ -81,6 +82,7 @@ export type Database = {
           listing_title?: string | null
           passed_count?: number
           product_asin?: string | null
+          product_identity?: Json | null
           status?: string
           total_images?: number
           updated_at?: string
@@ -95,6 +97,7 @@ export type Database = {
           listing_title?: string | null
           passed_count?: number
           product_asin?: string | null
+          product_identity?: Json | null
           status?: string
           total_images?: number
           updated_at?: string
