@@ -144,11 +144,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
       if (existingSession?.user) {
+        const { data: validatedUser, error: validateError } = await supabase.auth.getUser();
+
+        if (validateError || !validatedUser.user) {
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setIsLoading(false);
+          return;
+        }
+
         setSession(existingSession);
-        setUser(existingSession.user);
-        fetchProfile(existingSession.user.id, existingSession.user.user_metadata)
+        setUser(validatedUser.user);
+        fetchProfile(validatedUser.user.id, validatedUser.user.user_metadata)
           .finally(() => setIsLoading(false));
       } else {
         setIsLoading(false);
