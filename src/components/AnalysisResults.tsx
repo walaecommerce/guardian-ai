@@ -205,7 +205,7 @@ function AssetResultCard({
   if (!result) {
     if (asset.isAnalyzing) {
       return (
-        <Card className="asset-card overflow-hidden">
+        <Card className="asset-card overflow-hidden glass-card">
           <div className="aspect-video relative bg-muted shimmer">
             <img src={asset.preview} alt={asset.name} className="w-full h-full object-cover opacity-50" />
             <div className="absolute inset-0 flex items-center justify-center">
@@ -227,7 +227,7 @@ function AssetResultCard({
   );
 
   return (
-    <Card className="asset-card overflow-hidden">
+    <Card className="asset-card overflow-hidden glass-card hover:translate-y-[-2px] hover:shadow-[0_8px_30px_-8px_hsl(var(--primary)/0.3)] transition-all duration-200">
       <div className="aspect-video relative bg-muted">
         <img src={asset.preview} alt={asset.name} className="w-full h-full object-cover" />
 
