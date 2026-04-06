@@ -212,7 +212,6 @@ export function ImageUploader({
             <Button 
               onClick={() => onImportFromAmazon(maxImages)}
               disabled={!amazonUrl || isImporting}
-              variant="secondary"
             >
               {isImporting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

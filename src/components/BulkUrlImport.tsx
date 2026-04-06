@@ -64,7 +64,6 @@ export function BulkUrlImport({ isImporting, onBulkImport, bulkProgress }: BulkU
         <Button
           onClick={handleImport}
           disabled={validUrls.length === 0 || isImporting}
-          variant="secondary"
           className="w-full"
         >
           {isImporting ? (
