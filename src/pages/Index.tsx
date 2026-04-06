@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { RATE_LIMITS } from '@/config/models';
-import { Header } from '@/components/Header';
+
 import { HeroSection } from '@/components/HeroSection';
 import { ImageUploader, MaxImagesOption } from '@/components/ImageUploader';
 import { AnalysisResults } from '@/components/AnalysisResults';
@@ -1371,7 +1371,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+      
       
       {showHero && assets.length === 0 && (
         <HeroSection 

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { DashboardLayout } from "@/components/DashboardLayout";
 import Index from "./pages/Index";
 import Session from "./pages/Session";
 import CampaignAudit from "./pages/CampaignAudit";
@@ -26,16 +27,21 @@ const App = () => (
         <BrowserRouter>
           <AuthGuard>
             <Routes>
-              <Route path="/" element={<Index />} />
               <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/campaign" element={<CampaignAudit />} />
-              <Route path="/studio" element={<Studio />} />
-              <Route path="/tracker" element={<Tracker />} />
-              <Route path="/test-checklist" element={<TestChecklist />} />
-              <Route path="/session/:sessionId" element={<Session />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
+              <Route path="*" element={
+                <DashboardLayout>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/pricing" element={<Pricing />} />
+                    <Route path="/campaign" element={<CampaignAudit />} />
+                    <Route path="/studio" element={<Studio />} />
+                    <Route path="/tracker" element={<Tracker />} />
+                    <Route path="/test-checklist" element={<TestChecklist />} />
+                    <Route path="/session/:sessionId" element={<Session />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </DashboardLayout>
+              } />
             </Routes>
           </AuthGuard>
         </BrowserRouter>

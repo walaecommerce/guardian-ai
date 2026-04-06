@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { RATE_LIMITS } from '@/config/models';
 import { useParams, Link } from 'react-router-dom';
-import { Header } from '@/components/Header';
+
 import { AnalysisResults } from '@/components/AnalysisResults';
 import { ComplianceReportCard } from '@/components/ComplianceReportCard';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
@@ -556,7 +556,6 @@ const Session = () => {
   if (isLoadingSession) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Header />
         <main className="flex-1 container mx-auto px-4 py-6">
           <div className="space-y-6">
             <Skeleton className="h-10 w-48" />
@@ -580,7 +579,6 @@ const Session = () => {
   if (loadError) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Header />
         <main className="flex-1 container mx-auto px-4 py-6">
           <Card className="max-w-md mx-auto mt-20">
             <CardHeader>
@@ -606,7 +604,7 @@ const Session = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+      
       
       <main className="flex-1 container mx-auto px-4 py-6">
         {/* Back Navigation & Session Info */}
