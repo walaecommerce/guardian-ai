@@ -27,7 +27,6 @@ function detectFixCategory(imageCategory?: string, productTitle?: string): FixCa
   const cat = (imageCategory || '').toUpperCase();
   const title = (productTitle || '').toLowerCase();
 
-  // From analysis category
   if (cat.includes('FOOD') || cat.includes('BEVERAGE')) return 'FOOD_BEVERAGE';
   if (cat.includes('SUPPLEMENT') || cat.includes('VITAMIN')) return 'SUPPLEMENTS';
   if (cat.includes('PET')) return 'PET_SUPPLIES';
@@ -37,7 +36,6 @@ function detectFixCategory(imageCategory?: string, productTitle?: string): FixCa
   if (cat.includes('ELECTRON')) return 'ELECTRONICS';
   if (cat.includes('APPAREL') || cat.includes('CLOTH')) return 'APPAREL';
 
-  // Fallback: keyword detection from title
   const supplementKw = ['supplement', 'vitamin', 'protein', 'capsule', 'probiotic', 'collagen', 'omega', 'multivitamin', 'creatine', 'amino', 'magnesium', 'zinc', 'iron', 'calcium', 'biotin', 'melatonin', 'ashwagandha', 'turmeric', 'elderberry', 'gummy', 'tablet', 'softgel'];
   const beautyKw = ['serum', 'cream', 'lotion', 'shampoo', 'conditioner', 'moisturizer', 'cleanser', 'toner', 'sunscreen', 'foundation', 'mascara', 'lipstick', 'concealer', 'eyeshadow', 'blush', 'primer', 'perfume', 'cologne', 'deodorant', 'body wash', 'face wash', 'skincare', 'makeup', 'cosmetic', 'hair oil', 'nail polish'];
   const homeKw = ['garden', 'planter', 'vase', 'candle', 'lamp', 'rug', 'curtain', 'pillow', 'blanket', 'organizer', 'shelf', 'basket', 'hanger', 'towel', 'mat', 'mop', 'broom', 'storage', 'drawer', 'hook', 'wreath', 'pot', 'decor', 'furniture', 'patio', 'grill', 'hose', 'sprinkler', 'toolbox'];
@@ -59,7 +57,7 @@ function detectFixCategory(imageCategory?: string, productTitle?: string): FixCa
   return 'GENERAL';
 }
 
-// ── Category-specific prompt templates ───────────────────────────
+// ── Category-specific prompt templates (full regeneration fallback) ──
 
 const CATEGORY_PROMPTS: Record<FixCategory, (title: string) => string> = {
   FOOD_BEVERAGE: (title) =>
@@ -90,7 +88,55 @@ const CATEGORY_PROMPTS: Record<FixCategory, (title: string) => string> = {
     `Professional Amazon main image: ${title} on pure white RGB(255,255,255) background. Product centered, filling 85% of frame. All key features visible. Even studio lighting with soft natural shadow directly beneath product. No text, no props, no lifestyle elements. Photorealistic, 4K quality.`,
 };
 
+// ── Category-specific background edit notes ─────────────────────
+
+const CATEGORY_BG_NOTES: Record<FixCategory, string> = {
+  FOOD_BEVERAGE: 'Preserve all label printing, foil textures, and transparent packaging elements.',
+  APPAREL: 'Preserve fabric texture, stitching, and any garment tags visible.',
+  ELECTRONICS: 'Preserve chrome, glass, and metallic reflections on the product surface. Do not flatten glossy screens.',
+  PET_SUPPLIES: 'Preserve label printing and any textured packaging surfaces.',
+  BEAUTY: 'Preserve glossy, frosted, or metallic surface reflections and pump/cap details.',
+  SUPPLEMENTS: 'Preserve all label text, dosage info, and bottle cap/seal details with clinical clarity.',
+  HOME_GARDEN: 'Preserve material textures — wood grain, ceramic glaze, metal patina, fabric weave.',
+  TOYS_GAMES: 'Preserve vibrant toy colors exactly — do not desaturate. Keep all printed artwork and character designs crisp.',
+  GENERAL: 'Preserve all surface details, textures, and printed elements on the product.',
+};
+
 // ── Prompt builders ──────────────────────────────────────────────
+
+function buildBackgroundReplacementPrompt(title: string, category: FixCategory, identity?: any): string {
+  let prompt = `BACKGROUND-ONLY EDIT — STRICT RULES:
+1. Replace the background with pure white RGB(255,255,255) — not off-white, not grey
+2. DO NOT modify, regenerate, recolor, or alter the product in any way
+3. DO NOT change label text, logos, colors, shape, or any product detail
+4. DO NOT crop or reposition the product
+5. Ensure the product occupies 85%+ of the frame
+6. Remove any shadows that are not directly beneath the product
+7. Add a soft, natural shadow directly beneath the product
+8. Clean up any background artifacts or noise around product edges
+9. The result must look like a professional studio photograph on seamless white
+
+${CATEGORY_BG_NOTES[category]}
+
+Product: ${title}`;
+
+  if (identity) {
+    prompt += `
+
+PRODUCT IDENTITY CARD (these details must remain UNCHANGED in the output):
+- Brand: ${identity.brandName || 'Unknown'}
+- Product: ${identity.productName || title}
+- Packaging: ${identity.packagingType || 'unknown'}
+- Shape: ${identity.shapeDescription || 'standard'}
+- Dominant colors: ${(identity.dominantColors || []).join(', ')}
+- Key label text: ${(identity.labelText || []).join(' | ')}
+- Visual features: ${(identity.keyVisualFeatures || []).join(', ')}
+
+CRITICAL: Every pixel of the product must remain identical to the input image. Only the background pixels change.`;
+  }
+
+  return prompt;
+}
 
 function buildMainImagePrompt(title: string, category: FixCategory, identity?: any): string {
   let prompt = `${SYSTEM_INSTRUCTION}\n\n${CATEGORY_PROMPTS[category](title)}`;
@@ -146,7 +192,6 @@ const normalizeMimeType = (raw: string, b64: string): string => {
 
 const toDataUrl = (dataUrl: string): string => {
   if (dataUrl.startsWith('data:')) {
-    // Normalize MIME type even for existing data URLs (e.g. application/octet-stream)
     const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
     if (match) {
       const rawMime = match[1];
@@ -161,6 +206,27 @@ const toDataUrl = (dataUrl: string): string => {
   const mimeType = guessImageMimeType(dataUrl);
   return `data:${mimeType};base64,${dataUrl}`;
 };
+
+// ── Gateway request helper ──────────────────────────────────────
+
+async function callGateway(apiKey: string, contentParts: any[]): Promise<Response> {
+  return fetch(GATEWAY_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODELS.imageGen,
+      messages: [{ role: "user", content: contentParts }],
+      modalities: ["image", "text"],
+    }),
+  });
+}
+
+function extractImageFromResponse(data: any): string | null {
+  return data?.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+}
 
 // ── Main handler ─────────────────────────────────────────────────
 
@@ -184,7 +250,6 @@ serve(async (req) => {
       productIdentity,
     } = await req.json();
 
-    // Detect category for prompt selection
     const fixCategory = detectFixCategory(imageCategory, productTitle);
     console.log(`[generate-fix] Detected category: ${fixCategory} (from imageCategory=${imageCategory}, title=${productTitle?.slice(0, 40)})`);
 
@@ -195,7 +260,6 @@ serve(async (req) => {
 
     const isMain = imageType === 'MAIN';
     console.log(`[generate-fix] using model: ${MODELS.imageGen} via Lovable AI gateway`);
-    console.log(`[generate-fix] Pattern: ${isMain ? 'A (MAIN text-to-image)' : mainImageBase64 ? 'C (SECONDARY + main ref)' : 'B (SECONDARY image-to-image)'}`);
 
     // ── Build spatial context for secondary prompts ──
 
@@ -222,93 +286,96 @@ serve(async (req) => {
       return removals.length ? `\n\nSPECIFIC REMOVALS:\n${removals.join('\n')}` : '';
     };
 
-    // ── Build message content parts (OpenAI-compatible format) ──
+    // ── Build message content parts ──
 
     const contentParts: any[] = [];
+    let usedBackgroundSegmentation = false;
 
     if (isMain) {
-      // PATTERN A — MAIN image: text-to-image (with optional reference)
       const title = productTitle || generativePrompt || 'Amazon product';
-      let prompt = customPrompt || buildMainImagePrompt(title, fixCategory, productIdentity);
-      if (previousCritique) {
-        prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
-      }
-      contentParts.push({ type: "text", text: prompt });
+      const isRetryAfterBgSegFail = previousCritique && previousCritique.includes('[BG-SEG-IDENTITY-FAIL]');
 
-      // Include original image as reference if available
-      if (imageBase64) {
+      if (imageBase64 && !isRetryAfterBgSegFail) {
+        // PATTERN A1 — Background-only edit (primary approach for MAIN)
+        let prompt = customPrompt || buildBackgroundReplacementPrompt(title, fixCategory, productIdentity);
+        if (previousCritique) {
+          prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
+        }
+        contentParts.push({ type: "text", text: prompt });
         contentParts.push({
           type: "image_url",
           image_url: { url: toDataUrl(imageBase64) }
         });
+        usedBackgroundSegmentation = true;
+        console.log(`[generate-fix] Pattern A1 (MAIN background-only edit), prompt length: ${prompt.length}`);
+      } else {
+        // PATTERN A2 — Full regeneration fallback (no original image, or bg-seg identity failure)
+        let prompt = customPrompt || buildMainImagePrompt(title, fixCategory, productIdentity);
+        if (previousCritique) {
+          const cleanCritique = previousCritique.replace('[BG-SEG-IDENTITY-FAIL]', '').trim();
+          if (cleanCritique) prompt += `\n\nPREVIOUS ISSUES TO FIX: ${cleanCritique}`;
+        }
+        contentParts.push({ type: "text", text: prompt });
+        if (imageBase64) {
+          contentParts.push({
+            type: "image_url",
+            image_url: { url: toDataUrl(imageBase64) }
+          });
+        }
+        console.log(`[generate-fix] Pattern A2 (MAIN full regeneration fallback), prompt length: ${prompt.length}, has ref: ${!!imageBase64}`);
       }
-
-      console.log(`[generate-fix] MAIN prompt length: ${prompt.length}, has original ref: ${!!imageBase64}`);
 
     } else if (mainImageBase64) {
-      // PATTERN C — SECONDARY with main reference (two images)
+      // PATTERN C — SECONDARY with main reference
       let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity);
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
-
       contentParts.push({ type: "text", text: prompt });
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: toDataUrl(mainImageBase64) }
-      });
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: toDataUrl(imageBase64) }
-      });
-
-      console.log(`[generate-fix] SECONDARY+REF prompt length: ${prompt.length}`);
+      contentParts.push({ type: "image_url", image_url: { url: toDataUrl(mainImageBase64) } });
+      contentParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
+      console.log(`[generate-fix] Pattern C (SECONDARY+REF), prompt length: ${prompt.length}`);
 
     } else {
-      // PATTERN B — SECONDARY without main reference (one image)
+      // PATTERN B — SECONDARY without main reference
       let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity);
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
-
       contentParts.push({ type: "text", text: prompt });
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: toDataUrl(imageBase64) }
-      });
-
-      console.log(`[generate-fix] SECONDARY prompt length: ${prompt.length}`);
+      contentParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
+      console.log(`[generate-fix] Pattern B (SECONDARY), prompt length: ${prompt.length}`);
     }
 
     // Add previous attempt for comparison if retrying
     if (previousGeneratedImage) {
       contentParts.push({ type: "text", text: "Previous attempt (for comparison — fix the issues noted above):" });
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: toDataUrl(previousGeneratedImage) }
-      });
+      contentParts.push({ type: "image_url", image_url: { url: toDataUrl(previousGeneratedImage) } });
     }
 
     // ── Make gateway request ──
 
-    console.log(`[generate-fix] Sending request to Lovable AI gateway: contentParts=${contentParts.length}, isMain=${isMain}`);
+    console.log(`[generate-fix] Sending request: contentParts=${contentParts.length}, isMain=${isMain}, bgSeg=${usedBackgroundSegmentation}`);
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODELS.imageGen,
-        messages: [{ role: "user", content: contentParts }],
-        modalities: ["image", "text"],
-      }),
-    });
+    let response = await callGateway(LOVABLE_API_KEY, contentParts);
+
+    // If background segmentation attempt failed, fall back to full regeneration
+    if (usedBackgroundSegmentation && (!response.ok || response.status >= 500)) {
+      console.warn(`[generate-fix] Background-only edit failed (status ${response.status}), falling back to full regeneration`);
+      const title = productTitle || generativePrompt || 'Amazon product';
+      const fallbackPrompt = customPrompt || buildMainImagePrompt(title, fixCategory, productIdentity);
+      const fallbackParts: any[] = [{ type: "text", text: fallbackPrompt }];
+      if (imageBase64) {
+        fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
+      }
+      response = await callGateway(LOVABLE_API_KEY, fallbackParts);
+      usedBackgroundSegmentation = false;
+      console.log(`[generate-fix] Fallback to Pattern A2 full regeneration`);
+    }
 
     // Handle rate limit / payment errors
     if (response.status === 429) {
@@ -317,10 +384,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         error: "Rate limit exceeded. Please wait a moment and try again.",
         errorType: "rate_limit",
-      }), {
-        status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (response.status === 402) {
@@ -329,10 +393,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.",
         errorType: "payment_required",
-      }), {
-        status: 402,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!response.ok) {
@@ -341,19 +402,43 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         error: `AI gateway error (${response.status})`,
         errorType: "gateway_error",
-      }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      }), { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const responseText = await response.text();
     if (!responseText || responseText.trim().length === 0) {
       console.error("[generate-fix] Empty response from gateway");
+
+      // If bg-seg returned empty, try full regeneration fallback
+      if (usedBackgroundSegmentation) {
+        console.warn("[generate-fix] Empty bg-seg response, falling back to full regeneration");
+        const title = productTitle || generativePrompt || 'Amazon product';
+        const fallbackPrompt = customPrompt || buildMainImagePrompt(title, fixCategory, productIdentity);
+        const fallbackParts: any[] = [{ type: "text", text: fallbackPrompt }];
+        if (imageBase64) {
+          fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
+        }
+        const fallbackResp = await callGateway(LOVABLE_API_KEY, fallbackParts);
+        if (fallbackResp.ok) {
+          const fbText = await fallbackResp.text();
+          try {
+            const fbData = JSON.parse(fbText);
+            const fbImage = extractImageFromResponse(fbData);
+            if (fbImage) {
+              console.log(`[generate-fix] ✅ Fallback full regeneration succeeded`);
+              return new Response(JSON.stringify({ fixedImage: fbImage, usedBackgroundSegmentation: false }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+          } catch { /* fall through to error */ }
+        }
+      }
+
       return new Response(JSON.stringify({ error: "Empty response from AI gateway — retry", errorType: "empty_response" }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
     let data: any;
     try { data = JSON.parse(responseText); } catch {
       console.error("[generate-fix] Invalid JSON from gateway:", responseText.substring(0, 300));
@@ -362,26 +447,49 @@ serve(async (req) => {
       });
     }
 
-    // Extract image from gateway response format
-    const imageResult = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const imageResult = extractImageFromResponse(data);
 
     if (!imageResult) {
       const textContent = data.choices?.[0]?.message?.content || '';
-      console.error(`[generate-fix] No image in gateway response. Text: ${textContent.slice(0, 200)}`);
+      console.error(`[generate-fix] No image in response. Text: ${textContent.slice(0, 200)}`);
+
+      // If bg-seg returned no image, try full regeneration fallback
+      if (usedBackgroundSegmentation) {
+        console.warn("[generate-fix] No image from bg-seg, falling back to full regeneration");
+        const title = productTitle || generativePrompt || 'Amazon product';
+        const fallbackPrompt = customPrompt || buildMainImagePrompt(title, fixCategory, productIdentity);
+        const fallbackParts: any[] = [{ type: "text", text: fallbackPrompt }];
+        if (imageBase64) {
+          fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
+        }
+        const fallbackResp = await callGateway(LOVABLE_API_KEY, fallbackParts);
+        if (fallbackResp.ok) {
+          const fbText = await fallbackResp.text();
+          try {
+            const fbData = JSON.parse(fbText);
+            const fbImage = extractImageFromResponse(fbData);
+            if (fbImage) {
+              console.log(`[generate-fix] ✅ Fallback full regeneration succeeded`);
+              return new Response(JSON.stringify({ fixedImage: fbImage, usedBackgroundSegmentation: false }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+          } catch { /* fall through */ }
+        }
+      }
+
       return new Response(JSON.stringify({
         error: "No image generated. The AI returned text only. Try a different prompt.",
         errorType: "no_image_returned",
         modelTextSnippet: textContent.slice(0, 240) || null,
-      }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    console.log(`[generate-fix] ✅ Image generated successfully via Lovable AI gateway`);
+    console.log(`[generate-fix] ✅ Image generated successfully (bgSeg=${usedBackgroundSegmentation})`);
 
     return new Response(JSON.stringify({
       fixedImage: imageResult,
+      usedBackgroundSegmentation,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
