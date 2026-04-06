@@ -18,6 +18,7 @@ import { ListingScoreCard } from '@/components/ListingScoreCard';
 import { RecommendationsPanel } from '@/components/recommendations/RecommendationsPanel';
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
 import { PolicyBanner, PolicySidebar } from '@/components/PolicyUpdates';
+import { ProductIdentityPanel } from '@/components/ProductIdentityPanel';
 import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
@@ -1416,6 +1417,9 @@ const Index = () => {
               />
             )}
             
+            {productIdentity && (
+              <ProductIdentityPanel identity={productIdentity} />
+            )}
             <PolicySidebar data={policyData} loading={policyLoading} onRefresh={refreshPolicy} />
             <ActivityLog logs={logs} onClear={() => setLogs([])} />
             <SessionHistory currentSessionId={currentSessionId || undefined} />
