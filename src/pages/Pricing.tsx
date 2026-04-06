@@ -23,12 +23,14 @@ export default function Pricing() {
   const { refresh: refreshCredits } = useCredits();
   const [searchParams] = useSearchParams();
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const navigate = useNavigate();
 
   // Handle checkout return
   useEffect(() => {
     const checkout = searchParams.get('checkout');
     if (checkout === 'success') {
-      toast.success('Subscription activated! Credits are being updated...');
+      setShowSuccess(true);
       // Refresh subscription & credits
       setTimeout(() => {
         checkSubscription();
