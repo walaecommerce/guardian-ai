@@ -812,6 +812,7 @@ const Index = () => {
     const originalBase64 = await fileToBase64(asset.file);
     let previousCritique: string | undefined;
     let lastGeneratedImage: string | undefined = previousGeneratedImage;
+    let lastFixMethod: ImageAsset['fixMethod'];
     let finalImage: string | undefined;
     const maxAttempts = 3;
 
@@ -919,7 +920,17 @@ const Index = () => {
         }
         if (!genData?.fixedImage) throw new Error('No image generated');
 
-        addLog('success', `✨ AI generation complete`);
+        // Track which fix pattern was used
+        const fixMethod = genData.usedOpenAIInpainting 
+          ? 'openai-inpainting' as const
+          : genData.usedBackgroundSegmentation 
+            ? 'bg-segmentation' as const
+            : asset.type === 'MAIN' 
+              ? 'full-regeneration' as const
+              : 'surgical-edit' as const;
+        lastFixMethod = fixMethod;
+
+        addLog('success', `✨ AI generation complete (${fixMethod})`);
         lastGeneratedImage = genData.fixedImage;
 
         const newAttempt: FixAttempt = {
@@ -1057,7 +1068,7 @@ const Index = () => {
 
     if (finalImage) {
       setAssets(prev => prev.map(a => 
-        a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: finalImage } : a
+        a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: finalImage, fixMethod: lastFixMethod } : a
       ));
       setFixProgress(null);
       
