@@ -1073,6 +1073,7 @@ const Index = () => {
           imageType: asset.type,
           mainImageBase64,
           spatialAnalysis: asset.analysisResult?.spatialAnalysis,
+          productIdentity: productIdentity || undefined,
         }
       });
 
