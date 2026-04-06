@@ -1,12 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
-import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Paintbrush, Scissors } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ImageAsset, AnalysisResult } from '@/types';
+import { ImageAsset, AnalysisResult, FixMethod } from '@/types';
+
+const getFixMethodConfig = (method: FixMethod) => {
+  switch (method) {
+    case 'bg-segmentation':
+      return { label: 'A1 · BG Seg', icon: Layers, className: 'bg-cyan-500/90 text-white' };
+    case 'full-regeneration':
+      return { label: 'A2 · Regen', icon: RefreshCw, className: 'bg-violet-500/90 text-white' };
+    case 'openai-inpainting':
+      return { label: 'T2 · Inpaint', icon: Paintbrush, className: 'bg-amber-500/90 text-white' };
+    case 'surgical-edit':
+      return { label: 'T1 · Surgical', icon: Scissors, className: 'bg-emerald-500/90 text-white' };
+  }
+};
 import { ExportButton } from '@/components/ExportButton';
 import { CompetitorData } from '@/components/CompetitorAudit';
 import { ScoreTrendBadge } from '@/components/ScoreTrendBadge';
@@ -289,9 +302,21 @@ function AssetResultCard({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium truncate max-w-[150px]">{asset.name}</p>
-            <p className="text-xs text-muted-foreground">
-              {sortedViolations.length} issue{sortedViolations.length !== 1 ? 's' : ''} found
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs text-muted-foreground">
+                {sortedViolations.length} issue{sortedViolations.length !== 1 ? 's' : ''} found
+              </p>
+              {asset.fixedImage && asset.fixMethod && (() => {
+                const config = getFixMethodConfig(asset.fixMethod);
+                const Icon = config.icon;
+                return (
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${config.className}`}>
+                    <Icon className="w-2.5 h-2.5" />
+                    {config.label}
+                  </span>
+                );
+              })()}
+            </div>
           </div>
           <ScoreGauge score={result.overallScore} size={60} />
         </div>
