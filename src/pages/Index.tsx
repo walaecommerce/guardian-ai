@@ -1480,9 +1480,6 @@ const Index = () => {
               />
             )}
             
-            {productIdentity && (
-              <ProductIdentityPanel identity={productIdentity} />
-            )}
             <PolicySidebar data={policyData} loading={policyLoading} onRefresh={refreshPolicy} />
             <ActivityLog logs={logs} onClear={() => setLogs([])} />
             <SessionHistory currentSessionId={currentSessionId || undefined} />
@@ -1527,6 +1524,9 @@ const Index = () => {
               </TabsContent>
               <TabsContent value="recommendations">
                 <div className="space-y-4">
+                  {productIdentity && (
+                    <ProductIdentityPanel identity={productIdentity} />
+                  )}
                   <StyleConsistencyPanel
                     result={styleConsistency}
                     loading={isAnalyzingStyle}
