@@ -4,6 +4,7 @@ import {
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCredits } from '@/hooks/useCredits';
+import { useSubscription } from '@/hooks/useSubscription';
 import {
   Sidebar,
   SidebarContent,
@@ -39,6 +40,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const { remainingCredits, totalCredits } = useCredits();
+  const { plan } = useSubscription();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -104,7 +106,7 @@ export function AppSidebar() {
         {!collapsed && user && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
-              Credits
+              Credits · <span className="capitalize text-primary">{plan}</span>
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <div className="px-3 space-y-2">
