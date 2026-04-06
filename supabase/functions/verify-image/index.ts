@@ -39,7 +39,32 @@ const toDataUrl = (dataUrl: string | undefined | null): string => {
     }
     return dataUrl;
   }
+  // If it's a URL, return it as-is — we'll handle fetching separately
+  if (dataUrl.startsWith('http://') || dataUrl.startsWith('https://')) {
+    return dataUrl;
+  }
   return `data:${guessImageMimeType(dataUrl)};base64,${dataUrl}`;
+};
+
+const fetchImageAsDataUrl = async (input: string): Promise<string> => {
+  if (!input) return '';
+  // Already a data URL or raw base64 converted to data URL
+  if (input.startsWith('data:')) return input;
+  // It's a URL — fetch and convert to base64
+  if (input.startsWith('http://') || input.startsWith('https://')) {
+    const resp = await fetch(input);
+    if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status} ${input}`);
+    const buf = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = btoa(binary);
+    const contentType = resp.headers.get('content-type') || 'image/png';
+    const mime = normalizeMimeType(contentType, b64);
+    return `data:${mime};base64,${b64}`;
+  }
+  // Raw base64
+  return `data:${guessImageMimeType(input)};base64,${input}`;
 };
 
 // ── Main handler ─────────────────────────────────────────────────
