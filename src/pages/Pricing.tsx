@@ -10,6 +10,13 @@ import { useEffect, useState } from 'react';
 
 const ICONS = [Zap, Rocket, Crown, Building2];
 
+function formatCredit(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
+  return n.toString();
+}
+
+
+
 export default function Pricing() {
   const { plan: currentPlan, subscribed, startCheckout, openPortal, checkSubscription } = useSubscription();
   const { refresh: refreshCredits } = useCredits();
@@ -121,18 +128,18 @@ export default function Pricing() {
                 </div>
 
                 {/* Credit summary */}
-                <div className="grid grid-cols-3 gap-2 mb-5 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="grid grid-cols-3 gap-1 mb-5 p-3 rounded-xl bg-white/[0.02] border border-white/5">
                   <div className="text-center">
-                    <div className="text-sm font-bold text-foreground">{tier.credits.scrape.toLocaleString()}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Scrapes</div>
+                    <div className="text-xs font-bold text-foreground">{formatCredit(tier.credits.scrape)}</div>
+                    <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Scrapes</div>
                   </div>
                   <div className="text-center border-x border-white/5">
-                    <div className="text-sm font-bold text-foreground">{tier.credits.analyze.toLocaleString()}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Analyses</div>
+                    <div className="text-xs font-bold text-foreground">{formatCredit(tier.credits.analyze)}</div>
+                    <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Analyses</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-sm font-bold text-foreground">{tier.credits.fix.toLocaleString()}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Fixes</div>
+                    <div className="text-xs font-bold text-foreground">{formatCredit(tier.credits.fix)}</div>
+                    <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Fixes</div>
                   </div>
                 </div>
 
