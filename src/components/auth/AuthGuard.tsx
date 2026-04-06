@@ -39,11 +39,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // Redirect to onboarding if not complete (unless already on onboarding)
   // Redirect to onboarding if not complete (allow onboarding + pricing)
   if (profile && !profile.onboarding_complete && !['/onboarding', '/pricing'].includes(location.pathname)) {
     return <Navigate to="/onboarding" replace />;
-  }
   }
 
   return <>{children}</>;
