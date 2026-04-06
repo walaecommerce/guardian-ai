@@ -150,19 +150,35 @@ Return this EXACT JSON structure:
 
     contentParts.push({ type: "text", text: "Verify the generated image meets all requirements and return this JSON structure exactly." });
 
-    // ── Make gateway request ──
+    // ── Make gateway request with retry for transient errors ──
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODELS.verification,
-        messages: [{ role: "user", content: contentParts }],
-      }),
-    });
+    const MAX_RETRIES = 2;
+    let response!: Response;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      response = await fetch(GATEWAY_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: MODELS.verification,
+          messages: [{ role: "user", content: contentParts }],
+        }),
+      });
+
+      // Retry on transient 502/503 errors
+      if ((response.status === 502 || response.status === 503) && attempt < MAX_RETRIES) {
+        const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s
+        console.warn(`[verify-image] Gateway ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        await response.text(); // consume body to prevent leak
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+
+      break;
+    }
 
     if (response.status === 429) {
       return new Response(JSON.stringify({ error: "Rate limit exceeded.", errorType: "rate_limit" }), {
