@@ -70,7 +70,7 @@ serve(async (req) => {
     if (subscriptions.data.length === 0) {
       logStep("No active subscription");
       // Reset to free tier credits
-      await syncCredits(supabaseAdmin, user.id, "free", 5, 10, 2);
+      await syncCredits(supabaseAdmin, userId, "free", 5, 10, 2);
       return new Response(JSON.stringify({ subscribed: false, plan: "free" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -85,7 +85,7 @@ serve(async (req) => {
     logStep("Active subscription found", { productId, plan: planInfo.plan, subscriptionEnd });
 
     // Sync credits to match the active plan
-    await syncCredits(supabaseAdmin, user.id, planInfo.plan, planInfo.scrape, planInfo.analyze, planInfo.fix);
+    await syncCredits(supabaseAdmin, userId, planInfo.plan, planInfo.scrape, planInfo.analyze, planInfo.fix);
 
     return new Response(JSON.stringify({
       subscribed: true,
