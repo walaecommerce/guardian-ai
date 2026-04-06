@@ -1310,15 +1310,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      
-      
-      {showHero && assets.length === 0 && (
-        <HeroSection 
-          onTryDemo={handleLoadDemo}
-          onScrollToUpload={handleScrollToUpload}
-        />
-      )}
-      
       <main className="flex-1 container mx-auto px-4 py-6 space-y-4">
         {/* Policy Update Banner */}
         {!bannerDismissed && highImpactUpdates.length > 0 && (
