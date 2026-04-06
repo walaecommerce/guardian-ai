@@ -103,13 +103,13 @@ export function StyleConsistencyPanel({ result, loading, imageCount }: Props) {
             <div className="flex-1 space-y-2">
               <p className="text-sm text-foreground/80">{result.verdict}</p>
               {allIssues.length > 0 && (
-                <div className="flex items-center gap-1.5 text-xs text-orange-400">
+                <div className="flex items-center gap-1.5 text-xs text-destructive/80">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   {allIssues.length} consistency issue{allIssues.length !== 1 ? 's' : ''} found
                 </div>
               )}
               {allIssues.length === 0 && (
-                <div className="flex items-center gap-1.5 text-xs text-green-400">
+                <div className="flex items-center gap-1.5 text-xs text-primary">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   No major consistency issues
                 </div>
@@ -155,7 +155,7 @@ export function StyleConsistencyPanel({ result, loading, imageCount }: Props) {
                         {dim.issues?.length > 0 && (
                           <ul className="mt-1.5 space-y-0.5">
                             {dim.issues.map((issue, i) => (
-                              <li key={i} className="text-xs text-orange-300 flex items-start gap-1">
+                              <li key={i} className="text-xs text-destructive/70 flex items-start gap-1">
                                 <span className="mt-0.5">•</span>
                                 {issue}
                               </li>
@@ -196,10 +196,10 @@ export function StyleConsistencyPanel({ result, loading, imageCount }: Props) {
 
       {/* Weakest Pairs */}
       {result.weakestPairs?.length > 0 && (
-        <Card className="glass-card border-orange-500/10">
+        <Card className="glass-card border-destructive/10">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <AlertTriangle className="w-4 h-4 text-orange-400" />
+              <AlertTriangle className="w-4 h-4 text-destructive/80" />
               Weakest Image Pairs
             </CardTitle>
           </CardHeader>
