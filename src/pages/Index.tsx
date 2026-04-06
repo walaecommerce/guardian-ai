@@ -620,6 +620,31 @@ const Index = () => {
     }
 
     addLog('success', '🎯 Guardian batch audit complete');
+
+    // Extract product identity from MAIN image for cross-image consistency
+    const mainAssetForIdentity = assets.find(a => a.type === 'MAIN');
+    if (mainAssetForIdentity) {
+      try {
+        addLog('processing', '🔗 Extracting product identity card from main image...');
+        const mainBase64 = await fileToBase64(mainAssetForIdentity.file);
+        const { data: idData, error: idError } = await supabase.functions.invoke('extract-product-identity', {
+          body: { imageBase64: mainBase64, productTitle: listingTitle }
+        });
+        if (!idError && idData?.identity) {
+          setProductIdentity(idData.identity);
+          addLog('success', `✅ Product identity extracted: ${idData.identity.brandName} - ${idData.identity.productName}`);
+          // Persist to session
+          if (currentSessionId) {
+            await supabase.from('enhancement_sessions').update({ product_identity: idData.identity }).eq('id', currentSessionId);
+          }
+        } else {
+          addLog('warning', '⚠️ Could not extract product identity — fixes will use image-only matching');
+        }
+      } catch (e) {
+        addLog('warning', '⚠️ Product identity extraction skipped');
+      }
+    }
+
     setIsAnalyzing(false);
     setAnalyzingProgress(undefined);
     setAuditComplete({ passed: passedCount, failed: failedCount });
