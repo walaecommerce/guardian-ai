@@ -45,7 +45,9 @@ const App = () => (
                 </DashboardLayout>
               } />
             </Routes>
-          </AuthGuard>
+              </AuthGuard>
+            } />
+          </Routes>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
