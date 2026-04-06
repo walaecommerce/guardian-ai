@@ -77,6 +77,7 @@ const Session = () => {
         setProductAsin(data.session.product_asin);
         setSessionStatus(data.session.status);
         setSessionCreatedAt(data.session.created_at);
+        if (data.productIdentity) setProductIdentity(data.productIdentity);
         
         addLog('success', `✅ Loaded ${data.assets.length} images from session`);
         addLog('info', `📦 Product: ${data.session.listing_title || 'Untitled'}`);
