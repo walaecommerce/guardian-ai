@@ -39,14 +39,16 @@ serve(async (req) => {
     if (!authHeader) throw new Error("No authorization header provided");
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
-    if (userError) throw new Error(`Auth error: ${userError.message}`);
-    const user = userData.user;
-    if (!user?.email) throw new Error("User not authenticated");
-    logStep("User authenticated", { userId: user.id, email: user.email });
+    const { data: claimsData, error: claimsError } = await supabaseAdmin.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) throw new Error(`Auth error: ${claimsError?.message || 'Invalid token'}`);
+    
+    const userId = claimsData.claims.sub as string;
+    const email = claimsData.claims.email as string;
+    if (!email) throw new Error("User not authenticated or email not available");
+    logStep("User authenticated", { userId, email });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    const customers = await stripe.customers.list({ email, limit: 1 });
 
     if (customers.data.length === 0) {
       logStep("No Stripe customer found, user is on free plan");
@@ -68,7 +70,7 @@ serve(async (req) => {
     if (subscriptions.data.length === 0) {
       logStep("No active subscription");
       // Reset to free tier credits
-      await syncCredits(supabaseAdmin, user.id, "free", 5, 10, 2);
+      await syncCredits(supabaseAdmin, userId, "free", 5, 10, 2);
       return new Response(JSON.stringify({ subscribed: false, plan: "free" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -83,7 +85,7 @@ serve(async (req) => {
     logStep("Active subscription found", { productId, plan: planInfo.plan, subscriptionEnd });
 
     // Sync credits to match the active plan
-    await syncCredits(supabaseAdmin, user.id, planInfo.plan, planInfo.scrape, planInfo.analyze, planInfo.fix);
+    await syncCredits(supabaseAdmin, userId, planInfo.plan, planInfo.scrape, planInfo.analyze, planInfo.fix);
 
     return new Response(JSON.stringify({
       subscribed: true,
