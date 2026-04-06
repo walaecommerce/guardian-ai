@@ -205,7 +205,7 @@ function AssetResultCard({
   if (!result) {
     if (asset.isAnalyzing) {
       return (
-        <Card className="asset-card overflow-hidden">
+        <Card className="asset-card overflow-hidden glass-card">
           <div className="aspect-video relative bg-muted shimmer">
             <img src={asset.preview} alt={asset.name} className="w-full h-full object-cover opacity-50" />
             <div className="absolute inset-0 flex items-center justify-center">
@@ -227,7 +227,7 @@ function AssetResultCard({
   );
 
   return (
-    <Card className="asset-card overflow-hidden">
+    <Card className="asset-card overflow-hidden glass-card hover:translate-y-[-2px] hover:shadow-[0_8px_30px_-8px_hsl(var(--primary)/0.3)] transition-all duration-200">
       <div className="aspect-video relative bg-muted">
         <img src={asset.preview} alt={asset.name} className="w-full h-full object-cover" />
 
@@ -360,13 +360,13 @@ export function AnalysisResults({
 
   if (analyzedAssets.length === 0) {
     return (
-      <Card className="h-full flex items-center justify-center">
-        <CardContent className="text-center py-12">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-            <CheckCircle className="w-8 h-8 text-muted-foreground" />
+      <Card className="glass-card h-full flex items-center justify-center min-h-[400px]">
+        <CardContent className="text-center py-16">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <CheckCircle className="w-8 h-8 text-primary/30" />
           </div>
-          <h3 className="font-medium text-foreground mb-2">No Analysis Yet</h3>
-          <p className="text-sm text-muted-foreground max-w-xs">
+          <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Audit Results Yet</h3>
+          <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
             Upload images and run a batch audit to see compliance results here.
           </p>
         </CardContent>

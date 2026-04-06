@@ -225,7 +225,7 @@ export function CompetitorAudit({
   if (!report) {
     return (
       <div className="space-y-6">
-        <Card>
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Swords className="w-5 h-5 text-primary" />

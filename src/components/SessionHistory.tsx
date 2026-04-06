@@ -194,10 +194,12 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
         <CardContent>
           <ScrollArea className="h-[300px] pr-4">
             {sessions.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">No sessions yet</p>
-                <p className="text-xs mt-1">Import from Amazon to start</p>
+              <div className="text-center py-12 text-muted-foreground">
+                <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                  <Package className="w-8 h-8 text-primary/30" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Sessions Yet</h3>
+                <p className="text-sm max-w-xs mx-auto">Import from Amazon to start your first audit session.</p>
               </div>
             ) : (
               <div className="space-y-2">
