@@ -5,8 +5,9 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useCredits } from '@/hooks/useCredits';
 import { TIERS } from '@/config/subscriptionTiers';
 import { toast } from 'sonner';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { CheckoutSuccessModal } from '@/components/CheckoutSuccessModal';
 
 const ICONS = [Zap, Rocket, Crown, Building2];
 
