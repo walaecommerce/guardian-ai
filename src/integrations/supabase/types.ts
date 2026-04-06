@@ -193,6 +193,72 @@ export type Database = {
           },
         ]
       }
+      user_credits: {
+        Row: {
+          created_at: string
+          credit_type: Database["public"]["Enums"]["credit_type"]
+          id: string
+          plan: string
+          total_credits: number
+          updated_at: string
+          used_credits: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credit_type: Database["public"]["Enums"]["credit_type"]
+          id?: string
+          plan?: string
+          total_credits?: number
+          updated_at?: string
+          used_credits?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credit_type?: Database["public"]["Enums"]["credit_type"]
+          id?: string
+          plan?: string
+          total_credits?: number
+          updated_at?: string
+          used_credits?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          amazon_store_url: string | null
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          onboarding_complete: boolean
+          updated_at: string
+        }
+        Insert: {
+          amazon_store_url?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          onboarding_complete?: boolean
+          updated_at?: string
+        }
+        Update: {
+          amazon_store_url?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          onboarding_complete?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -201,7 +267,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      credit_type: "scrape" | "analyze" | "fix"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -328,6 +394,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      credit_type: ["scrape", "analyze", "fix"],
+    },
   },
 } as const
