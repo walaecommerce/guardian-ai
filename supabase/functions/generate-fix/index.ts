@@ -105,16 +105,19 @@ const CATEGORY_BG_NOTES: Record<FixCategory, string> = {
 // ── Prompt builders ──────────────────────────────────────────────
 
 function buildBackgroundReplacementPrompt(title: string, category: FixCategory, identity?: any): string {
-  let prompt = `BACKGROUND-ONLY EDIT — STRICT RULES:
+  let prompt = `BACKGROUND-ONLY EDIT + BADGE REMOVAL — STRICT RULES:
 1. Replace the background with pure white RGB(255,255,255) — not off-white, not grey
-2. DO NOT modify, regenerate, recolor, or alter the product in any way
-3. DO NOT change label text, logos, colors, shape, or any product detail
-4. DO NOT crop or reposition the product
-5. Ensure the product occupies 85%+ of the frame
-6. Remove any shadows that are not directly beneath the product
-7. Add a soft, natural shadow directly beneath the product
-8. Clean up any background artifacts or noise around product edges
-9. The result must look like a professional studio photograph on seamless white
+2. REMOVE all promotional badges, overlays, and stickers (e.g. "Best Seller", "Amazon's Choice", "#1 New Release", any ribbon/seal/starburst graphics) — these are NOT part of the product
+3. DO NOT modify, regenerate, recolor, or alter the actual product (bottle, box, packaging) in any way
+4. DO NOT change label text, logos, colors, shape, or any product detail that is printed ON the packaging
+5. DO NOT crop or reposition the product
+6. Ensure the product occupies 85%+ of the frame
+7. Remove any shadows that are not directly beneath the product
+8. Add a soft, natural shadow directly beneath the product
+9. Clean up any background artifacts or noise around product edges
+10. The result must look like a professional studio photograph on seamless white
+
+IMPORTANT DISTINCTION: Promotional badges/overlays are digitally added ON TOP of the photograph and must be removed. Product labels/logos are physically printed ON the packaging and must be preserved.
 
 ${CATEGORY_BG_NOTES[category]}
 
@@ -132,7 +135,7 @@ PRODUCT IDENTITY CARD (these details must remain UNCHANGED in the output):
 - Key label text: ${(identity.labelText || []).join(' | ')}
 - Visual features: ${(identity.keyVisualFeatures || []).join(', ')}
 
-CRITICAL: Every pixel of the product must remain identical to the input image. Only the background pixels change.`;
+CRITICAL: Every pixel of the product must remain identical to the input image. Only background pixels and promotional badge overlays should change.`;
   }
 
   return prompt;
