@@ -77,6 +77,11 @@
     @apply bg-background text-foreground antialiased;
   }
 
+  /* Global button press effect */
+  button:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
   /* Global dark scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
