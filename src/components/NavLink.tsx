@@ -41,10 +41,10 @@ function HeaderNavLink({ to, label, icon }: HeaderNavLinkProps) {
     <Link
       to={to}
       className={cn(
-        'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150',
         isActive
-          ? 'bg-primary/20 text-primary-foreground'
-          : 'text-secondary-foreground/70 hover:text-secondary-foreground hover:bg-secondary-foreground/10'
+          ? 'bg-primary/15 text-primary border border-primary/20'
+          : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
       )}
     >
       {icon}

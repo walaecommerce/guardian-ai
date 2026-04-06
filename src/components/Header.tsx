@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Zap, BarChart3, Sparkles, Activity, Download, Loader2, Chrome } from 'lucide-react';
+import { Shield, BarChart3, Sparkles, Activity, Download, Loader2, Chrome, Menu } from 'lucide-react';
 import { HeaderNavLink } from './NavLink';
 import { NotificationSettings } from './NotificationSettings';
 import { Button } from './ui/button';
@@ -14,6 +14,7 @@ const EXTENSION_FILES = [
 
 export function Header() {
   const [downloading, setDownloading] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { toast } = useToast();
 
   const handleDownloadExtension = async () => {
@@ -43,63 +44,66 @@ export function Header() {
   };
 
   return (
-    <header className="bg-secondary text-secondary-foreground shadow-lg">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <a href="/" className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary">
-                <Shield className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-secondary-foreground">
-                  Amazon Listing Guardian
-                </h1>
-                <p className="text-sm text-secondary-foreground/70">
-                  AI-Powered Compliance & Optimization
-                </p>
-              </div>
-            </a>
-            <nav className="hidden md:flex items-center gap-1 ml-4">
-              <HeaderNavLink to="/" label="Single Audit" />
-              <HeaderNavLink to="/campaign" label="Campaign Audit" icon={<BarChart3 className="w-3.5 h-3.5" />} />
-              <HeaderNavLink to="/studio" label="Studio" icon={<Sparkles className="w-3.5 h-3.5" />} />
-              <HeaderNavLink to="/tracker" label="Tracker" icon={<Activity className="w-3.5 h-3.5" />} />
-            </nav>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadExtension}
-              disabled={downloading}
-              className="hidden sm:flex items-center gap-1.5 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
-            >
-              {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Chrome className="w-3.5 h-3.5" />}
-              <span className="hidden lg:inline">Chrome Extension</span>
-              <Download className="w-3 h-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleDownloadExtension}
-              disabled={downloading}
-              className="sm:hidden text-primary"
-              title="Download Chrome Extension"
-            >
-              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Chrome className="w-4 h-4" />}
-            </Button>
-            <NotificationSettings />
-            <div className="flex items-center gap-2 text-sm">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-secondary-foreground/80">
-                Powered by Gemini AI
-              </span>
+    <header className="sticky top-0 z-50 h-14 border-b border-white/5 bg-background/80 backdrop-blur-xl">
+      <div className="container mx-auto px-4 h-full flex items-center justify-between">
+        {/* Left: Logo */}
+        <div className="flex items-center gap-6">
+          <a href="/" className="flex items-center gap-3 group">
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 glow-cyan-sm group-hover:glow-cyan transition-all">
+              <Shield className="w-5 h-5 text-primary" />
             </div>
-          </div>
+            <div className="hidden sm:block">
+              <h1 className="text-base font-bold text-foreground tracking-tight">
+                AGC Guardian
+              </h1>
+            </div>
+          </a>
+
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-1">
+            <HeaderNavLink to="/" label="Single Audit" />
+            <HeaderNavLink to="/campaign" label="Campaign" icon={<BarChart3 className="w-3.5 h-3.5" />} />
+            <HeaderNavLink to="/studio" label="Studio" icon={<Sparkles className="w-3.5 h-3.5" />} />
+            <HeaderNavLink to="/tracker" label="Tracker" icon={<Activity className="w-3.5 h-3.5" />} />
+          </nav>
+        </div>
+        
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadExtension}
+            disabled={downloading}
+            className="hidden sm:flex items-center gap-1.5"
+          >
+            {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Chrome className="w-3.5 h-3.5" />}
+            <span className="hidden lg:inline">Extension</span>
+            <Download className="w-3 h-3" />
+          </Button>
+          <NotificationSettings />
+          
+          {/* Mobile menu toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
+            <Menu className="w-5 h-5" />
+          </Button>
         </div>
       </div>
+
+      {/* Mobile nav dropdown */}
+      {mobileOpen && (
+        <div className="md:hidden border-t border-white/5 bg-background/95 backdrop-blur-xl px-4 py-3 space-y-1">
+          <HeaderNavLink to="/" label="Single Audit" />
+          <HeaderNavLink to="/campaign" label="Campaign" icon={<BarChart3 className="w-3.5 h-3.5" />} />
+          <HeaderNavLink to="/studio" label="Studio" icon={<Sparkles className="w-3.5 h-3.5" />} />
+          <HeaderNavLink to="/tracker" label="Tracker" icon={<Activity className="w-3.5 h-3.5" />} />
+        </div>
+      )}
     </header>
   );
 }
