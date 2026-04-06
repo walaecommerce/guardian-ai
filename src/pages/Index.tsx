@@ -19,8 +19,9 @@ import { RecommendationsPanel } from '@/components/recommendations/Recommendatio
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
 import { PolicyBanner, PolicySidebar } from '@/components/PolicyUpdates';
 import { ProductIdentityPanel } from '@/components/ProductIdentityPanel';
+import { StyleConsistencyPanel } from '@/components/StyleConsistencyPanel';
 import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
-import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard } from '@/types';
+import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
 import { supabase } from '@/integrations/supabase/client';
