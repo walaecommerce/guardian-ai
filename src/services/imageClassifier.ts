@@ -32,7 +32,7 @@ export async function classifyImage(
   const cacheKey = getCacheKey(imageBase64);
   const cached = classificationCache.get(cacheKey);
   if (cached) {
-    console.log('Using cached classification:', cached.category);
+    
     return cached;
   }
 
