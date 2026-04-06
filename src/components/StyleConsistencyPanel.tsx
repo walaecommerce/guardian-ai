@@ -49,7 +49,7 @@ function getProgressColor(score: number): string {
 function ScoreGauge({ score }: { score: number }) {
   const circumference = 2 * Math.PI * 40;
   const dashOffset = circumference - (score / 100) * circumference;
-  const color = score >= 85 ? '#22c55e' : score >= 70 ? '#eab308' : score >= 50 ? '#f97316' : '#ef4444';
+  const color = score >= 85 ? 'hsl(var(--primary))' : score >= 70 ? 'hsl(var(--accent-foreground))' : 'hsl(var(--destructive))';
 
   return (
     <div className="relative w-28 h-28 mx-auto">
