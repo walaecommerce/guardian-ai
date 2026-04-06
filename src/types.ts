@@ -13,6 +13,9 @@ export interface ProductIdentityCard {
   productDescriptor: string; // paragraph for prompt injection
 }
 
+// Fix method used to generate the fixed image
+export type FixMethod = 'bg-segmentation' | 'full-regeneration' | 'openai-inpainting' | 'surgical-edit';
+
 export interface ImageAsset {
   id: string;
   file: File;
@@ -23,6 +26,7 @@ export interface ImageAsset {
   contentHash?: string;    // SHA-256 hash for deduplication
   analysisResult?: AnalysisResult;
   fixedImage?: string;
+  fixMethod?: FixMethod;   // Which AI pattern was used to fix
   isAnalyzing?: boolean;
   isGeneratingFix?: boolean;
 }
