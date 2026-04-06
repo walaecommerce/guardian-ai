@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { X, Loader2, Crop, Star, GripVertical } from 'lucide-react';
-import { ImageAsset } from '@/types';
+import { X, Loader2, Crop, Star, GripVertical, Layers, RefreshCw, Paintbrush, Scissors } from 'lucide-react';
+import { ImageAsset, FixMethod } from '@/types';
 
 interface SortableImageCardProps {
   asset: ImageAsset;
@@ -30,6 +30,19 @@ const formatCategory = (category: string | null) => {
   return category.replace(/_/g, ' ').split(' ').map(w => 
     w.charAt(0) + w.slice(1).toLowerCase()
   ).join(' ');
+};
+
+const getFixMethodConfig = (method: FixMethod) => {
+  switch (method) {
+    case 'bg-segmentation':
+      return { label: 'A1 · BG Seg', icon: Layers, className: 'bg-cyan-500/90 text-white' };
+    case 'full-regeneration':
+      return { label: 'A2 · Regen', icon: RefreshCw, className: 'bg-violet-500/90 text-white' };
+    case 'openai-inpainting':
+      return { label: 'T2 · Inpaint', icon: Paintbrush, className: 'bg-amber-500/90 text-white' };
+    case 'surgical-edit':
+      return { label: 'T1 · Surgical', icon: Scissors, className: 'bg-emerald-500/90 text-white' };
+  }
 };
 
 const getOrdinalSuffix = (n: number) => {
@@ -184,6 +197,21 @@ export function SortableImageCard({ asset, index, onRemove, onCrop, isOverlay = 
           {asset.analysisResult.overallScore}%
         </div>
       )}
+
+      {/* Fix Method Badge */}
+      {asset.fixMethod && asset.fixedImage && (() => {
+        const config = getFixMethodConfig(asset.fixMethod);
+        const Icon = config.icon;
+        return (
+          <div
+            className={`absolute bottom-8 left-2 px-1.5 py-0.5 rounded text-[9px] font-semibold flex items-center gap-1 ${config.className}`}
+            title={`Fixed via ${asset.fixMethod}`}
+          >
+            <Icon className="w-2.5 h-2.5" />
+            {config.label}
+          </div>
+        );
+      })()}
     </div>
   );
 }
