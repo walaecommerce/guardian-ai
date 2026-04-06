@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useCreditGate } from '@/hooks/useCreditGate';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -130,6 +131,7 @@ function filterByRange(audits: AuditRecord[], range: string): AuditRecord[] {
 // ── Component ────────────────────────────────────────────────
 
 const Tracker = () => {
+  const { guard: creditGate } = useCreditGate();
   const [tracker, setTracker] = useState<TrackerData>(loadTracker);
   const [alerts, setAlerts] = useState<TrackerAlert[]>(loadAlerts);
   const [urlInput, setUrlInput] = useState('');
@@ -154,6 +156,7 @@ const Tracker = () => {
 
   // ── Run audit on a product ────────────────────────────────
   const runAudit = useCallback(async (product: TrackedProduct) => {
+    if (!creditGate('scrape') || !creditGate('analyze')) return;
     setAuditingAsin(product.asin);
     try {
       const scraped = await scrapeAmazonProduct(product.url);
@@ -234,6 +237,7 @@ const Tracker = () => {
   // ── Add product ───────────────────────────────────────────
   const addProduct = async () => {
     if (!urlInput.trim()) return;
+    if (!creditGate('scrape')) return;
     const asin = extractAsin(urlInput.trim());
     if (tracker.products.some(p => p.asin === asin || p.url === urlInput.trim())) {
       toast({ title: 'Already tracked', variant: 'destructive' });
