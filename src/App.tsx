@@ -11,6 +11,8 @@ import CampaignAudit from "./pages/CampaignAudit";
 import Studio from "./pages/Studio";
 import Tracker from "./pages/Tracker";
 import TestChecklist from "./pages/TestChecklist";
+import Onboarding from "./pages/Onboarding";
+import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +27,8 @@ const App = () => (
           <AuthGuard>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route path="/pricing" element={<Pricing />} />
               <Route path="/campaign" element={<CampaignAudit />} />
               <Route path="/studio" element={<Studio />} />
               <Route path="/tracker" element={<Tracker />} />

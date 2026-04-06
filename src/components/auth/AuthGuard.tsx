@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Shield, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { lovable } from '@/integrations/lovable/index';
+import { Navigate, useLocation } from 'react-router-dom';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -10,6 +11,7 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const { user, profile, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -35,6 +37,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
         <Loader2 className="w-6 h-6 text-primary animate-spin" />
       </div>
     );
+  }
+
+  // Redirect to onboarding if not complete (unless already on onboarding)
+  if (profile && !profile.onboarding_complete && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;

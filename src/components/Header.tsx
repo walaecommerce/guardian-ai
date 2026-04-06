@@ -122,7 +122,7 @@ export function Header() {
                   <p className="text-xs text-muted-foreground truncate">{profile?.email || user.email}</p>
                 </div>
                 <DropdownMenuSeparator className="bg-white/5" />
-                <DropdownMenuItem className="gap-2 cursor-pointer">
+                <DropdownMenuItem onClick={() => navigate('/pricing')} className="gap-2 cursor-pointer">
                   <CreditCard className="w-4 h-4" />
                   Upgrade Plan
                 </DropdownMenuItem>
