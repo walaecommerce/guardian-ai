@@ -10,7 +10,7 @@ const FEATURES = [
   {
     icon: <Shield className="w-5 h-5 text-primary" />,
     title: 'Compliance Audits',
-    desc: 'AI scans your product images against Amazon's latest policies.',
+    desc: "AI scans your product images against Amazon's latest policies.",
   },
   {
     icon: <Sparkles className="w-5 h-5 text-primary" />,
