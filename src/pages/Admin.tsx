@@ -340,9 +340,25 @@ export default function Admin() {
         {/* Activity Tab */}
         <TabsContent value="activity">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
               <CardTitle className="text-lg">Recent Activity</CardTitle>
-              <span className="text-xs text-muted-foreground">{activityTotal} total actions</span>
+              <div className="flex items-center gap-3">
+                <select
+                  value={activityFilter}
+                  onChange={(e) => {
+                    const val = e.target.value as typeof activityFilter;
+                    setActivityFilter(val);
+                    fetchActivity(0, val);
+                  }}
+                  className="text-xs bg-background border border-border rounded-md px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="all">All types</option>
+                  <option value="scrape">Scrape</option>
+                  <option value="analyze">Analyze</option>
+                  <option value="fix">Fix</option>
+                </select>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{activityTotal} actions</span>
+              </div>
             </CardHeader>
             <CardContent>
               {activityLoading ? (
