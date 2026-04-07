@@ -1,98 +1,68 @@
 
 
-## Multi-Feature Enhancement Plan
+## Admin Role System & Unlimited Access
 
-This plan addresses the user's grouped requests: real-time credit updates, AI credits exhaustion banner, partial failure handling, Media Library category filter, session name disambiguation, and Amazon retry with exponential backoff.
+### Overview
+Create a `user_roles` table following security best practices, assign admin role to `avvaruakash@gmail.com`, give admins unlimited credits (bypass credit checks), and build an admin dashboard page.
 
-**Note on the 402 "AI credits exhausted" error**: This is a Lovable AI gateway billing issue, not a code bug. The workspace needs more AI credits added via Settings → Workspace → Usage. The features below improve how the app handles this scenario gracefully.
+### Database Changes
 
----
+**Migration 1: Create user_roles table + helper function**
+- Create `app_role` enum: `('admin', 'user')`
+- Create `user_roles` table with `user_id` (references auth.users) and `role` columns
+- Enable RLS with a `SECURITY DEFINER` function `has_role(user_id, role)` to avoid recursive RLS
+- RLS policy: authenticated users can read their own roles
+- Insert admin role for `avvaruakash@gmail.com` by looking up their auth.users ID
 
-### 1. Real-time credit refresh after each image analysis
+**Migration 2: Make admin credits unlimited**
+- Update `user_credits` rows for the admin user: set `total_credits` to `999999` for all credit types
 
-**File: `src/hooks/useAuditSession.ts`**
+### Backend Changes
 
-Currently `refreshCredits()` is called only after the entire audit loop completes (line 629). Move an additional `refreshCredits()` call inside the per-image loop, right after each successful analysis result is processed (~line 537), so sidebar credit bars update live as each image consumes a credit.
+**`supabase/functions/_shared/credits.ts`**
+- In `useCredit()`, before checking credits, query `user_roles` to check if user has `admin` role
+- If admin, skip credit deduction entirely and return `{ remaining: 999999 }`
 
----
+### Frontend Changes
 
-### 2. AI credits exhausted banner
+**New: `src/hooks/useAdmin.ts`**
+- Hook that queries `user_roles` table for current user
+- Returns `{ isAdmin, isLoading }`
+- Caches result in state
 
-**New file: `src/components/AICreditsExhaustedBanner.tsx`**
+**`src/contexts/AuthContext.tsx`**
+- Add `isAdmin` boolean to context by querying `user_roles` after profile fetch
+- Expose `isAdmin` from `useAuth()`
 
-A dismissible alert banner that detects when edge functions return 402 `payment_required` errors. Different from the existing `CreditWarningBanner` (which tracks in-app credits), this banner specifically handles Lovable AI gateway exhaustion:
+**`src/hooks/useCredits.ts`**
+- If `isAdmin`, return unlimited credits (bypass checks, always return `hasCredits = true`)
 
-- Renders a destructive Alert with message: "AI credits exhausted. Add credits in Settings → Workspace → Usage."
-- Dismiss button using local state
-- Triggered via a new context/state flag set when any edge function returns 402
+**`src/hooks/useCreditGate.ts`**
+- If admin, `guard()` always returns `true`
 
-**File: `src/hooks/useAuditSession.ts`**
+**New: `src/pages/Admin.tsx`**
+- Admin dashboard with tabs:
+  - **Users**: List all user profiles with their roles, credits, and session counts
+  - **Credits Management**: Adjust any user's credit limits
+  - **System Stats**: Total sessions, images analyzed, credits consumed
+- Protected: redirects non-admins to `/`
 
-Add a `aiCreditsExhausted` state flag. In `analyzeAsset()` (line 469), when status is 402, set this flag to `true`. Expose it from the hook.
+**`src/components/AppSidebar.tsx`**
+- Add "Admin" nav item (with Shield icon) visible only when `isAdmin` is true
 
-**File: `src/pages/Index.tsx`**
+**`src/App.tsx`**
+- Add `/admin` route
 
-Render `AICreditsExhaustedBanner` at the top of the dashboard when the flag is true.
-
----
-
-### 3. Partial failure state in audit results
-
-**File: `src/components/audit/AuditStep.tsx`**
-
-After the audit loop, if some images succeeded and some failed (have `analysisError`), show a mixed-results banner:
-
-- "X of Y images analyzed successfully. Z failed." with a Retry Failed button
-- List failed image names with their error reasons
-- The retry button re-runs `analyzeAsset()` only on failed images
-
-**File: `src/hooks/useAuditSession.ts`**
-
-Add a `handleRetryFailedAnalysis()` function that filters assets with `analysisError` set and re-runs the audit loop only on those assets. Expose it from the hook.
-
----
-
-### 4. Media Library category filter
-
-**File: `src/pages/Media.tsx`**
-
-Add a third `<Select>` filter for `image_category` alongside the existing session and status filters:
-
-- Options: All Categories, PRODUCT_SHOT, INFOGRAPHIC, LIFESTYLE, PACKAGING, SIZE_CHART, COMPARISON, OTHER
-- Filter logic added to `filteredImages` (~line 84): check `img.image_category`
-
----
-
-### 5. Session name disambiguation in Media Library
-
-**File: `src/pages/Media.tsx`**
-
-Update the session filter dropdown (line 141-145) to append date or ASIN suffix:
-
-- Format: `"{title} · {ASIN || date}"` where date is formatted as "MMM d" using date-fns
-- This distinguishes sessions with the same product title
-
----
-
-### 6. Amazon import retry with exponential backoff
-
-**File: `src/hooks/useAuditSession.ts`**
-
-Wrap the `scrapeAmazonProduct()` call in `handleImportFromAmazon` with an exponential backoff retry (3 attempts, delays: 2s, 4s, 8s). Show retry status in logs. If all retries fail, show a "Retry Import" button in the ImportStep error state.
-
-**File: `src/components/audit/ImportStep.tsx`**
-
-Add a retry button that appears after import failure, calling `onImportFromAmazon` again.
-
----
-
-### Files to modify
+### Files to create/modify
 | File | Change |
 |------|--------|
-| `src/hooks/useAuditSession.ts` | Real-time credit refresh per image, AI exhausted flag, retry failed analysis, import retry with backoff |
-| `src/components/AICreditsExhaustedBanner.tsx` | New — dismissible 402 banner |
-| `src/components/audit/AuditStep.tsx` | Partial failure banner with retry |
-| `src/pages/Media.tsx` | Category filter + session name disambiguation |
-| `src/pages/Index.tsx` | Render AI credits banner |
-| `src/components/audit/ImportStep.tsx` | Retry button on import failure |
+| Migration SQL | `user_roles` table, `has_role()` function, RLS, seed admin |
+| `supabase/functions/_shared/credits.ts` | Skip credit deduction for admins |
+| `src/hooks/useAdmin.ts` | New — query admin role |
+| `src/contexts/AuthContext.tsx` | Add `isAdmin` to context |
+| `src/hooks/useCredits.ts` | Bypass limits for admin |
+| `src/hooks/useCreditGate.ts` | Always allow for admin |
+| `src/pages/Admin.tsx` | New — admin dashboard |
+| `src/components/AppSidebar.tsx` | Add admin nav link |
+| `src/App.tsx` | Add `/admin` route |
 
