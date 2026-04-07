@@ -764,6 +764,7 @@ const Session = () => {
                   onViewDetails={handleViewDetails}
                   onReverify={handleReverify}
                   onBatchFix={handleBatchFix}
+                  onRetryAudit={handleRunAudit}
                   isBatchFixing={isBatchFixing}
                   productAsin={productAsin || undefined}
                 />
