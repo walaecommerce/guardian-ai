@@ -1111,7 +1111,7 @@ export function useAuditSession() {
         };
 
         addLog('processing', `Auditing competitor image ${compAssets.length + 1}...`);
-        const result = await analyzeAsset(asset);
+        const { result } = await analyzeAsset(asset);
         if (result) asset.analysisResult = result;
 
         compAssets.push(asset);
