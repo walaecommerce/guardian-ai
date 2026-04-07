@@ -233,6 +233,7 @@ const Session = () => {
       }))
     }));
 
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
     const { error } = await supabase.from('compliance_reports').insert([{
       amazon_url: amazonUrl || null,
       product_asin: productAsin || extractAsin(amazonUrl) || null,
@@ -242,7 +243,8 @@ const Session = () => {
       failed_count: failedCount,
       average_score: avgScore,
       report_data: reportData,
-      fixed_images_count: fixedCount
+      fixed_images_count: fixedCount,
+      user_id: currentUser?.id
     }]);
 
     if (error) {

@@ -18,6 +18,8 @@ import Pricing from "./pages/Pricing";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Landing from "./pages/Landing";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +48,8 @@ const App = () => (
                         <Route path="/sessions" element={<Sessions />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/session/:sessionId" element={<Session />} />
+                        <Route path="/privacy" element={<Privacy />} />
+                        <Route path="/terms" element={<Terms />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </DashboardLayout>

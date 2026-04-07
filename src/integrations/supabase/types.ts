@@ -27,6 +27,7 @@ export type Database = {
           product_asin: string | null
           report_data: Json
           total_images: number
+          user_id: string | null
         }
         Insert: {
           amazon_url?: string | null
@@ -40,6 +41,7 @@ export type Database = {
           product_asin?: string | null
           report_data?: Json
           total_images?: number
+          user_id?: string | null
         }
         Update: {
           amazon_url?: string | null
@@ -53,6 +55,7 @@ export type Database = {
           product_asin?: string | null
           report_data?: Json
           total_images?: number
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -71,6 +74,7 @@ export type Database = {
           status: string
           total_images: number
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           amazon_url?: string | null
@@ -86,6 +90,7 @@ export type Database = {
           status?: string
           total_images?: number
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           amazon_url?: string | null
@@ -101,6 +106,7 @@ export type Database = {
           status?: string
           total_images?: number
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
