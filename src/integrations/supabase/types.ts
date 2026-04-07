@@ -59,6 +59,30 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_usage_log: {
+        Row: {
+          consumed_at: string
+          credit_type: string
+          edge_function: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string
+          credit_type: string
+          edge_function?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string
+          credit_type?: string
+          edge_function?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       enhancement_sessions: {
         Row: {
           amazon_url: string | null
