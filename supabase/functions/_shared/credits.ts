@@ -29,12 +29,15 @@ export async function useCredit(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string,
   creditType: CreditType,
+  edgeFunction?: string,
 ): Promise<{ remaining: number }> {
   // Atomic: only increment if used < total
   const { data, error } = await supabaseAdmin.rpc('use_credit', {
     p_user_id: userId,
     p_credit_type: creditType,
   });
+
+  let remaining = 0;
 
   // Fallback if RPC doesn't exist yet — do manual update
   if (error?.code === '42883' || error?.message?.includes('function')) {
@@ -64,14 +67,21 @@ export async function useCredit(
       throw { status: 402, message: `Failed to deduct credit` };
     }
 
-    return { remaining: row.total_credits - row.used_credits - 1 };
-  }
-
-  if (error) {
+    remaining = row.total_credits - row.used_credits - 1;
+  } else if (error) {
     throw { status: 402, message: error.message };
+  } else {
+    remaining = data ?? 0;
   }
 
-  return { remaining: data ?? 0 };
+  // Log consumption for usage history
+  await supabaseAdmin.from('credit_usage_log').insert({
+    user_id: userId,
+    credit_type: creditType,
+    edge_function: edgeFunction ?? null,
+  });
+
+  return { remaining };
 }
 
 /**

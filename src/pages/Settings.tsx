@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCredits } from '@/hooks/useCredits';
+import { useCreditsHistory } from '@/hooks/useCreditsHistory';
 import { useSubscription } from '@/hooks/useSubscription';
 import { TIERS, getTierByPlan } from '@/config/subscriptionTiers';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,9 +19,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import {
   User, CreditCard, Bell, Loader2, Save, ExternalLink, Search, BarChart3, Sparkles, Send,
-  CheckCircle2, XCircle, Clock,
+  CheckCircle2, XCircle, Clock, TrendingUp,
 } from 'lucide-react';
 import {
   getNotificationPrefs, saveNotificationPrefs, NotificationPrefs,
