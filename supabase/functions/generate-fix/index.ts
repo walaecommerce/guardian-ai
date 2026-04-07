@@ -164,14 +164,22 @@ CRITICAL: The generated image must show THIS EXACT product. Do NOT change any la
   return prompt;
 }
 
-function buildSecondaryImagePrompt(identity?: any): string {
-  let prompt = `Edit this product image with MINIMAL targeted changes only:
-- REMOVE: "Best Seller" badges, "Amazon's Choice" badges, competitor logos, unreadable text
-- PRESERVE EVERYTHING ELSE: lifestyle setting, background scene, people, props, infographic text, annotations, product context
-- Do NOT change the background
-- Do NOT remove informational text or callouts
-- Do NOT regenerate the product — it must remain pixel-identical
-- Make the smallest possible edit to achieve compliance`;
+function buildSecondaryImagePrompt(identity?: any, violations?: any[]): string {
+  const topViolations = (violations || []).slice(0, 3);
+  const violationContext = topViolations.length > 0
+    ? `\n\nSPECIFIC VIOLATIONS TO FIX:\n${topViolations.map((v: any, i: number) => `${i + 1}. [${v.severity}] ${v.message} → ${v.recommendation}`).join('\n')}`
+    : '';
+
+  let prompt = `Edit this product image with MINIMAL targeted changes — STEP-BY-STEP:
+
+STEP 1: Scan for prohibited elements: "Best Seller" badges, "Amazon's Choice" badges, competitor logos, watermarks, unreadable/illegible text.
+STEP 2: REMOVE only the prohibited elements found in Step 1 by inpainting — fill the area to seamlessly match the surrounding background/content.
+STEP 3: PRESERVE everything else: lifestyle setting, background scene, people, props, infographic text, annotations, product context.
+STEP 4: DO NOT change the background color or scene.
+STEP 5: DO NOT remove informational text or callouts — only prohibited promotional badges.
+STEP 6: DO NOT regenerate the product — it must remain pixel-identical.
+OUTPUT: The minimally edited image only. No text response needed.
+${violationContext}`;
   if (identity) {
     prompt += `\n\nPRODUCT IDENTITY (must match exactly):
 - Brand: ${identity.brandName || 'Unknown'}, Product: ${identity.productName || 'Unknown'}
