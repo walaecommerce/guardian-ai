@@ -9,7 +9,6 @@ import { FixModal } from '@/components/FixModal';
 import { ImageDetailDrawer } from '@/components/ImageDetailDrawer';
 import { ActivityPanel } from '@/components/ActivityPanel';
 import { PolicyBanner } from '@/components/PolicyUpdates';
-import { SessionHistory } from '@/components/SessionHistory';
 import { AuditHistoryEntry } from '@/components/ComplianceHistory';
 import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
 import { useToast } from '@/hooks/use-toast';
@@ -185,10 +184,6 @@ const Index = () => {
           />
         )}
 
-        {/* Session history at bottom */}
-        <div className="mt-6">
-          <SessionHistory currentSessionId={session.currentSessionId || undefined} />
-        </div>
       </main>
 
       {/* Right slide-in drawer for image details */}

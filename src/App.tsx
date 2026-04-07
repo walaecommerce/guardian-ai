@@ -12,6 +12,7 @@ import CampaignAudit from "./pages/CampaignAudit";
 import Studio from "./pages/Studio";
 import Tracker from "./pages/Tracker";
 import TestChecklist from "./pages/TestChecklist";
+import Sessions from "./pages/Sessions";
 import Onboarding from "./pages/Onboarding";
 import Pricing from "./pages/Pricing";
 import Settings from "./pages/Settings";
@@ -42,6 +43,7 @@ const App = () => (
                         <Route path="/studio" element={<Studio />} />
                         <Route path="/tracker" element={<Tracker />} />
                         <Route path="/test-checklist" element={<TestChecklist />} />
+                        <Route path="/sessions" element={<Sessions />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/session/:sessionId" element={<Session />} />
                         <Route path="*" element={<NotFound />} />
