@@ -156,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setSession(newSession);
               setUser(validatedUser.user);
               await fetchProfile(validatedUser.user.id, validatedUser.user.user_metadata);
+              await fetchAdminRole(validatedUser.user.id);
               setIsLoading(false);
             })();
           }, 0);
@@ -185,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(existingSession);
         setUser(validatedUser.user);
         fetchProfile(validatedUser.user.id, validatedUser.user.user_metadata)
+          .then(() => fetchAdminRole(validatedUser.user.id))
           .finally(() => setIsLoading(false));
       } else {
         setIsLoading(false);
@@ -192,10 +194,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+  }, [fetchProfile, fetchAdminRole]);
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, isLoading, signOut, refreshProfile, markOnboardingComplete }}>
+    <AuthContext.Provider value={{ user, session, profile, isAdmin, isLoading, signOut, refreshProfile, markOnboardingComplete }}>
       {children}
     </AuthContext.Provider>
   );
