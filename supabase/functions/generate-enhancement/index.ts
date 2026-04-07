@@ -204,17 +204,10 @@ serve(async (req) => {
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(mainProductImage) } });
     }
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODELS.imageGen,
-        messages: [{ role: "user", content: contentParts }],
-        modalities: ["image", "text"],
-      }),
+    const response = await fetchGemini({
+      model: MODELS.imageGen,
+      messages: [{ role: "user", content: contentParts }],
+      modalities: ["image", "text"],
     });
 
     if (response.status === 429) {
