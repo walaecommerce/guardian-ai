@@ -11,6 +11,7 @@ import { ActivityPanel } from '@/components/ActivityPanel';
 import { PolicyBanner } from '@/components/PolicyUpdates';
 import { AuditHistoryEntry } from '@/components/ComplianceHistory';
 import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
+import { CreditWarningBanner } from '@/components/CreditWarningBanner';
 import { useToast } from '@/hooks/use-toast';
 import { ImageAsset } from '@/types';
 
@@ -80,6 +81,9 @@ const Index = () => {
       {!bannerDismissed && highImpactUpdates.length > 0 && (
         <PolicyBanner updates={highImpactUpdates} onDismiss={() => setBannerDismissed(true)} />
       )}
+
+      {/* Credit Warning Banner */}
+      <CreditWarningBanner />
 
       {/* Sticky Command Bar */}
       <CommandBar
