@@ -844,6 +844,8 @@ export function useAuditSession() {
               imageCategory: asset.analysisResult?.productCategory || undefined,
               productIdentity: productIdentity || undefined,
               useOpenAIInpainting: shouldUseOpenAIInpainting,
+              violations: asset.analysisResult?.violations || [],
+              scoringRationale: asset.analysisResult?.scoringRationale || undefined,
             }
           });
 

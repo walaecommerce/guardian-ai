@@ -21,7 +21,15 @@ Examine the product image and determine the category:
 - ELECTRONICS: devices, gadgets, cables, chargers, tech accessories
 - GENERAL_MERCHANDISE: everything else (home goods, tools, toys, clothing, etc.)
 
-Apply the category-specific rules below in addition to the universal rules.`;
+STEP 2 — APPLY ONLY the matching category-specific rules below (ignore all other categories).
+
+STEP 3 — SPATIAL ANALYSIS (REQUIRED for ALL images):
+Scan the entire image and map every element spatially. For each element, estimate bounding box as percentage of image dimensions (0-100).
+Identify:
+- overlay_elements: Any badges, watermarks, stickers, promotional text overlaid on top of the photograph (NOT part of physical packaging). For each, determine if it should be removed.
+- text_zones: All text regions (packaging labels, infographic callouts, brand names). Mark protection level: CRITICAL (brand/product name), HIGH (ingredient/nutrition info), MEDIUM (decorative text).
+- product_zones: Where the product physically occupies the frame. Estimate coverage percentage.
+- protected_areas: Regions that must NOT be modified during any fix (labels, barcodes, certifications).`;
 
 const MAIN_IMAGE_RULES = `UNIVERSAL MAIN IMAGE RULES (apply to ALL categories):
 
@@ -243,6 +251,44 @@ Return this EXACT JSON structure:
       "recommendation": "<how to fix>"
     }
   ],
+  "spatial_analysis": {
+    "overlay_elements": [
+      {
+        "id": "<unique_id e.g. badge_1>",
+        "type": "<best_seller_badge|amazons_choice_badge|watermark|promotional_text|ribbon|starburst|other>",
+        "location": "<top-left|top-right|bottom-left|bottom-right|center|top-center|bottom-center>",
+        "bounds": { "top": <%>, "left": <%>, "width": <%>, "height": <%> },
+        "is_part_of_packaging": <boolean — true if physically printed on product, false if digitally overlaid>,
+        "action": "remove" | "preserve"
+      }
+    ],
+    "text_zones": [
+      {
+        "id": "<unique_id e.g. text_1>",
+        "location": "<position description>",
+        "bounds": { "top": <%>, "left": <%>, "width": <%>, "height": <%> },
+        "content": "<visible text>",
+        "protection": "CRITICAL" | "HIGH" | "MEDIUM"
+      }
+    ],
+    "product_zones": [
+      {
+        "id": "<unique_id e.g. prod_1>",
+        "location": "<position description>",
+        "bounds": { "top": <%>, "left": <%>, "width": <%>, "height": <%> },
+        "coverage": <%>,
+        "type": "packaged-product" | "unpackaged-product" | "lifestyle-shot" | "demonstration"
+      }
+    ],
+    "protected_areas": [
+      {
+        "id": "<unique_id e.g. prot_1>",
+        "reason": "<why this area is protected>",
+        "bounds": { "top": <%>, "left": <%>, "width": <%>, "height": <%> },
+        "description": "<what is in this area>"
+      }
+    ]
+  },
   "content_consistency": {
     "packaging_text_detected": "<all text read from product packaging>",
     "extracted_details": {
@@ -290,6 +336,13 @@ STATUS MAPPING (derive from score — do NOT default to PASS):
 - Score below 50: status = "FAIL", severity = "HIGH" or "CRITICAL"
 
 IMPORTANT: Do NOT round scores up to 100. A score of 100 means literally zero issues found — no minor lighting concern, no slight text legibility issue, nothing. Be a strict grader.
+
+SPATIAL ANALYSIS — CRITICAL:
+You MUST populate the spatial_analysis object for EVERY image. Scan the entire image:
+- For MAIN images: Look for promotional badges (Best Seller, Amazon's Choice, etc.) that need removal. Map the product boundaries precisely.
+- For SECONDARY images: Map all text zones, infographic elements, and any prohibited overlays.
+- Provide bounding box estimates as percentages (0-100) of image width/height.
+- Mark overlay elements that are NOT part of the physical packaging as action: "remove".
 
 TEXT READABILITY SCORING (SECONDARY images only):
 - 100: All text is large, high-contrast, minimal density — perfect mobile readability
@@ -344,15 +397,34 @@ const toDataUrl = (dataUrl: string): string => {
 
 // ── Build category-aware prompt ─────────────────────────────────
 
+const CATEGORY_RULES_MAP: Record<string, string> = {
+  'FOOD_BEVERAGE': FOOD_RULES,
+  'PET_SUPPLIES': PET_RULES,
+  'SUPPLEMENTS': SUPPLEMENT_RULES,
+  'BEAUTY_PERSONAL_CARE': BEAUTY_RULES,
+  'ELECTRONICS': ELECTRONICS_RULES,
+  'GENERAL_MERCHANDISE': GENERAL_RULES,
+};
+
 const buildAnalysisPrompt = (isMain: boolean, listingTitle: string, forcedCategory?: string): string => {
   const universalRules = isMain ? MAIN_IMAGE_RULES : SECONDARY_IMAGE_RULES;
-  const categoryBlock = forcedCategory
-    ? `--- FORCED CATEGORY: ${forcedCategory} — apply ONLY this category's rules ---`
-    : '--- CATEGORY-SPECIFIC RULES (apply the matching set after detection) ---';
+
+  if (forcedCategory && CATEGORY_RULES_MAP[forcedCategory]) {
+    // When category is forced, send ONLY that category's rules
+    return [
+      SYSTEM_PROMPT,
+      universalRules,
+      `--- FORCED CATEGORY: ${forcedCategory} — apply ONLY these rules ---`,
+      CATEGORY_RULES_MAP[forcedCategory],
+      OUTPUT_SCHEMA,
+    ].join('\n\n');
+  }
+
+  // When auto-detecting: send all category rules but instruct model to apply only the detected one
   return [
     SYSTEM_PROMPT,
     universalRules,
-    categoryBlock,
+    `--- CATEGORY-SPECIFIC RULES (after detecting the category in STEP 1, apply ONLY the matching rule set below — ignore all others) ---`,
     FOOD_RULES,
     PET_RULES,
     SUPPLEMENT_RULES,
