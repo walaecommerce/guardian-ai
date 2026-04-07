@@ -1205,6 +1205,35 @@ export function useAuditSession() {
     }
   };
 
+  const handleRetryFailedAnalysis = async () => {
+    const failedAssets = assets.filter(a => a.analysisError);
+    if (failedAssets.length === 0) return;
+
+    setIsAnalyzing(true);
+    setAiCreditsExhausted(false);
+    addLog('processing', `🔄 Retrying ${failedAssets.length} failed image(s)...`);
+
+    for (const asset of failedAssets) {
+      setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, isAnalyzing: true } : a));
+      const { result, error: analysisError } = await analyzeAsset(asset);
+      setAssets(prev => prev.map(a =>
+        a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') } : a
+      ));
+
+      if (result) {
+        addLog('success', `✅ ${asset.name}: Score ${result.overallScore}% - ${result.status}`);
+        refreshCredits();
+      } else {
+        addLog('error', `❌ Retry failed for ${asset.name}${analysisError ? ': ' + analysisError : ''}`);
+      }
+
+      await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
+    }
+
+    setIsAnalyzing(false);
+    toast({ title: 'Retry Complete', description: `Retried ${failedAssets.length} image(s)` });
+  };
+
   return {
     // State
     assets, setAssets,
@@ -1238,6 +1267,8 @@ export function useAuditSession() {
     titlePulse,
     uploadSectionRef,
     assetGridRef,
+    aiCreditsExhausted,
+    importError,
 
     // Handlers
     addLog,
@@ -1252,5 +1283,6 @@ export function useAuditSession() {
     handleViewDetails,
     handleDownload,
     handleImportCompetitor,
+    handleRetryFailedAnalysis,
   };
 }
