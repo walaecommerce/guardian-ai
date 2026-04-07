@@ -147,9 +147,12 @@ export function CommandBar({
                   </DropdownMenuItem>
                 )}
                 {hasResults && unfixedFailures > 0 && (
-                  <DropdownMenuItem onClick={onBatchFix} disabled={isBatchFixing} className="text-destructive focus:text-destructive">
-                    {isBatchFixing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
-                    Fix All ({unfixedFailures})
+                  <DropdownMenuItem onClick={onBatchFix} disabled={isBatchFixing} className="text-destructive focus:text-destructive justify-between">
+                    <span className="flex items-center">
+                      {isBatchFixing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
+                      Fix All ({unfixedFailures})
+                    </span>
+                    <kbd className={kbdClass}>⌘F</kbd>
                   </DropdownMenuItem>
                 )}
                 {hasResults && (
