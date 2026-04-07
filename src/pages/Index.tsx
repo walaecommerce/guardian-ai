@@ -162,6 +162,8 @@ const Index = () => {
         )}
       </div>
 
+      <AICreditsExhaustedBanner visible={session.aiCreditsExhausted} />
+
       {/* Step content */}
       <main className="flex-1 px-6 pb-6">
         {session.currentStep === 'import' && (
