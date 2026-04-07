@@ -3,7 +3,7 @@ import { RecommendationsPanel } from '@/components/recommendations/Recommendatio
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ImageAsset } from '@/types';
-import { Wand2, Loader2, ArrowRight, CheckCircle } from 'lucide-react';
+import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles } from 'lucide-react';
 
 interface FixStepProps {
   assets: ImageAsset[];
@@ -15,18 +15,23 @@ interface FixStepProps {
   onGoToReview: () => void;
   listingTitle?: string;
   onApplyFix?: (assetId: string, prompt?: string) => void;
+  onBatchEnhance?: () => void;
+  isBatchEnhancing?: boolean;
+  batchEnhanceProgress?: { current: number; total: number } | null;
 }
 
 export function FixStep({
   assets, onViewDetails, onDownload,
   onBatchFix, isBatchFixing, batchFixProgress, onGoToReview,
   listingTitle, onApplyFix,
+  onBatchEnhance, isBatchEnhancing = false, batchEnhanceProgress,
 }: FixStepProps) {
   const failedAssets = assets.filter(a => 
     (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage
   );
   const fixedAssets = assets.filter(a => a.fixedImage);
   const allFixed = failedAssets.length === 0 && fixedAssets.length > 0;
+  const enhanceableCount = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
 
   return (
     <div className="space-y-6">
@@ -48,7 +53,7 @@ export function FixStep({
           {!allFixed && failedAssets.length > 0 && (
             <Button
               onClick={onBatchFix}
-              disabled={isBatchFixing}
+              disabled={isBatchFixing || isBatchEnhancing}
               variant="destructive"
               size="lg"
             >
@@ -58,6 +63,22 @@ export function FixStep({
                 <Wand2 className="w-4 h-4 mr-2" />
               )}
               {isBatchFixing ? 'Fixing...' : `Fix All (${failedAssets.length})`}
+            </Button>
+          )}
+
+          {onBatchEnhance && enhanceableCount > 0 && (
+            <Button
+              onClick={onBatchEnhance}
+              disabled={isBatchEnhancing || isBatchFixing}
+              variant="secondary"
+              size="lg"
+            >
+              {isBatchEnhancing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4 mr-2" />
+              )}
+              {isBatchEnhancing ? 'Enhancing...' : `Enhance All (${enhanceableCount})`}
             </Button>
           )}
 
@@ -79,6 +100,17 @@ export function FixStep({
             Fixing {batchFixProgress.current} of {batchFixProgress.total}...
           </div>
           <Progress value={(batchFixProgress.current / batchFixProgress.total) * 100} className="h-2" />
+        </div>
+      )}
+
+      {/* Batch enhance progress */}
+      {isBatchEnhancing && batchEnhanceProgress && (
+        <div className="space-y-2 p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Sparkles className="w-4 h-4 animate-pulse text-purple-400" />
+            Enhancing {batchEnhanceProgress.current} of {batchEnhanceProgress.total}...
+          </div>
+          <Progress value={(batchEnhanceProgress.current / batchEnhanceProgress.total) * 100} className="h-2" />
         </div>
       )}
 
