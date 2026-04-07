@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowRight, Wand2, Search, CheckCircle2, XCircle, AlertTriangle, BarChart3, Loader2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 interface AuditStepProps {
   assets: ImageAsset[];
@@ -57,7 +58,21 @@ export function AuditStep({
 
       {/* Pre-audit / in-progress image gallery */}
       {(needsAudit || (isAnalyzing && analyzedAssets.length < assets.length)) && (
-        <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+        <div className="space-y-3">
+          {/* Progress indicator */}
+          {isAnalyzing && (
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <Loader2 className="w-5 h-5 animate-spin text-primary shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <p className="text-sm font-medium text-foreground">
+                  Analyzing {analyzedAssets.length}/{assets.length}…
+                </p>
+                <Progress value={assets.length > 0 ? (analyzedAssets.length / assets.length) * 100 : 0} className="h-2" />
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
           {assets.map((asset) => {
             const hasResult = !!asset.analysisResult;
             const isPassing = asset.analysisResult?.status === 'PASS';
@@ -101,6 +116,7 @@ export function AuditStep({
               </button>
             );
           })}
+        </div>
         </div>
       )}
 
