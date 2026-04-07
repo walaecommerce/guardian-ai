@@ -93,7 +93,6 @@ export function CommandBar({
             </TooltipTrigger>
             <TooltipContent>Import<kbd className={kbdClass}>⌘I</kbd></TooltipContent>
           </Tooltip>
-          </Button>
         </div>
 
         {/* Desktop: inline action buttons */}
