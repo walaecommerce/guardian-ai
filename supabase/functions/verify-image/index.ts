@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
 
-const GATEWAY_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -190,16 +190,9 @@ Return this EXACT JSON structure:
     let response!: Response;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      response = await fetch(GATEWAY_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GEMINI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: MODELS.verification,
-          messages: [{ role: "user", content: contentParts }],
-        }),
+      response = await fetchGemini({
+        model: MODELS.verification,
+        messages: [{ role: "user", content: contentParts }],
       });
 
       // Retry on transient 502/503 errors
