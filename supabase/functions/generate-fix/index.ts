@@ -105,22 +105,27 @@ const CATEGORY_BG_NOTES: Record<FixCategory, string> = {
 
 // ── Prompt builders ──────────────────────────────────────────────
 
-function buildBackgroundReplacementPrompt(title: string, category: FixCategory, identity?: any): string {
-  let prompt = `BACKGROUND-ONLY EDIT + BADGE REMOVAL — STRICT RULES:
-1. Replace the background with pure white RGB(255,255,255) — not off-white, not grey
-2. REMOVE all promotional badges, overlays, and stickers (e.g. "Best Seller", "Amazon's Choice", "#1 New Release", any ribbon/seal/starburst graphics) — these are NOT part of the product
-3. DO NOT modify, regenerate, recolor, or alter the actual product (bottle, box, packaging) in any way
-4. DO NOT change label text, logos, colors, shape, or any product detail that is printed ON the packaging
-5. DO NOT crop or reposition the product
-6. Ensure the product occupies 85%+ of the frame
-7. Remove any shadows that are not directly beneath the product
-8. Add a soft, natural shadow directly beneath the product
-9. Clean up any background artifacts or noise around product edges
-10. The result must look like a professional studio photograph on seamless white
+function buildBackgroundReplacementPrompt(title: string, category: FixCategory, identity?: any, violations?: any[]): string {
+  const topViolations = (violations || []).slice(0, 3);
+  const violationContext = topViolations.length > 0
+    ? `\n\nSPECIFIC VIOLATIONS TO FIX:\n${topViolations.map((v: any, i: number) => `${i + 1}. [${v.severity}] ${v.message} → ${v.recommendation}`).join('\n')}`
+    : '';
+
+  let prompt = `BACKGROUND-ONLY EDIT + BADGE REMOVAL — STEP-BY-STEP INSTRUCTIONS:
+
+STEP 1: Identify all pixels that are NOT part of the physical product (background, shadows, surfaces, environmental elements).
+STEP 2: Replace ALL identified background pixels with pure white RGB(255,255,255) — not off-white, not grey, not cream.
+STEP 3: Scan for promotional badges/overlays (Best Seller, Amazon's Choice, #1 New Release, ribbons, starburst graphics). These are digitally added ON TOP of the photo — REMOVE them completely by inpainting the area beneath.
+STEP 4: DO NOT modify ANY pixel that belongs to the actual product — labels, logos, colors, shape, texture must remain pixel-identical.
+STEP 5: Ensure the product occupies 85%+ of the frame. If the product is too small, crop tighter around it.
+STEP 6: Add a soft, natural drop shadow directly beneath the product for depth.
+STEP 7: Clean up any background artifacts, halos, or noise around product edges.
+OUTPUT: The edited image only. No text response needed.
 
 IMPORTANT DISTINCTION: Promotional badges/overlays are digitally added ON TOP of the photograph and must be removed. Product labels/logos are physically printed ON the packaging and must be preserved.
 
 ${CATEGORY_BG_NOTES[category]}
+${violationContext}
 
 Product: ${title}`;
 
