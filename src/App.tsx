@@ -43,6 +43,7 @@ const App = () => (
                         <Route path="/studio" element={<Studio />} />
                         <Route path="/tracker" element={<Tracker />} />
                         <Route path="/test-checklist" element={<TestChecklist />} />
+                        <Route path="/sessions" element={<Sessions />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/session/:sessionId" element={<Session />} />
                         <Route path="*" element={<NotFound />} />
