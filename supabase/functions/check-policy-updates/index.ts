@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
+import { MODELS } from "../_shared/models.ts";
 
-const GATEWAY_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -14,26 +15,69 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-3.1-pro",
-        messages: [
-          {
-            role: "system",
-            content: `You are an Amazon marketplace policy researcher with access to web search. Search for the most recent Amazon Seller Central image requirements and product listing policy updates from the last 60 days. Focus on: main image requirements, secondary image rules, prohibited content updates, new badge restrictions, A+ content rules.`,
+    const response = await fetchGemini({
+      model: MODELS.analysis,
+      messages: [
+        {
+          role: "system",
+          content: `You are an Amazon marketplace policy researcher with access to web search. Search for the most recent Amazon Seller Central image requirements and product listing policy updates from the last 60 days. Focus on: main image requirements, secondary image rules, prohibited content updates, new badge restrictions, A+ content rules.`,
+        },
+        {
+          role: "user",
+          content: `Today is ${new Date().toISOString().split("T")[0]}. Search for any Amazon product image policy changes, Seller Central announcements, or listing requirement updates published in the last 60 days. Include any changes to image guidelines, prohibited content rules, or new compliance requirements.`,
+        },
+      ],
+      temperature: 0.2,
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "return_policy_updates",
+            description: "Return structured Amazon policy update data.",
+            parameters: {
+              type: "object",
+              properties: {
+                last_checked: { type: "string", description: "ISO date string of when this check was performed" },
+                source_summary: { type: "string", description: "Brief note on where this info was found" },
+                updates: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      date: { type: "string", description: "YYYY-MM-DD date the policy was announced or took effect" },
+                      policy_area: { type: "string", description: "e.g. Main Image, Secondary Images, Prohibited Content, Image Quality" },
+                      change_description: { type: "string", description: "Concise description of what changed" },
+                      impact: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
+                      source_url: { type: "string", description: "URL of the source announcement or documentation" },
+                      keywords: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "2-4 terms that match violation categories (e.g. background, text overlay, badge, watermark)",
+                      },
+                    },
+                    required: ["date", "policy_area", "change_description", "impact", "keywords"],
+                    additionalProperties: false,
+                  },
+                },
+                current_rules_summary: {
+                  type: "object",
+                  properties: {
+                    main_image: { type: "array", items: { type: "string" } },
+                    secondary_image: { type: "array", items: { type: "string" } },
+                    prohibited_content: { type: "array", items: { type: "string" } },
+                  },
+                  required: ["main_image", "secondary_image", "prohibited_content"],
+                  additionalProperties: false,
+                },
+              },
+              required: ["last_checked", "updates", "current_rules_summary"],
+              additionalProperties: false,
+            },
           },
-          {
-            role: "user",
-            content: `Today is ${new Date().toISOString().split("T")[0]}. Search for any Amazon product image policy changes, Seller Central announcements, or listing requirement updates published in the last 60 days. Include any changes to image guidelines, prohibited content rules, or new compliance requirements.`,
-          },
-        ],
-        temperature: 0.2,
-        tools: [
+        },
+      ],
+      tool_choice: { type: "function", function: { name: "return_policy_updates" } },
+    });
           {
             type: "function",
             function: {
