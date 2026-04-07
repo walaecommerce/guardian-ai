@@ -111,7 +111,6 @@ Generate improvement recommendations.`;
           },
         ],
         tool_choice: { type: "function", function: { name: "return_suggestions" } },
-      }),
     });
 
     if (!response.ok) {
