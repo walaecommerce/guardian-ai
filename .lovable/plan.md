@@ -1,36 +1,59 @@
 
 
-## Problem
+## Add Credits Usage Breakdown Chart to Settings
 
-When images are imported but not yet audited, the Audit step shows only a text prompt ("8 images ready for audit") with no image thumbnails. Users can't see which images they're about to audit. The `AnalysisResults` component filters out unanalyzed images entirely (returns `null` at line 235), and the `AuditStep` only shows either the "needs audit" prompt OR the results — never a gallery of pending images.
+### Problem
+The Billing tab shows current credit balances but no historical consumption data. There's no `credit_usage_log` table to track when credits were consumed.
 
-## Plan
+### Plan
 
-### 1. Add a pre-audit image gallery to `AuditStep.tsx`
+#### 1. Create `credit_usage_log` table (migration)
 
-Below the "Run Audit" prompt (the dashed border box), render a thumbnail grid showing all imported images before the audit runs. This gives users visual confirmation of what they're about to audit.
+New table to record each credit consumption event:
 
+```sql
+CREATE TABLE public.credit_usage_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  credit_type text NOT NULL,  -- 'scrape' | 'analyze' | 'fix'
+  consumed_at timestamptz NOT NULL DEFAULT now(),
+  edge_function text           -- which function consumed it
+);
+
+ALTER TABLE public.credit_usage_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users view own usage" ON public.credit_usage_log
+  FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Service can insert" ON public.credit_usage_log
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+CREATE INDEX idx_usage_log_user_date ON public.credit_usage_log (user_id, consumed_at DESC);
 ```
-When `needsAudit` is true, after the prompt box, add:
-- A grid (3-4 columns) of image thumbnail cards
-- Each card shows: image preview, MAIN/SECONDARY badge, file name
-- Clicking a card calls onSelectAsset(asset) to open details
-```
 
-### 2. Also show the gallery during analysis (`isAnalyzing` state)
+#### 2. Log credit consumption in edge functions
 
-When the audit is running, show the same grid but with a scanning overlay/spinner on each image that hasn't been analyzed yet, so users see progress visually.
+Update `supabase/functions/_shared/credits.ts` — after successfully decrementing a credit in `useCredit()`, insert a row into `credit_usage_log` with the user_id, credit_type, and timestamp.
 
-```
-When `isAnalyzing` is true AND not all images have results yet:
-- Show the same thumbnail grid
-- Images being analyzed get a shimmer/spinner overlay
-- Images already analyzed show their PASS/FAIL badge
-```
+#### 3. Create `useCreditsHistory` hook
+
+New hook `src/hooks/useCreditsHistory.ts` that:
+- Queries `credit_usage_log` for the last 30 days
+- Groups by day + credit_type
+- Returns data shaped for Recharts: `{ date: string, scrape: number, analyze: number, fix: number }[]`
+
+#### 4. Add usage chart to Settings Billing tab
+
+Add a new Card below the existing "Credit Usage" card in `BillingTab` inside `src/pages/Settings.tsx`:
+- Uses `ChartContainer` from `src/components/ui/chart.tsx` with a stacked `BarChart`
+- Three color-coded bars: Scrapes, Analyses, Fixes
+- X-axis: dates (last 30 days, grouped by day)
+- Tooltip showing breakdown per day
+- Empty state when no usage data exists
 
 ### Files to modify
-
-- **`src/components/audit/AuditStep.tsx`** — Add a thumbnail grid section that renders when `needsAudit || isAnalyzing`. Each thumbnail is a simple Card with the image preview, type badge, and name. This sits between the "Run Audit" prompt and the `AnalysisResults` component.
-
-No changes needed to `AnalysisResults.tsx` — it continues to handle post-audit display. The new gallery in `AuditStep` covers the pre-audit and in-progress states.
+- **Migration** — new `credit_usage_log` table
+- **`supabase/functions/_shared/credits.ts`** — insert log row on consumption
+- **`src/hooks/useCreditsHistory.ts`** — new hook to fetch/aggregate usage
+- **`src/pages/Settings.tsx`** — add chart Card to BillingTab
 
