@@ -223,5 +223,6 @@ export function CommandBar({
         </div>
       )}
     </div>
+    </TooltipProvider>
   );
 }
