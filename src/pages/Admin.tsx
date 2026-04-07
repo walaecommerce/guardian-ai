@@ -7,8 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Shield, Users, BarChart3, CreditCard, Loader2 } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
+} from '@/components/ui/dialog';
+import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
 
 interface UserRow {
   id: string;
@@ -26,16 +30,28 @@ interface CreditRow {
   plan: string;
 }
 
+interface UsageRow {
+  id: string;
+  user_id: string;
+  credit_type: string;
+  edge_function: string | null;
+  consumed_at: string;
+}
+
 export default function Admin() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, user } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [credits, setCredits] = useState<CreditRow[]>([]);
   const [roles, setRoles] = useState<{ user_id: string; role: string }[]>([]);
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [stats, setStats] = useState({ totalSessions: 0, totalImages: 0, totalCreditsUsed: 0 });
+  const [activityLog, setActivityLog] = useState<UsageRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCredits, setEditingCredits] = useState<Record<string, number>>({});
+  const [roleDialog, setRoleDialog] = useState<{ open: boolean; userId: string; action: 'grant' | 'revoke'; userName: string }>({
+    open: false, userId: '', action: 'grant', userName: ''
+  });
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -56,14 +72,14 @@ export default function Admin() {
       supabase.from('user_roles').select('user_id, role'),
       supabase.from('enhancement_sessions').select('id, user_id'),
       supabase.from('session_images').select('id'),
-      supabase.from('credit_usage_log').select('id'),
+      supabase.from('credit_usage_log').select('id, user_id, credit_type, edge_function, consumed_at').order('consumed_at', { ascending: false }).limit(50),
     ]);
 
     if (profilesRes.data) setUsers(profilesRes.data);
     if (creditsRes.data) setCredits(creditsRes.data);
     if (rolesRes.data) setRoles(rolesRes.data);
+    if (usageRes.data) setActivityLog(usageRes.data);
 
-    // Count sessions per user
     const counts: Record<string, number> = {};
     sessionsRes.data?.forEach((s: any) => {
       counts[s.user_id] = (counts[s.user_id] || 0) + 1;
@@ -73,7 +89,7 @@ export default function Admin() {
     setStats({
       totalSessions: sessionsRes.data?.length ?? 0,
       totalImages: imagesRes.data?.length ?? 0,
-      totalCreditsUsed: usageRes.data?.length ?? 0,
+      totalCreditsUsed: creditsRes.data?.reduce((sum, c) => sum + c.used_credits, 0) ?? 0,
     });
 
     setLoading(false);
@@ -93,6 +109,27 @@ export default function Admin() {
     }
   }
 
+  async function toggleRole(userId: string, action: 'grant' | 'revoke') {
+    if (action === 'grant') {
+      const { error } = await supabase.from('user_roles').insert({ user_id: userId, role: 'admin' });
+      if (error) {
+        toast.error('Failed to grant admin role');
+      } else {
+        toast.success('Admin role granted');
+        fetchAll();
+      }
+    } else {
+      const { error } = await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', 'admin');
+      if (error) {
+        toast.error('Failed to revoke admin role');
+      } else {
+        toast.success('Admin role revoked');
+        fetchAll();
+      }
+    }
+    setRoleDialog(prev => ({ ...prev, open: false }));
+  }
+
   function getUserRole(userId: string) {
     return roles.find(r => r.user_id === userId)?.role ?? 'user';
   }
@@ -100,6 +137,20 @@ export default function Admin() {
   function getUserCredits(userId: string) {
     return credits.filter(c => c.user_id === userId);
   }
+
+  function getUserName(userId: string) {
+    const u = users.find(u => u.id === userId);
+    return u?.full_name || u?.email || userId.slice(0, 8);
+  }
+
+  const creditTypeBadgeVariant = (type: string) => {
+    switch (type) {
+      case 'scrape': return 'default';
+      case 'analyze': return 'warning';
+      case 'fix': return 'success';
+      default: return 'secondary';
+    }
+  };
 
   if (authLoading || loading) {
     return (
@@ -126,11 +177,15 @@ export default function Admin() {
           <TabsTrigger value="credits" className="gap-2">
             <CreditCard className="w-4 h-4" /> Credits
           </TabsTrigger>
+          <TabsTrigger value="activity" className="gap-2">
+            <Activity className="w-4 h-4" /> Activity
+          </TabsTrigger>
           <TabsTrigger value="stats" className="gap-2">
             <BarChart3 className="w-4 h-4" /> System Stats
           </TabsTrigger>
         </TabsList>
 
+        {/* Users Tab */}
         <TabsContent value="users">
           <Card>
             <CardHeader>
@@ -146,24 +201,52 @@ export default function Admin() {
                       <th className="text-left p-3 text-muted-foreground font-medium">Role</th>
                       <th className="text-left p-3 text-muted-foreground font-medium">Sessions</th>
                       <th className="text-left p-3 text-muted-foreground font-medium">Joined</th>
+                      <th className="text-left p-3 text-muted-foreground font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map(u => (
-                      <tr key={u.id} className="border-b border-border/50 hover:bg-muted/30">
-                        <td className="p-3 text-foreground">{u.full_name || '—'}</td>
-                        <td className="p-3 text-muted-foreground">{u.email}</td>
-                        <td className="p-3">
-                          <Badge variant={getUserRole(u.id) === 'admin' ? 'default' : 'secondary'}>
-                            {getUserRole(u.id)}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-foreground">{sessionCounts[u.id] ?? 0}</td>
-                        <td className="p-3 text-muted-foreground">
-                          {new Date(u.created_at).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
+                    {users.map(u => {
+                      const role = getUserRole(u.id);
+                      const isSelf = u.id === user?.id;
+                      return (
+                        <tr key={u.id} className="border-b border-border/50 hover:bg-muted/30">
+                          <td className="p-3 text-foreground">{u.full_name || '—'}</td>
+                          <td className="p-3 text-muted-foreground">{u.email}</td>
+                          <td className="p-3">
+                            <Badge variant={role === 'admin' ? 'default' : 'secondary'}>
+                              {role}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-foreground">{sessionCounts[u.id] ?? 0}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {new Date(u.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="p-3">
+                            {isSelf ? (
+                              <span className="text-xs text-muted-foreground">You</span>
+                            ) : role === 'admin' ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => setRoleDialog({ open: true, userId: u.id, action: 'revoke', userName: u.full_name || u.email || '' })}
+                              >
+                                <ShieldOff className="w-3 h-3" /> Revoke Admin
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => setRoleDialog({ open: true, userId: u.id, action: 'grant', userName: u.full_name || u.email || '' })}
+                              >
+                                <ShieldCheck className="w-3 h-3" /> Make Admin
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -171,6 +254,7 @@ export default function Admin() {
           </Card>
         </TabsContent>
 
+        {/* Credits Tab */}
         <TabsContent value="credits">
           <Card>
             <CardHeader>
@@ -217,6 +301,46 @@ export default function Admin() {
           </Card>
         </TabsContent>
 
+        {/* Activity Tab */}
+        <TabsContent value="activity">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activityLog.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No activity logged yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {activityLog.map(entry => (
+                    <div key={entry.id} className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-foreground truncate">
+                            {getUserName(entry.user_id)}
+                          </span>
+                          <Badge variant={creditTypeBadgeVariant(entry.credit_type) as any} className="text-xs">
+                            {entry.credit_type}
+                          </Badge>
+                          {entry.edge_function && (
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {entry.edge_function}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {formatDistanceToNow(new Date(entry.consumed_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Stats Tab */}
         <TabsContent value="stats">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
@@ -246,6 +370,33 @@ export default function Admin() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Role Confirmation Dialog */}
+      <Dialog open={roleDialog.open} onOpenChange={(open) => setRoleDialog(prev => ({ ...prev, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {roleDialog.action === 'grant' ? 'Grant Admin Role' : 'Revoke Admin Role'}
+            </DialogTitle>
+            <DialogDescription>
+              {roleDialog.action === 'grant'
+                ? `Are you sure you want to make "${roleDialog.userName}" an admin? They will have full access to this panel.`
+                : `Are you sure you want to revoke admin access from "${roleDialog.userName}"?`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant={roleDialog.action === 'revoke' ? 'destructive' : 'default'}
+              onClick={() => toggleRole(roleDialog.userId, roleDialog.action)}
+            >
+              {roleDialog.action === 'grant' ? 'Grant Admin' : 'Revoke Admin'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
