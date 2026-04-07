@@ -50,7 +50,10 @@ export function CommandBar({
   // Whether there are any action items for the dropdown
   const hasActions = (hasAssets && !hasResults) || (hasResults && unfixedFailures > 0) || hasResults;
 
+  const kbdClass = "ml-1.5 inline-flex items-center rounded border border-border bg-muted px-1 py-0.5 text-[10px] font-mono text-muted-foreground";
+
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="sticky top-12 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
       {/* URL Bar + Actions */}
       <div className="px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-3">
