@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Search, Import, Loader2, Play, Wand2, Save, MoreVertical } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { MaxImagesOption } from '@/components/ImageUploader';
 import { AuditStepper } from '@/components/audit/AuditStepper';
 import { AuditStep } from '@/hooks/useAuditSession';
@@ -49,7 +50,10 @@ export function CommandBar({
   // Whether there are any action items for the dropdown
   const hasActions = (hasAssets && !hasResults) || (hasResults && unfixedFailures > 0) || hasResults;
 
+  const kbdClass = "ml-1.5 inline-flex items-center rounded border border-border bg-muted px-1 py-0.5 text-[10px] font-mono text-muted-foreground";
+
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="sticky top-12 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
       {/* URL Bar + Actions */}
       <div className="px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-3">
@@ -75,30 +79,45 @@ export function CommandBar({
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            size="sm"
-            onClick={() => onImportFromAmazon(maxImages)}
-            disabled={!amazonUrl || isImporting}
-            className="h-9 shrink-0"
-          >
-            {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Import className="w-4 h-4 sm:mr-1.5" />}
-            <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import'}</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                onClick={() => onImportFromAmazon(maxImages)}
+                disabled={!amazonUrl || isImporting}
+                className="h-9 shrink-0"
+              >
+                {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Import className="w-4 h-4 sm:mr-1.5" />}
+                <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import'}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Import<kbd className={kbdClass}>⌘I</kbd></TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Desktop: inline action buttons */}
         <div className="hidden md:flex items-center gap-2">
           {hasAssets && !hasResults && (
-            <Button size="sm" onClick={onRunAudit} disabled={isAnalyzing} className="h-9">
-              {isAnalyzing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Play className="w-4 h-4 mr-1.5" />}
-              {isAnalyzing ? 'Auditing...' : 'Run Audit'}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" onClick={onRunAudit} disabled={isAnalyzing} className="h-9">
+                  {isAnalyzing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Play className="w-4 h-4 mr-1.5" />}
+                  {isAnalyzing ? 'Auditing...' : 'Run Audit'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Run Audit<kbd className={kbdClass}>⌘A</kbd></TooltipContent>
+            </Tooltip>
           )}
           {hasResults && unfixedFailures > 0 && (
-            <Button size="sm" variant="destructive" onClick={onBatchFix} disabled={isBatchFixing} className="h-9">
-              {isBatchFixing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1.5" />}
-              Fix All ({unfixedFailures})
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="destructive" onClick={onBatchFix} disabled={isBatchFixing} className="h-9">
+                  {isBatchFixing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1.5" />}
+                  Fix All ({unfixedFailures})
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Fix All<kbd className={kbdClass}>⌘F</kbd></TooltipContent>
+            </Tooltip>
           )}
           {hasResults && (
             <Button size="sm" variant="outline" onClick={onSaveReport} className="h-9">
@@ -219,5 +238,6 @@ export function CommandBar({
         </div>
       )}
     </div>
+    </TooltipProvider>
   );
 }
