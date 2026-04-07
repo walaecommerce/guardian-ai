@@ -431,7 +431,7 @@ export function useAuditSession() {
     setIsRetrying(false);
   };
 
-  const analyzeAsset = async (asset: ImageAsset, attempt = 0): Promise<AnalysisResult | null> => {
+  const analyzeAsset = async (asset: ImageAsset, attempt = 0): Promise<{ result: AnalysisResult | null; error?: string }> => {
     try {
       const base64 = await fileToBase64(asset.file);
       
@@ -456,12 +456,23 @@ export function useAuditSession() {
           await new Promise(r => setTimeout(r, 10000));
           return analyzeAsset(asset, attempt + 1);
         }
-        throw error;
+        // Extract meaningful error message
+        let errorMsg = 'Analysis failed';
+        try {
+          if (error instanceof Error && (error as any).context?.json) {
+            const body = await (error as any).context.json();
+            errorMsg = body?.error || body?.message || errorMsg;
+          } else if (error instanceof Error) {
+            errorMsg = error.message;
+          }
+        } catch { /* use default */ }
+        if (status === 402) errorMsg = 'AI credits exhausted';
+        return { result: null, error: errorMsg };
       }
-      return data as AnalysisResult;
-    } catch (error) {
+      return { result: data as AnalysisResult };
+    } catch (error: any) {
       console.error('Analysis error:', error);
-      return null;
+      return { result: null, error: error?.message || 'Analysis failed' };
     }
   };
 
@@ -499,10 +510,10 @@ export function useAuditSession() {
       setAnalyzingProgress({ current: i + 1, total: assets.length });
       addLog('processing', `🔬 Scanning ${asset.type} image: ${asset.name}`);
       
-      const result = await analyzeAsset(asset);
+      const { result, error: analysisError } = await analyzeAsset(asset);
       
       setAssets(prev => prev.map(a => 
-        a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined } : a
+        a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') } : a
       ));
 
       if (result) {
@@ -532,7 +543,7 @@ export function useAuditSession() {
           });
         }
       } else {
-        addLog('error', `❌ Failed to analyze ${asset.name}`);
+        addLog('error', `❌ Failed to analyze ${asset.name}${analysisError ? ': ' + analysisError : ''}`);
       }
 
       if (i < assets.length - 1) {

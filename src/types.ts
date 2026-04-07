@@ -25,6 +25,7 @@ export interface ImageAsset {
   sourceUrl?: string;      // Original Amazon image URL
   contentHash?: string;    // SHA-256 hash for deduplication
   analysisResult?: AnalysisResult;
+  analysisError?: string;  // Error message when analysis fails
   fixedImage?: string;
   fixMethod?: FixMethod;   // Which AI pattern was used to fix
   isAnalyzing?: boolean;
