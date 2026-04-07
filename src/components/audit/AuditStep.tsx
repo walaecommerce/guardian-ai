@@ -201,6 +201,7 @@ export function AuditStep({
         productAsin={productAsin}
         competitorData={competitorData}
         getMatchingPolicyUpdate={getMatchingPolicyUpdate}
+        aiCreditsExhausted={aiCreditsExhausted}
       />
 
       {/* Bottom CTA bar */}
