@@ -397,15 +397,34 @@ const toDataUrl = (dataUrl: string): string => {
 
 // ── Build category-aware prompt ─────────────────────────────────
 
+const CATEGORY_RULES_MAP: Record<string, string> = {
+  'FOOD_BEVERAGE': FOOD_RULES,
+  'PET_SUPPLIES': PET_RULES,
+  'SUPPLEMENTS': SUPPLEMENT_RULES,
+  'BEAUTY_PERSONAL_CARE': BEAUTY_RULES,
+  'ELECTRONICS': ELECTRONICS_RULES,
+  'GENERAL_MERCHANDISE': GENERAL_RULES,
+};
+
 const buildAnalysisPrompt = (isMain: boolean, listingTitle: string, forcedCategory?: string): string => {
   const universalRules = isMain ? MAIN_IMAGE_RULES : SECONDARY_IMAGE_RULES;
-  const categoryBlock = forcedCategory
-    ? `--- FORCED CATEGORY: ${forcedCategory} — apply ONLY this category's rules ---`
-    : '--- CATEGORY-SPECIFIC RULES (apply the matching set after detection) ---';
+
+  if (forcedCategory && CATEGORY_RULES_MAP[forcedCategory]) {
+    // When category is forced, send ONLY that category's rules
+    return [
+      SYSTEM_PROMPT,
+      universalRules,
+      `--- FORCED CATEGORY: ${forcedCategory} — apply ONLY these rules ---`,
+      CATEGORY_RULES_MAP[forcedCategory],
+      OUTPUT_SCHEMA,
+    ].join('\n\n');
+  }
+
+  // When auto-detecting: send all category rules but instruct model to apply only the detected one
   return [
     SYSTEM_PROMPT,
     universalRules,
-    categoryBlock,
+    `--- CATEGORY-SPECIFIC RULES (after detecting the category in STEP 1, apply ONLY the matching rule set below — ignore all others) ---`,
     FOOD_RULES,
     PET_RULES,
     SUPPLEMENT_RULES,
