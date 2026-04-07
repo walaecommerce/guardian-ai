@@ -1,88 +1,125 @@
 
 
-# Surgical Image Fixing: Gemini Nano Banana 2 + OpenAI Masked Inpainting
+# Security & Data Integrity Audit — Implementation Plan
 
-## Overview
+## Current State: Critical Issues Found
 
-Upgrade the secondary image badge removal pipeline to use a two-tier strategy: try Gemini 3.1 Flash Image (Nano Banana 2) first for speed, then fall back to OpenAI Image Edits API with programmatic SVG masks for pixel-perfect inpainting. Keep the current Gemini background-only edit for MAIN images (user confirmed).
+After reviewing the entire codebase, database schema, and RLS policies, here is every gap that needs addressing:
 
-## Architecture
+---
 
-```text
-SECONDARY IMAGE FIX REQUEST
-        │
-        ▼
-┌─────────────────────────┐
-│ Tier 1: Nano Banana 2   │  (fast, via Lovable AI gateway)
-│ gemini-3.1-flash-image  │
-│ Surgical edit prompt +  │
-│ spatial zone context    │
-└──────────┬──────────────┘
-           │
-     verify-image
-           │
-    score < 85?  ────── YES ──▶ ┌──────────────────────────┐
-           │                    │ Tier 2: OpenAI Image      │
-           NO                   │ Edits API (/v1/images/    │
-           │                    │ edits) + SVG Mask from    │
-           ▼                    │ spatialAnalysis bounds    │
-        ✅ DONE                 └──────────┬───────────────┘
-                                           │
-                                     verify-image
-                                           │
-                                        ✅ DONE
+### Issue 1: Sessions and Reports Have No User Ownership (CRITICAL)
+
+The `enhancement_sessions`, `session_images`, and `compliance_reports` tables have **no `user_id` column**. Their RLS policies are wide open (`true` for all operations) — meaning **any authenticated user can see, edit, and delete any other user's sessions, images, and reports**.
+
+**Fix:**
+- Add `user_id uuid` column to `enhancement_sessions`, `session_images`, and `compliance_reports`
+- Replace "Anyone can..." RLS policies with user-scoped policies (`auth.uid() = user_id`)
+- Update all frontend queries and inserts to include `user_id`
+
+---
+
+### Issue 2: Product Claim Cache Has No Protection (MEDIUM)
+
+The `product_claim_cache` table also uses `true` for all RLS policies. Since this is a shared cache (not user-specific), this is acceptable but should be tightened to prevent unauthorized deletes.
+
+**Fix:**
+- Keep SELECT/INSERT open for authenticated users
+- Remove DELETE for anonymous/public — restrict to authenticated only
+
+---
+
+### Issue 3: Frontend Queries Don't Filter by User (CRITICAL)
+
+Even after adding `user_id` columns, all current queries (SessionHistory, ReportHistory, useAuditSession) fetch data without filtering by user. Once RLS is fixed, these will return empty or fail.
+
+**Fix (files to update):**
+- `src/components/SessionHistory.tsx` — add `.eq('user_id', user.id)` or rely on RLS
+- `src/components/ReportHistory.tsx` — same
+- `src/hooks/useAuditSession.ts` — pass `user_id` in insert calls
+- `src/pages/Session.tsx` — pass `user_id` in insert calls
+
+---
+
+### Issue 4: No Privacy/Terms/Security Pages (LOW-MEDIUM)
+
+The login screen references "terms of service and privacy policy" but no pages exist.
+
+**Fix:**
+- Create `/privacy` and `/terms` pages with placeholder content
+- Add links from the login screen and Settings page
+
+---
+
+### Issue 5: Edge Functions Don't Validate Auth for Sensitive Operations (MEDIUM)
+
+Most edge functions have `verify_jwt = false` and don't check the caller's identity. Functions that modify user data or consume credits should validate the JWT.
+
+**Fix (priority functions):**
+- `generate-fix` — should verify user owns the session
+- `generate-enhancement` — same
+- `create-checkout` / `customer-portal` — already need auth context
+- Leave read-only/public functions (proxy-image, scrape-amazon) as-is
+
+---
+
+### Issue 6: Storage Bucket Has No RLS (LOW)
+
+The `session-images` bucket is public with no upload restrictions. Anyone with the URL can upload files.
+
+**Fix:**
+- Add storage policies so only authenticated users can upload to their own folder (`user_id/`)
+
+---
+
+## Implementation Order
+
+| Step | What | Tables/Files Affected |
+|------|------|-----------------------|
+| 1 | Add `user_id` to `enhancement_sessions`, `compliance_reports` | DB migration |
+| 2 | Replace open RLS policies with user-scoped ones | DB migration |
+| 3 | Update all frontend inserts to include `user_id` | `useAuditSession.ts`, `Session.tsx` |
+| 4 | Update all frontend queries (SessionHistory, ReportHistory) | 2 components |
+| 5 | Add auth validation to sensitive edge functions | 3-4 edge functions |
+| 6 | Add storage bucket policies | DB migration |
+| 7 | Create Privacy Policy & Terms pages | 2 new pages + route updates |
+
+### Technical Details
+
+**Migration SQL (Step 1-2):**
+```sql
+-- Add user_id columns
+ALTER TABLE enhancement_sessions ADD COLUMN user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE compliance_reports ADD COLUMN user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+
+-- Drop open policies, create user-scoped ones
+DROP POLICY "Anyone can view sessions" ON enhancement_sessions;
+CREATE POLICY "Users view own sessions" ON enhancement_sessions
+  FOR SELECT TO authenticated USING (auth.uid() = user_id);
+-- (repeat for INSERT, UPDATE, DELETE on all 3 tables)
 ```
 
-## What Changes
-
-### 1. Update `_shared/models.ts`
-Add Nano Banana 2 model for secondary image editing:
+**Frontend pattern (Step 3-4):**
 ```typescript
-export const MODELS = {
-  analysis: "google/gemini-3.1-pro-preview",
-  imageGen: "google/gemini-3-pro-image-preview",
-  imageEdit: "google/gemini-3.1-flash-image-preview",  // NEW — Nano Banana 2
-  verification: "google/gemini-3.1-pro-preview",
-};
+// Insert with user_id
+const { data: { user } } = await supabase.auth.getUser();
+await supabase.from('enhancement_sessions').insert([{
+  ...sessionData,
+  user_id: user.id,
+}]);
+
+// Queries auto-filtered by RLS — no manual .eq() needed
 ```
 
-### 2. Update `generate-fix/index.ts` — Secondary patterns B & C
+**Edge function auth (Step 5):**
+```typescript
+const { data, error } = await supabase.auth.getClaims(token);
+if (error) return new Response('Unauthorized', { status: 401 });
+```
 
-**Tier 1 (Gemini Nano Banana 2):** Replace the current `MODELS.imageGen` call for secondary images with `MODELS.imageEdit`. The prompt stays the same (surgical edit). Nano Banana 2 is faster and cheaper, with pro-level quality for edits.
+---
 
-**Tier 2 (OpenAI Masked Inpainting):** Add a new pathway triggered when the request includes `useOpenAIInpainting: true` (set by the frontend on retry after Tier 1 fails verification):
+## Summary
 
-- Read `OPENAI_API_KEY` from env (already configured)
-- Generate a PNG mask programmatically from `spatialAnalysis.overlayElements` bounding boxes — white pixels over badges, transparent everywhere else (using Deno Canvas or raw PNG byte construction)
-- Call `https://api.openai.com/v1/images/edits` with the original image + mask + inpainting prompt
-- Parse the response and return the inpainted image
-
-**Mask generation approach:** Use the spatial analysis bounding boxes (`bounds: { top, left, width, height }`) to create an SVG, render it to a PNG buffer. Each overlay element marked `action: 'remove'` becomes a white rectangle on a transparent canvas. This mask tells OpenAI exactly which pixels to redraw.
-
-### 3. Update `src/config/models.ts` (frontend)
-Add the `imageEdit` model reference to match the backend.
-
-### 4. Update frontend retry logic
-In the fix generation flow (likely in `Index.tsx` or `FixModal.tsx`), when a secondary image fix fails verification after the initial attempt, set `useOpenAIInpainting: true` on the retry payload so the edge function routes to Tier 2.
-
-## Files Changed
-
-| File | Change |
-|---|---|
-| `supabase/functions/_shared/models.ts` | Add `imageEdit` model |
-| `supabase/functions/generate-fix/index.ts` | Use `MODELS.imageEdit` for secondary patterns B/C; add OpenAI inpainting Tier 2 with mask generation |
-| `src/config/models.ts` | Add `imageEdit` model |
-| `src/pages/Index.tsx` or fix flow | Pass `useOpenAIInpainting` flag on retry |
-
-## What Does NOT Change
-
-- MAIN image flow (Pattern A1/A2) stays as-is with Gemini background-only edit
-- Verification flow (`verify-image`) stays unchanged
-- Product Identity Card extraction stays unchanged
-- Analysis (`analyze-image`) stays unchanged
-
-## Cost Impact
-
-- Tier 1 (Nano Banana 2): Faster and cheaper than current `gemini-3-pro-image-preview`
-- Tier 2 (OpenAI): Only invoked on retry — ~$0.02-0.04 per edit. Most images should pass at Tier 1.
+The most critical issue is that **all user data (sessions, reports, images) is globally visible and editable by any user**. Steps 1-4 fix this. Steps 5-7 are hardening measures. The entire plan touches ~10 files and 3 migrations.
 
