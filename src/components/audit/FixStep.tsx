@@ -1,4 +1,5 @@
 import { BatchComparisonView } from '@/components/BatchComparisonView';
+import { RecommendationsPanel } from '@/components/recommendations/RecommendationsPanel';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ImageAsset } from '@/types';
@@ -12,11 +13,14 @@ interface FixStepProps {
   isBatchFixing: boolean;
   batchFixProgress: { current: number; total: number } | null;
   onGoToReview: () => void;
+  listingTitle?: string;
+  onApplyFix?: (assetId: string, prompt?: string) => void;
 }
 
 export function FixStep({
   assets, onViewDetails, onDownload,
   onBatchFix, isBatchFixing, batchFixProgress, onGoToReview,
+  listingTitle, onApplyFix,
 }: FixStepProps) {
   const failedAssets = assets.filter(a => 
     (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage
@@ -84,6 +88,15 @@ export function FixStep({
         onViewDetails={onViewDetails}
         onDownload={onDownload}
       />
+
+      {/* Recommendations (moved from Review) */}
+      {listingTitle && onApplyFix && (
+        <RecommendationsPanel
+          assets={assets}
+          listingTitle={listingTitle}
+          onApplyFix={(assetId, prompt) => onApplyFix(assetId, prompt)}
+        />
+      )}
     </div>
   );
 }

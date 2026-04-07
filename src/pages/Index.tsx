@@ -1,25 +1,75 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuditSession, AuditStep } from '@/hooks/useAuditSession';
-import { CommandBar } from '@/components/CommandBar';
+import { AuditStepper } from '@/components/audit/AuditStepper';
 import { ImportStep } from '@/components/audit/ImportStep';
 import { AuditStep as AuditStepView } from '@/components/audit/AuditStep';
 import { FixStep } from '@/components/audit/FixStep';
 import { ReviewStep } from '@/components/audit/ReviewStep';
 import { FixModal } from '@/components/FixModal';
 import { ImageDetailDrawer } from '@/components/ImageDetailDrawer';
-import { ActivityPanel } from '@/components/ActivityPanel';
-import { PolicyBanner } from '@/components/PolicyUpdates';
 import { AuditHistoryEntry } from '@/components/ComplianceHistory';
-import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
-import { CreditWarningBanner } from '@/components/CreditWarningBanner';
-import { AICreditsExhaustedBanner } from '@/components/AICreditsExhaustedBanner';
 import { useToast } from '@/hooks/use-toast';
-import { ImageAsset } from '@/types';
+import { ImageAsset, LogEntry } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Terminal, ChevronDown, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+
+function InlineActivityLog({ logs, onClear }: { logs: LogEntry[]; onClear: () => void }) {
+  const [open, setOpen] = useState(false);
+  if (logs.length === 0) return null;
+
+  const getLevelColor = (level: LogEntry['level']) => {
+    switch (level) {
+      case 'success': return 'text-success';
+      case 'error': return 'text-destructive';
+      case 'warning': return 'text-warning';
+      case 'processing': return 'text-primary';
+      default: return 'text-muted-foreground';
+    }
+  };
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <div className="border border-border rounded-lg bg-card mt-6">
+        <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <Terminal className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">Activity Log</span>
+            <Badge variant="secondary" className="text-[10px] h-4">{logs.length}</Badge>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onClear(); }}>
+              <Trash2 className="w-3 h-3" />
+            </Button>
+            <ChevronDown className={cn('w-3.5 h-3.5 text-muted-foreground transition-transform', open && 'rotate-180')} />
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <ScrollArea className="h-48 border-t border-border">
+            <div className="p-2 space-y-0.5 font-mono text-xs">
+              {logs.map(log => (
+                <div key={log.id} className="flex items-start gap-2 px-2 py-0.5 rounded hover:bg-muted/30">
+                  <span className="text-muted-foreground/50 shrink-0 w-16">
+                    {log.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                  <span className={cn('break-all', getLevelColor(log.level))}>
+                    {log.message}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
 
 const Index = () => {
   const session = useAuditSession();
-  const { highImpactUpdates, getMatchingUpdate } = usePolicyUpdates();
-  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [drawerAsset, setDrawerAsset] = useState<ImageAsset | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { toast } = useToast();
@@ -54,7 +104,7 @@ const Index = () => {
   }, [session.assets]);
 
   const analyzedCount = session.assets.filter(a => a.analysisResult).length;
-  const failedCount = session.assets.filter(a => 
+  const failedCount = session.assets.filter(a =>
     a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING'
   ).length;
   const fixedCount = session.assets.filter(a => a.fixedImage).length;
@@ -71,42 +121,48 @@ const Index = () => {
     toast({ title: 'Audit Loaded', description: `Loaded "${entry.listingTitle}" from history` });
   };
 
-  // Keep drawer asset in sync with updated assets state
-  const currentDrawerAsset = drawerAsset 
-    ? session.assets.find(a => a.id === drawerAsset.id) || drawerAsset 
+  const currentDrawerAsset = drawerAsset
+    ? session.assets.find(a => a.id === drawerAsset.id) || drawerAsset
     : null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Policy Banner */}
-      {!bannerDismissed && highImpactUpdates.length > 0 && (
-        <PolicyBanner updates={highImpactUpdates} onDismiss={() => setBannerDismissed(true)} />
-      )}
+      {/* Inline stepper + status */}
+      <div className="px-6 pt-5 pb-3 flex items-center gap-4 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <AuditStepper
+            currentStep={session.currentStep}
+            onStepChange={session.setCurrentStep}
+            completedSteps={completedSteps}
+            hasAssets={session.assets.length > 0}
+            hasResults={analyzedCount > 0}
+            hasFailures={failedCount > 0}
+          />
+        </div>
+        {session.assets.length > 0 && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Badge variant="secondary" className="font-mono text-[10px] h-5 px-1.5">{session.assets.length} imgs</Badge>
+            {analyzedCount > 0 && (
+              <Badge variant="outline" className="font-mono text-[10px] h-5 px-1.5 text-success border-success/30">
+                {analyzedCount - failedCount} pass
+              </Badge>
+            )}
+            {failedCount > 0 && (
+              <Badge variant="outline" className="font-mono text-[10px] h-5 px-1.5 text-destructive border-destructive/30">
+                {failedCount} fail
+              </Badge>
+            )}
+            {fixedCount > 0 && (
+              <Badge variant="outline" className="font-mono text-[10px] h-5 px-1.5 text-primary border-primary/30">
+                {fixedCount} fixed
+              </Badge>
+            )}
+          </div>
+        )}
+      </div>
 
-      {/* Credit Warning Banners */}
-      <CreditWarningBanner />
-      <AICreditsExhaustedBanner visible={session.aiCreditsExhausted} />
-
-      {/* Sticky Command Bar */}
-      <CommandBar
-        onRunAudit={session.handleRunAudit}
-        isAnalyzing={session.isAnalyzing}
-        analyzingProgress={session.analyzingProgress}
-        onBatchFix={session.handleBatchFix}
-        isBatchFixing={session.isBatchFixing}
-        batchFixProgress={session.batchFixProgress}
-        onSaveReport={session.handleSaveReport}
-        assetCount={session.assets.length}
-        analyzedCount={analyzedCount}
-        failedCount={failedCount}
-        fixedCount={fixedCount}
-        currentStep={session.currentStep}
-        onStepChange={session.setCurrentStep}
-        completedSteps={completedSteps}
-      />
-
-      {/* Full-width workspace */}
-      <main className="flex-1 px-6 py-5 pb-16">
+      {/* Step content */}
+      <main className="flex-1 px-6 pb-6">
         {session.currentStep === 'import' && (
           <ImportStep
             assets={session.assets}
@@ -148,7 +204,7 @@ const Index = () => {
             batchFixProgress={session.batchFixProgress}
             productAsin={session.productAsin || undefined}
             competitorData={session.competitorData}
-            getMatchingPolicyUpdate={getMatchingUpdate}
+            getMatchingPolicyUpdate={() => null}
             onGoToFix={() => session.setCurrentStep('fix')}
             onRunAudit={session.handleRunAudit}
             onSelectAsset={handleSelectAsset}
@@ -165,6 +221,8 @@ const Index = () => {
             isBatchFixing={session.isBatchFixing}
             batchFixProgress={session.batchFixProgress}
             onGoToReview={() => session.setCurrentStep('review')}
+            listingTitle={session.listingTitle}
+            onApplyFix={(assetId, prompt) => session.handleRequestFix(assetId, undefined, prompt)}
           />
         )}
 
@@ -173,22 +231,19 @@ const Index = () => {
             assets={session.assets}
             listingTitle={session.listingTitle}
             productAsin={session.productAsin}
-            productIdentity={session.productIdentity}
-            styleConsistency={session.styleConsistency}
-            isAnalyzingStyle={session.isAnalyzingStyle}
             competitorData={session.competitorData}
             aiComparison={session.aiComparison}
             isLoadingAIComparison={session.isLoadingAIComparison}
             isImportingCompetitor={session.isImportingCompetitor}
             competitorProgress={session.competitorProgress}
-            isAnalyzing={session.isAnalyzing}
             onSaveReport={session.handleSaveReport}
-            onApplyFix={(assetId, prompt) => session.handleRequestFix(assetId, undefined, prompt)}
             onImportCompetitor={session.handleImportCompetitor}
             onLoadAudit={handleLoadAudit}
           />
         )}
 
+        {/* Inline activity log */}
+        <InlineActivityLog logs={session.logs} onClear={() => session.setLogs([])} />
       </main>
 
       {/* Right slide-in drawer for image details */}
@@ -214,9 +269,6 @@ const Index = () => {
         onDownload={session.handleDownload}
         fixProgress={session.fixProgress || undefined}
       />
-
-      {/* Bottom activity panel */}
-      <ActivityPanel logs={session.logs} onClear={() => session.setLogs([])} />
     </div>
   );
 };
