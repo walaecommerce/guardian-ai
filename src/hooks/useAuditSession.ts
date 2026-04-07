@@ -126,9 +126,40 @@ export function useAuditSession() {
     
     const maxCount = maxImages === 'all' ? Infinity : parseInt(maxImages, 10);
     setIsImporting(true);
+    setImportError(null);
+
+    // Exponential backoff retry for scraping
+    let product: Awaited<ReturnType<typeof scrapeAmazonProduct>> | null = null;
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          addLog('warning', `⏳ Retry ${attempt}/${maxRetries - 1} — waiting ${delay / 1000}s...`);
+          await new Promise(r => setTimeout(r, delay));
+        }
+        product = await scrapeAmazonProduct(amazonUrl, addLog);
+        break; // success
+      } catch (scrapeErr) {
+        const msg = scrapeErr instanceof Error ? scrapeErr.message : 'Scrape failed';
+        if (attempt < maxRetries - 1) {
+          addLog('warning', `⚠️ Import attempt ${attempt + 1} failed: ${msg}`);
+        } else {
+          setImportError(msg);
+          addLog('error', msg);
+          toast({ title: 'Import Failed', description: `${msg}. You can retry.`, variant: 'destructive' });
+          setIsImporting(false);
+          return;
+        }
+      }
+    }
+
+    if (!product) {
+      setIsImporting(false);
+      return;
+    }
 
     try {
-      const product = await scrapeAmazonProduct(amazonUrl, addLog);
       const imagesToProcess = product.images.slice(0, maxCount);
       setProductAsin(product.asin !== 'UNKNOWN' ? product.asin : null);
       
