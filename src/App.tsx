@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import Session from "./pages/Session";
@@ -32,39 +33,47 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/landing" element={<Landing />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="*" element={
-              <AuthGuard>
-                <Routes>
-                  <Route path="/onboarding" element={<Onboarding />} />
-                  <Route path="*" element={
-                    <DashboardLayout>
-                      <Routes>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/audit" element={<Index />} />
-                        <Route path="/pricing" element={<Pricing />} />
-                        <Route path="/campaign" element={<CampaignAudit />} />
-                        <Route path="/studio" element={<Studio />} />
-                        <Route path="/tracker" element={<Tracker />} />
-                        <Route path="/test-checklist" element={<TestChecklist />} />
-                        <Route path="/sessions" element={<Sessions />} />
-                        <Route path="/media" element={<Media />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/admin" element={<Admin />} />
-                        <Route path="/session/:sessionId" element={<Session />} />
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </DashboardLayout>
-                  } />
-                </Routes>
-              </AuthGuard>
-            } />
-          </Routes>
-        </BrowserRouter>
+        <ErrorBoundary>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/landing" element={<Landing />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route
+                path="*"
+                element={
+                  <AuthGuard>
+                    <Routes>
+                      <Route path="/onboarding" element={<Onboarding />} />
+                      <Route
+                        path="*"
+                        element={
+                          <DashboardLayout>
+                            <Routes>
+                              <Route path="/" element={<Dashboard />} />
+                              <Route path="/audit" element={<Index />} />
+                              <Route path="/pricing" element={<Pricing />} />
+                              <Route path="/campaign" element={<CampaignAudit />} />
+                              <Route path="/studio" element={<Studio />} />
+                              <Route path="/tracker" element={<Tracker />} />
+                              <Route path="/test-checklist" element={<TestChecklist />} />
+                              <Route path="/sessions" element={<Sessions />} />
+                              <Route path="/media" element={<Media />} />
+                              <Route path="/settings" element={<Settings />} />
+                              <Route path="/admin" element={<Admin />} />
+                              <Route path="/session/:sessionId" element={<Session />} />
+                              <Route path="*" element={<NotFound />} />
+                            </Routes>
+                          </DashboardLayout>
+                        }
+                      />
+                    </Routes>
+                  </AuthGuard>
+                }
+              />
+            </Routes>
+          </BrowserRouter>
+        </ErrorBoundary>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
