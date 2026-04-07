@@ -1,13 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
 import { useCredit, getUserIdFromAuth, createAdminClient } from "../_shared/credits.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ── System prompt ────────────────────────────────────────────────
 
@@ -398,39 +397,27 @@ serve(async (req) => {
 
     const { imageBase64, imageType, listingTitle, forcedCategory } = await req.json();
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
     const isMain = imageType === 'MAIN';
     const titleRef = listingTitle || 'No listing title provided — skip content consistency check.';
 
-    console.log(`[analyze-image] using model: ${MODELS.analysis} via Lovable AI gateway`);
+    console.log(`[analyze-image] using model: ${MODELS.analysis} via Google Gemini API`);
     console.log(`[analyze-image] Analyzing ${imageType} image with category detection...`);
 
     const systemPrompt = buildAnalysisPrompt(isMain, titleRef, forcedCategory || undefined);
     const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}`;
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODELS.analysis,
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userPrompt },
-              { type: "image_url", image_url: { url: toDataUrl(imageBase64) } },
-            ],
-          },
-        ],
-      }),
+    const response = await fetchGemini({
+      model: MODELS.analysis,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: userPrompt },
+            { type: "image_url", image_url: { url: toDataUrl(imageBase64) } },
+          ],
+        },
+      ],
     });
 
     // Handle rate limit / payment errors
