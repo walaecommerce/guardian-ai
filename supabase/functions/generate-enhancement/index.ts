@@ -183,7 +183,7 @@ serve(async (req) => {
       throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    console.log(`[generate-enhancement] using model: ${MODELS.imageGen} via Google Gemini API`);
+    console.log(`[generate-enhancement] using model: ${MODELS.imageGen} via Gemini API`);
     console.log(`[Enhancement Gen] Generating ${enhancementType} enhancement for ${imageCategory} image...`);
 
     const prompt = customPrompt || getCategoryEnhancementPrompt(
