@@ -67,8 +67,8 @@ export function ImageDetailDrawer({
             {hasFix ? (
               <div className="rounded-lg overflow-hidden border border-border">
                 <BeforeAfterSlider
-                  before={asset.preview}
-                  after={asset.fixedImage!}
+                  beforeImage={asset.preview}
+                  afterImage={asset.fixedImage!}
                 />
               </div>
             ) : (
