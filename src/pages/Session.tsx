@@ -222,6 +222,7 @@ const Session = () => {
     addLog('success', '🎯 Guardian batch audit complete');
     setIsAnalyzing(false);
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved.' });
+    refreshCredits();
   };
 
   const handleSaveReport = async () => {
@@ -455,6 +456,7 @@ const Session = () => {
         
         addLog('success', `🎉 Fix complete for ${asset.name}`);
         toast({ title: 'Fix Generated', description: 'AI-corrected image is ready and saved' });
+        refreshCredits();
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Fix failed';
@@ -489,6 +491,7 @@ const Session = () => {
     setIsBatchFixing(false);
     addLog('success', `✅ Batch fix complete!`);
     toast({ title: 'Batch Fix Complete', description: `Fixed ${failedAssets.length} images` });
+    refreshCredits();
   };
 
   const handleReverify = async (assetId: string) => {
