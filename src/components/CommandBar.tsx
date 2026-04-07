@@ -79,14 +79,20 @@ export function CommandBar({
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            size="sm"
-            onClick={() => onImportFromAmazon(maxImages)}
-            disabled={!amazonUrl || isImporting}
-            className="h-9 shrink-0"
-          >
-            {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Import className="w-4 h-4 sm:mr-1.5" />}
-            <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import'}</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                onClick={() => onImportFromAmazon(maxImages)}
+                disabled={!amazonUrl || isImporting}
+                className="h-9 shrink-0"
+              >
+                {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Import className="w-4 h-4 sm:mr-1.5" />}
+                <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import'}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Import<kbd className={kbdClass}>⌘I</kbd></TooltipContent>
+          </Tooltip>
           </Button>
         </div>
 
