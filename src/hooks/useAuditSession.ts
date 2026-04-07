@@ -465,7 +465,7 @@ export function useAuditSession() {
     setIsRetrying(false);
   };
 
-  const analyzeAsset = async (asset: ImageAsset, attempt = 0): Promise<{ result: AnalysisResult | null; error?: string }> => {
+  const analyzeAsset = async (asset: ImageAsset, attempt = 0): Promise<{ result: AnalysisResult | null; error?: string; isCreditsExhausted?: boolean }> => {
     try {
       const base64 = await fileToBase64(asset.file);
       
@@ -490,7 +490,6 @@ export function useAuditSession() {
           await new Promise(r => setTimeout(r, 10000));
           return analyzeAsset(asset, attempt + 1);
         }
-        // Extract meaningful error message
         let errorMsg = 'Analysis failed';
         try {
           if (error instanceof Error && (error as any).context?.json) {
@@ -501,11 +500,16 @@ export function useAuditSession() {
           }
         } catch { /* use default */ }
         if (status === 402) {
-          errorMsg = 'AI credits exhausted';
-          setAiCreditsExhausted(true);
+          return { result: null, error: 'AI credits exhausted', isCreditsExhausted: true };
         }
         return { result: null, error: errorMsg };
       }
+
+      // Check for 402 in response body (fail-soft pattern)
+      if (data?.errorType === 'payment_required') {
+        return { result: null, error: data.error || 'AI credits exhausted', isCreditsExhausted: true };
+      }
+
       return { result: data as AnalysisResult };
     } catch (error: any) {
       console.error('Analysis error:', error);
@@ -547,11 +551,23 @@ export function useAuditSession() {
       setAnalyzingProgress({ current: i + 1, total: assets.length });
       addLog('processing', `🔬 Scanning ${asset.type} image: ${asset.name}`);
       
-      const { result, error: analysisError } = await analyzeAsset(asset);
+      const { result, error: analysisError, isCreditsExhausted } = await analyzeAsset(asset);
       
       setAssets(prev => prev.map(a => 
         a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') } : a
       ));
+
+      if (isCreditsExhausted) {
+        setAiCreditsExhausted(true);
+        addLog('error', `🚫 AI credits exhausted — stopping audit. ${assets.length - i - 1} image(s) skipped.`);
+        toast({
+          title: 'AI Credits Exhausted',
+          description: 'Add more AI balance in Settings → Cloud & AI balance to continue.',
+          variant: 'destructive',
+          duration: 8000,
+        });
+        break;
+      }
 
       if (result) {
         const statusLog = result.status === 'PASS' ? 'success' : 'warning';
@@ -612,14 +628,20 @@ export function useAuditSession() {
 
     // Extract product identity
     const mainAssetForIdentity = assets.find(a => a.type === 'MAIN');
-    if (mainAssetForIdentity) {
+    if (mainAssetForIdentity && !aiCreditsExhausted) {
       try {
         addLog('processing', '🔗 Extracting product identity card from main image...');
         const mainBase64 = await fileToBase64(mainAssetForIdentity.file);
         const { data: idData, error: idError } = await supabase.functions.invoke('extract-product-identity', {
           body: { imageBase64: mainBase64, productTitle: listingTitle }
         });
-        if (!idError && idData?.identity) {
+
+        // Handle 402 from extract-product-identity gracefully
+        const idStatus = (idError as any)?.context?.status;
+        if (idStatus === 402 || idData?.errorType === 'payment_required') {
+          setAiCreditsExhausted(true);
+          addLog('warning', '⚠️ Product identity extraction skipped (AI credits exhausted)');
+        } else if (!idError && idData?.identity) {
           setProductIdentity(idData.identity);
           addLog('success', `✅ Product identity extracted: ${idData.identity.brandName} - ${idData.identity.productName}`);
           if (currentSessionId) {
@@ -808,20 +830,22 @@ export function useAuditSession() {
             const serverType: string | undefined = body?.errorType;
 
             if (status === 402 || serverType === 'payment_required') {
+              setAiCreditsExhausted(true);
               addLog('error', `❌ ${serverMsg || 'Not enough AI credits.'}`);
               setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
               setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
-              toast({ title: 'AI Credits Required', description: serverMsg || 'Not enough credits', variant: 'destructive' });
+              toast({ title: 'AI Credits Exhausted', description: 'Add more AI balance in Settings → Cloud & AI balance to continue.', variant: 'destructive', duration: 8000 });
               return;
             }
             throw genError;
           }
           if (genData?.error) {
             if (genData.errorType === 'payment_required') {
+              setAiCreditsExhausted(true);
               addLog('error', `❌ ${genData.error}`);
               setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
               setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
-              toast({ title: 'AI Credits Required', description: genData.error, variant: 'destructive' });
+              toast({ title: 'AI Credits Exhausted', description: 'Add more AI balance in Settings → Cloud & AI balance to continue.', variant: 'destructive', duration: 8000 });
               return;
             }
             throw new Error(genData.error);
@@ -1030,6 +1054,18 @@ export function useAuditSession() {
     let fixedCount = 0;
 
     for (let i = 0; i < failedAssets.length; i++) {
+      // Stop batch if credits exhausted during a previous fix
+      if (aiCreditsExhausted) {
+        addLog('warning', `🚫 AI credits exhausted — skipping remaining ${failedAssets.length - i} fix(es).`);
+        toast({
+          title: 'AI Credits Exhausted',
+          description: 'Add more AI balance to continue fixing images.',
+          variant: 'destructive',
+          duration: 8000,
+        });
+        break;
+      }
+
       setBatchFixProgress({ current: i + 1, total: failedAssets.length });
       await handleRequestFix(failedAssets[i].id);
       fixedCount++;
@@ -1048,8 +1084,8 @@ export function useAuditSession() {
     
     setIsBatchFixing(false);
     setBatchFixProgress(null);
-    addLog('success', `✅ All fixes complete — ${fixedCount} images corrected`);
-    toast({ title: 'Fix All Complete', description: `${fixedCount} images corrected` });
+    addLog('success', `✅ Fixes complete — ${fixedCount} images corrected`);
+    toast({ title: 'Fix Complete', description: `${fixedCount} images corrected` });
   };
 
   const handleViewDetails = (asset: ImageAsset) => {
