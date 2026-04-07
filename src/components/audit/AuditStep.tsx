@@ -39,7 +39,7 @@ export function AuditStep({
 
   const scores = analyzedAssets.map(a => a.analysisResult?.overallScore || 0);
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-  const criticalCount = analyzedAssets.flatMap(a => a.analysisResult?.violations || []).filter(v => v.severity === 'CRITICAL' || v.severity === 'critical').length;
+  const criticalCount = analyzedAssets.flatMap(a => a.analysisResult?.violations || []).filter(v => v.severity?.toLowerCase() === 'critical').length;
 
   return (
     <div className="space-y-6">
