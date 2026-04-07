@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,9 +50,6 @@ serve(async (req) => {
 
     if (!productName) throw new Error('Product name is required');
 
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
-
     // Build prompt
     const templateFn = TEMPLATES[template] || TEMPLATES.hero;
     const prompt = customPrompt || templateFn({ productName, description: description || '', claims, colors, template, aspectRatio, resolution });
@@ -62,17 +60,10 @@ serve(async (req) => {
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       console.log(`[generate-studio-image] using model: ${MODELS.imageGen}`);
       try {
-        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${GEMINI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: MODELS.imageGen,
-            messages: [{ role: "user", content: prompt }],
-            modalities: ["image", "text"],
-          }),
+        const response = await fetchGemini({
+          model: MODELS.imageGen,
+          messages: [{ role: "user", content: prompt }],
+          modalities: ["image", "text"],
         });
 
         if (response.status === 429) {

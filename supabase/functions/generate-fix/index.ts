@@ -2,8 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { MODELS } from "../_shared/models.ts";
 import { useCredit, createAdminClient } from "../_shared/credits.ts";
-
-const GATEWAY_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+import { fetchGemini } from "../_shared/gemini.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -215,17 +214,10 @@ const toDataUrl = (dataUrl: string): string => {
 // ── Gateway request helpers ─────────────────────────────────────
 
 async function callGateway(apiKey: string, contentParts: any[], model?: string): Promise<Response> {
-  return fetch(GATEWAY_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: model || MODELS.imageGen,
-      messages: [{ role: "user", content: contentParts }],
-      modalities: ["image", "text"],
-    }),
+  return fetchGemini({
+    model: model || MODELS.imageGen,
+    messages: [{ role: "user", content: contentParts }],
+    modalities: ["image", "text"],
   });
 }
 
