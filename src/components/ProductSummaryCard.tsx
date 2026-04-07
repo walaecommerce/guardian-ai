@@ -263,7 +263,7 @@ function SortableImageThumbnail({
   };
 
   const isMain = index === 0;
-  const categoryLabel = asset.analysisResult?.imageCategory
+  const categoryLabel = asset.analysisResult?.productCategory
     || asset.name.split('_')[0]
     || 'UNKNOWN';
 
