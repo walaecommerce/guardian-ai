@@ -841,10 +841,11 @@ export function useAuditSession() {
           }
           if (genData?.error) {
             if (genData.errorType === 'payment_required') {
+              setAiCreditsExhausted(true);
               addLog('error', `❌ ${genData.error}`);
               setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
               setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
-              toast({ title: 'AI Credits Required', description: genData.error, variant: 'destructive' });
+              toast({ title: 'AI Credits Exhausted', description: 'Add more AI balance in Settings → Cloud & AI balance to continue.', variant: 'destructive', duration: 8000 });
               return;
             }
             throw new Error(genData.error);
