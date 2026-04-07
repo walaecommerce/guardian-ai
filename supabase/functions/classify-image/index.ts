@@ -129,8 +129,9 @@ Analyze the image and determine which category it belongs to based on its visual
       });
     }
     if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required", category: 'UNKNOWN', confidence: 0 }), {
-        status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      console.warn('[classify-image] AI credits exhausted');
+      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required", category: 'UNKNOWN', confidence: 0, reasoning: 'AI credits exhausted' }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
