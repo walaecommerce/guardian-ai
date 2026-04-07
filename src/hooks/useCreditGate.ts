@@ -1,4 +1,5 @@
 import { useCredits } from '@/hooks/useCredits';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useCallback } from 'react';
@@ -9,9 +10,11 @@ import { useCallback } from 'react';
  */
 export function useCreditGate() {
   const { hasCredits } = useCredits();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const guard = useCallback((type: 'scrape' | 'analyze' | 'fix'): boolean => {
+    if (isAdmin) return true;
     if (hasCredits(type)) return true;
 
     const labels = { scrape: 'Scrape', analyze: 'Analysis', fix: 'Fix' };
