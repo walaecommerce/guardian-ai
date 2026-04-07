@@ -1317,6 +1317,68 @@ export function useAuditSession() {
     }
   };
 
+  const handleResumeAudit = async () => {
+    const unanalyzedAssets = assets.filter(a => !a.analysisResult && !a.analysisError);
+    if (unanalyzedAssets.length === 0) return;
+
+    setAiCreditsExhausted(false);
+    setIsAnalyzing(true);
+    setCurrentStep('audit');
+    addLog('processing', `▶️ Resuming audit for ${unanalyzedAssets.length} remaining image(s)...`);
+
+    let creditsExhaustedDuringResume = false;
+
+    for (let i = 0; i < unanalyzedAssets.length; i++) {
+      const asset = unanalyzedAssets[i];
+      setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, isAnalyzing: true } : a));
+      setAnalyzingProgress({ current: i + 1, total: unanalyzedAssets.length });
+
+      const { result, error: analysisError, isCreditsExhausted } = await analyzeAsset(asset);
+
+      if (isCreditsExhausted) {
+        setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, isAnalyzing: false } : a));
+        creditsExhaustedDuringResume = true;
+        setAiCreditsExhausted(true);
+        addLog('error', `🚫 AI credits exhausted again — ${unanalyzedAssets.length - i - 1} image(s) still remaining.`);
+        break;
+      }
+
+      setAssets(prev => prev.map(a =>
+        a.id === asset.id
+          ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') }
+          : a
+      ));
+
+      if (result) {
+        addLog('success', `✅ ${asset.name}: Score ${result.overallScore}% - ${result.status}`);
+        refreshCredits();
+      } else {
+        addLog('error', `❌ Failed to analyze ${asset.name}${analysisError ? ': ' + analysisError : ''}`);
+      }
+
+      if (i < unanalyzedAssets.length - 1) {
+        await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
+      }
+    }
+
+    setIsAnalyzing(false);
+    setAnalyzingProgress(undefined);
+
+    if (creditsExhaustedDuringResume) {
+      toast({ title: 'Audit Paused Again', description: 'AI balance is still insufficient.' });
+    } else {
+      toast({ title: 'Audit Complete', description: 'All remaining images analyzed.' });
+
+      const allAnalyzed = assets.filter(a => a.analysisResult);
+      const failCount = allAnalyzed.filter(a => a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING').length;
+      if (failCount > 0) {
+        setCurrentStep('fix');
+      } else {
+        setCurrentStep('review');
+      }
+    }
+  };
+
   return {
     // State
     assets, setAssets,
@@ -1367,5 +1429,6 @@ export function useAuditSession() {
     handleDownload,
     handleImportCompetitor,
     handleRetryFailedAnalysis,
+    handleResumeAudit,
   };
 }

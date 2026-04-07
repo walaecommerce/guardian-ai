@@ -166,6 +166,7 @@ const Index = () => {
         visible={session.aiCreditsExhausted}
         analyzedCount={session.assets.filter(a => a.analysisResult).length}
         totalCount={session.assets.length}
+        onResume={session.handleResumeAudit}
       />
 
       {/* Step content */}
