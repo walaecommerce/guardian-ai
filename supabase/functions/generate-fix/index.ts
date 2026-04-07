@@ -226,7 +226,7 @@ const toDataUrl = (dataUrl: string): string => {
 
 // ── Gateway request helpers ─────────────────────────────────────
 
-const IMAGE_MODEL_FALLBACK = "gemini-2.5-flash-image";
+const IMAGE_MODEL_FALLBACK = MODELS.imageGenHQ || "gemini-2.5-flash-image";
 
 async function callGateway(apiKey: string, contentParts: any[], model?: string): Promise<Response> {
   const requestedModel = model || MODELS.imageGen;
@@ -237,10 +237,11 @@ async function callGateway(apiKey: string, contentParts: any[], model?: string):
     modalities: ["image", "text"],
   });
 
-  if (response.status === 404 && requestedModel !== IMAGE_MODEL_FALLBACK) {
+  // Fallback to HQ model if primary returns 404 or empty
+  if ((response.status === 404) && requestedModel !== IMAGE_MODEL_FALLBACK) {
     const errorText = await response.text();
     console.warn(
-      `[generate-fix] Model ${requestedModel} unavailable for generateContent, retrying with ${IMAGE_MODEL_FALLBACK}: ${errorText.substring(0, 300)}`,
+      `[generate-fix] Model ${requestedModel} unavailable, retrying with ${IMAGE_MODEL_FALLBACK}: ${errorText.substring(0, 300)}`,
     );
 
     response = await fetchGemini({
