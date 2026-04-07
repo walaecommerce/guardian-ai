@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,7 @@ export default function Admin() {
   const [credits, setCredits] = useState<CreditRow[]>([]);
   const [roles, setRoles] = useState<{ user_id: string; role: string }[]>([]);
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
-  const [stats, setStats] = useState({ totalSessions: 0, totalImages: 0, totalCreditsUsed: 0 });
+  const [stats, setStats] = useState({ totalSessions: 0, totalImages: 0, totalCreditsUsed: 0, adminCredits: 0, userCredits: 0 });
   const [activityLog, setActivityLog] = useState<UsageRow[]>([]);
   const [activityPage, setActivityPage] = useState(0);
   const [activityTotal, setActivityTotal] = useState(0);
@@ -108,10 +109,19 @@ export default function Admin() {
     const deducted = creditsRes.data?.reduce((sum, c) => sum + c.used_credits, 0) ?? 0;
     const { count: totalLogCount } = await supabase.from('credit_usage_log').select('id', { count: 'exact', head: true });
 
+    // Get admin vs non-admin breakdown
+    const adminUserIds = new Set(rolesRes.data?.filter(r => r.role === 'admin').map(r => r.user_id) ?? []);
+    // Fetch all usage log user_ids for breakdown
+    const { data: allUsageLogs } = await supabase.from('credit_usage_log').select('user_id');
+    const adminCount = allUsageLogs?.filter(l => adminUserIds.has(l.user_id)).length ?? 0;
+    const totalCount = totalLogCount ?? deducted;
+
     setStats({
       totalSessions: sessionsRes.data?.length ?? 0,
       totalImages: imagesRes.data?.length ?? 0,
-      totalCreditsUsed: totalLogCount ?? deducted,
+      totalCreditsUsed: totalCount,
+      adminCredits: adminCount,
+      userCredits: totalCount - adminCount,
     });
 
     setLoading(false);
@@ -410,14 +420,25 @@ export default function Admin() {
                 <p className="text-3xl font-bold text-foreground">{stats.totalImages}</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Credits Consumed</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-foreground">{stats.totalCreditsUsed}</p>
-              </CardContent>
-            </Card>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card className="cursor-default">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-muted-foreground">Credits Consumed</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-3xl font-bold text-foreground">{stats.totalCreditsUsed}</p>
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs space-y-1 p-3">
+                  <p className="font-medium">Breakdown</p>
+                  <p>Admin: <span className="font-semibold">{stats.adminCredits}</span></p>
+                  <p>Users: <span className="font-semibold">{stats.userCredits}</span></p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </TabsContent>
       </Tabs>
