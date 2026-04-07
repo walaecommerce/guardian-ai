@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useCreditGate } from '@/hooks/useCreditGate';
+import { useAuth } from '@/hooks/useAuth';
 import { RATE_LIMITS } from '@/config/models';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
@@ -18,6 +19,7 @@ export type AuditStep = 'import' | 'audit' | 'fix' | 'review';
 
 export function useAuditSession() {
   const { guard: creditGate } = useCreditGate();
+  const { user } = useAuth();
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [listingTitle, setListingTitle] = useState('');
   const [amazonUrl, setAmazonUrl] = useState('');
@@ -140,7 +142,8 @@ export function useAuditSession() {
           product_asin: product.asin !== 'UNKNOWN' ? product.asin : null,
           listing_title: product.title || null,
           total_images: imagesToProcess.length,
-          status: 'in_progress'
+          status: 'in_progress',
+          user_id: user?.id
         }])
         .select()
         .single();
@@ -646,7 +649,8 @@ export function useAuditSession() {
       failed_count: failedCount,
       average_score: avgScore,
       report_data: reportData,
-      fixed_images_count: fixedCount
+      fixed_images_count: fixedCount,
+      user_id: user?.id
     }]);
 
     if (error) {
