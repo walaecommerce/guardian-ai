@@ -1,12 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 interface ClassificationResult {
   category: string;
@@ -61,15 +60,6 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: 'AI service not configured', errorType: 'config_error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const contextInfo = productTitle ? `Product: "${productTitle}"` : '';
     const asinInfo = asin ? `ASIN: ${asin}` : '';
 
@@ -100,27 +90,20 @@ ${asinInfo}
 
 Analyze the image and determine which category it belongs to based on its visual characteristics.`;
 
-    console.log(`[classify-image] using model: ${MODELS.analysis} via Lovable AI gateway`);
+    console.log(`[classify-image] using model: ${MODELS.analysis} via Google Gemini API`);
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODELS.analysis,
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userPrompt },
-              { type: "image_url", image_url: { url: toDataUrl(imageBase64) } },
-            ],
-          },
-        ],
-      }),
+    const response = await fetchGemini({
+      model: MODELS.analysis,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: userPrompt },
+            { type: "image_url", image_url: { url: toDataUrl(imageBase64) } },
+          ],
+        },
+      ],
     });
 
     if (response.status === 429) {
@@ -130,31 +113,31 @@ Analyze the image and determine which category it belongs to based on its visual
     }
     if (response.status === 402) {
       console.warn('[classify-image] AI credits exhausted');
-      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required", category: 'UNKNOWN', confidence: 0, reasoning: 'AI credits exhausted' }), {
+      return new Response(JSON.stringify({ error: "AI credits exhausted.", errorType: "payment_required", category: 'UNKNOWN', confidence: 0, reasoning: 'AI credits exhausted' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[classify-image] Gateway error:', response.status, errorText);
+      console.error('[classify-image] Gemini API error:', response.status, errorText);
       return new Response(
-        JSON.stringify({ error: `AI gateway error (${response.status})`, errorType: 'gateway_error', category: 'UNKNOWN', confidence: 0 }),
+        JSON.stringify({ error: `Gemini API error (${response.status})`, errorType: 'gateway_error', category: 'UNKNOWN', confidence: 0 }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const responseText = await response.text();
     if (!responseText || responseText.trim().length === 0) {
-      console.error("[classify-image] Empty response from gateway");
-      return new Response(JSON.stringify({ error: "Empty response from AI gateway", category: "UNKNOWN", confidence: 0 }), {
+      console.error("[classify-image] Empty response from Gemini");
+      return new Response(JSON.stringify({ error: "Empty response from Gemini API", category: "UNKNOWN", confidence: 0 }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     let data: any;
     try { data = JSON.parse(responseText); } catch {
-      console.error("[classify-image] Invalid JSON from gateway:", responseText.substring(0, 300));
-      return new Response(JSON.stringify({ error: "Invalid JSON from AI gateway", category: "UNKNOWN", confidence: 0 }), {
+      console.error("[classify-image] Invalid JSON from Gemini:", responseText.substring(0, 300));
+      return new Response(JSON.stringify({ error: "Invalid JSON from Gemini API", category: "UNKNOWN", confidence: 0 }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

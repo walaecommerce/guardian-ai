@@ -1,12 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 
+const GATEWAY_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const SATISFACTORY_THRESHOLD = 85;
 
 // ── Image helpers ────────────────────────────────────────────────
@@ -84,9 +84,9 @@ serve(async (req) => {
       productIdentity,
     } = await req.json();
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     const isMain = imageType === 'MAIN';
@@ -104,7 +104,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[verify-image] using model: ${MODELS.verification} via Lovable AI gateway`);
+    console.log(`[verify-image] using model: ${MODELS.verification} via Google Gemini API`);
     console.log(`[verify-image] Verifying ${imageType} image...`);
 
     // ── Build prompt with weighted rubric ──
@@ -193,7 +193,7 @@ Return this EXACT JSON structure:
       response = await fetch(GATEWAY_URL, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${GEMINI_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

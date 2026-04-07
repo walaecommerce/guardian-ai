@@ -1,12 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ── Image helpers ────────────────────────────────────────────────
 
@@ -59,8 +58,6 @@ const fetchImageAsDataUrl = async (input: string): Promise<string> => {
   return `data:${guessImageMimeType(input)};base64,${input}`;
 };
 
-// ── Main handler ─────────────────────────────────────────────────
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -68,9 +65,6 @@ serve(async (req) => {
 
   try {
     const { imageBase64, productTitle } = await req.json();
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const imageUrl = await fetchImageAsDataUrl(imageBase64);
     if (!imageUrl) {
@@ -97,22 +91,15 @@ Return ONLY valid JSON with this exact structure:
   "productDescriptor": "<one paragraph describing this exact product for identity matching — include brand, variant, packaging details, colors, and unique identifiers>"
 }`;
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODELS.analysis,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: imageUrl } },
-          ]
-        }],
-      }),
+    const response = await fetchGemini({
+      model: MODELS.analysis,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: imageUrl } },
+        ]
+      }],
     });
 
     if (response.status === 429) {
@@ -127,8 +114,8 @@ Return ONLY valid JSON with this exact structure:
     }
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[extract-product-identity] Gateway error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: `AI gateway error (${response.status})` }), {
+      console.error("[extract-product-identity] Gemini error:", response.status, errorText);
+      return new Response(JSON.stringify({ error: `Gemini API error (${response.status})` }), {
         status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -152,8 +139,6 @@ Return ONLY valid JSON with this exact structure:
     }
 
     console.log(`[extract-product-identity] ✅ Extracted: ${identity.brandName} - ${identity.productName}`);
-    console.log(`[extract-product-identity] Colors: ${identity.dominantColors?.join(', ')}`);
-    console.log(`[extract-product-identity] Shape: ${identity.shapeDescription}`);
 
     return new Response(JSON.stringify({ identity }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

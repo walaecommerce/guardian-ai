@@ -2,12 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { MODELS } from "../_shared/models.ts";
 
+const GATEWAY_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ── Image helpers ────────────────────────────────────────────────
 
@@ -179,12 +179,12 @@ serve(async (req) => {
       customPrompt
     } = await req.json();
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    console.log(`[generate-enhancement] using model: ${MODELS.imageGen} via Lovable AI gateway`);
+    console.log(`[generate-enhancement] using model: ${MODELS.imageGen} via Google Gemini API`);
     console.log(`[Enhancement Gen] Generating ${enhancementType} enhancement for ${imageCategory} image...`);
 
     const prompt = customPrompt || getCategoryEnhancementPrompt(
@@ -208,7 +208,7 @@ serve(async (req) => {
     const response = await fetch(GATEWAY_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -266,7 +266,7 @@ serve(async (req) => {
       });
     }
 
-    console.log("[Enhancement Gen] ✅ Enhanced image generated successfully via Lovable AI gateway");
+    console.log("[Enhancement Gen] ✅ Enhanced image generated successfully via Google Gemini API");
 
     return new Response(JSON.stringify({
       enhancedImage: imageResult,
