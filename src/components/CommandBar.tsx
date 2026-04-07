@@ -167,6 +167,30 @@ export function CommandBar({
           hasFailures={failedCount > 0}
         />
       </div>
+
+      {/* Mini progress indicator */}
+      {hasAssets && (
+        <div className="px-4 pb-2.5 flex items-center gap-4 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary" />
+            <span className="font-medium text-foreground">{assetCount}</span> imported
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={cn("inline-block w-1.5 h-1.5 rounded-full", analyzedCount > 0 ? "bg-success" : "bg-muted-foreground/30")} />
+            <span className={cn("font-medium", analyzedCount > 0 && "text-foreground")}>{analyzedCount}</span> audited
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={cn("inline-block w-1.5 h-1.5 rounded-full", fixedCount > 0 ? "bg-chart-4" : "bg-muted-foreground/30")} />
+            <span className={cn("font-medium", fixedCount > 0 && "text-foreground")}>{fixedCount}</span> fixed
+          </div>
+          {failedCount > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive" />
+              <span className="font-medium text-destructive">{failedCount - fixedCount}</span> remaining
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
