@@ -1,5 +1,5 @@
 import {
-  Shield, BarChart3, Sparkles, Activity, CreditCard, LogOut, Settings, User, Search, ChevronUp, History, ChevronDown, Image,
+  Shield, BarChart3, Sparkles, Activity, CreditCard, LogOut, Settings, User, Search, ChevronUp, History, ChevronDown, Image, ShieldCheck,
 } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -99,7 +99,7 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, isAdmin } = useAuth();
   const { remainingCredits, totalCredits } = useCredits();
   const { plan } = useSubscription();
   const [creditsOpen, setCreditsOpen] = useState(true);
@@ -133,6 +133,34 @@ export function AppSidebar() {
       <SidebarContent>
         <NavGroup label="Workspace" items={WORKSPACE_ITEMS} collapsed={collapsed} currentPath={location.pathname} />
         <NavGroup label="Tools" items={TOOLS_ITEMS} collapsed={collapsed} currentPath={location.pathname} />
+
+        {/* Admin nav link */}
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
+              Admin
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location.pathname === '/admin'} tooltip={collapsed ? 'Admin' : undefined}>
+                    <Link
+                      to="/admin"
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        location.pathname === '/admin'
+                          ? 'bg-primary/10 text-primary border border-primary/15'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      <ShieldCheck className="w-4 h-4 shrink-0" />
+                      {!collapsed && <span>Admin Panel</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Collapsible Credits section */}
         {!collapsed && user && (
