@@ -132,6 +132,25 @@ PRODUCT IDENTITY CARD (verify the generated image matches ALL of these):
 Check each identity attribute individually. If ANY label text is missing/changed or colors are wrong, product_identity_preserved MUST be false.`;
     }
 
+    // Build spatial context for verification
+    let spatialContext = '';
+    if (spatialAnalysis) {
+      const overlays = (spatialAnalysis.overlayElements || spatialAnalysis.overlay_elements || [])
+        .filter((el: any) => el.action === 'remove' && !el.isPartOfPackaging && !el.is_part_of_packaging);
+      if (overlays.length > 0) {
+        spatialContext = `\n\nOVERLAY ELEMENTS THAT SHOULD HAVE BEEN REMOVED:\n${overlays.map((el: any) => `- ${el.type} at ${el.location} [${el.id}]`).join('\n')}\nVerify these are no longer present in the generated image.`;
+      }
+      const protectedAreas = spatialAnalysis.protectedAreas || spatialAnalysis.protected_areas || [];
+      if (protectedAreas.length > 0) {
+        spatialContext += `\n\nPROTECTED AREAS (must be UNCHANGED):\n${protectedAreas.map((a: any) => `- ${a.description} [${a.id}]`).join('\n')}`;
+      }
+      const textZones = spatialAnalysis.textZones || spatialAnalysis.text_zones || [];
+      const criticalText = textZones.filter((z: any) => z.protection === 'CRITICAL' || z.protection === 'HIGH');
+      if (criticalText.length > 0) {
+        spatialContext += `\n\nCRITICAL TEXT THAT MUST BE PRESERVED:\n${criticalText.map((z: any) => `- "${z.content}" at ${z.location} [${z.id}]`).join('\n')}`;
+      }
+    }
+
     const outputSchema = `
 WEIGHTED SCORING RUBRIC:
 - Product Identity (35%): Does the generated image show the EXACT same product? Same brand, labels, colors, shape.
@@ -139,7 +158,7 @@ WEIGHTED SCORING RUBRIC:
 - Badge/Text Removal (20%): Are prohibited badges removed while legitimate text is preserved?
 - Image Quality (10%): Sharp, professional, no artifacts, proper lighting.
 - No New Issues (10%): No new elements added, no hallucinated features, no cropping errors.
-${identitySection}
+${identitySection}${spatialContext}
 
 Return this EXACT JSON structure:
 {
@@ -153,7 +172,8 @@ Return this EXACT JSON structure:
     "occupancy_adequate": <boolean — product fills 85%+ for MAIN>,
     "quality_acceptable": <boolean>,
     "no_new_elements": <boolean — nothing hallucinated or added>,
-    "label_text_legible": <boolean — all original label text is crisp and readable>
+    "label_text_legible": <boolean — all original label text is crisp and readable>,
+    "spatial_zones_respected": <boolean — protected areas unchanged, removable overlays gone>
   },
   "identity_details": {
     "brand_match": <boolean>,
