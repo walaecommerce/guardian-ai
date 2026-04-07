@@ -27,7 +27,7 @@ export function useCreditGate() {
       duration: 5000,
     });
     return false;
-  }, [hasCredits, navigate]);
+  }, [hasCredits, isAdmin, navigate]);
 
   return { guard, hasCredits };
 }
