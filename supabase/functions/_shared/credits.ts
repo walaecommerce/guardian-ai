@@ -31,6 +31,24 @@ export async function useCredit(
   creditType: CreditType,
   edgeFunction?: string,
 ): Promise<{ remaining: number }> {
+  // Check if user is admin — skip credit deduction
+  const { data: roleData } = await supabaseAdmin
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('role', 'admin')
+    .maybeSingle();
+
+  if (roleData) {
+    // Log but don't deduct
+    await supabaseAdmin.from('credit_usage_log').insert({
+      user_id: userId,
+      credit_type: creditType,
+      edge_function: edgeFunction ?? null,
+    });
+    return { remaining: 999999 };
+  }
+
   // Atomic: only increment if used < total
   const { data, error } = await supabaseAdmin.rpc('use_credit', {
     p_user_id: userId,
