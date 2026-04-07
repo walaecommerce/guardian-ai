@@ -21,7 +21,15 @@ Examine the product image and determine the category:
 - ELECTRONICS: devices, gadgets, cables, chargers, tech accessories
 - GENERAL_MERCHANDISE: everything else (home goods, tools, toys, clothing, etc.)
 
-Apply the category-specific rules below in addition to the universal rules.`;
+STEP 2 — APPLY ONLY the matching category-specific rules below (ignore all other categories).
+
+STEP 3 — SPATIAL ANALYSIS (REQUIRED for ALL images):
+Scan the entire image and map every element spatially. For each element, estimate bounding box as percentage of image dimensions (0-100).
+Identify:
+- overlay_elements: Any badges, watermarks, stickers, promotional text overlaid on top of the photograph (NOT part of physical packaging). For each, determine if it should be removed.
+- text_zones: All text regions (packaging labels, infographic callouts, brand names). Mark protection level: CRITICAL (brand/product name), HIGH (ingredient/nutrition info), MEDIUM (decorative text).
+- product_zones: Where the product physically occupies the frame. Estimate coverage percentage.
+- protected_areas: Regions that must NOT be modified during any fix (labels, barcodes, certifications).`;
 
 const MAIN_IMAGE_RULES = `UNIVERSAL MAIN IMAGE RULES (apply to ALL categories):
 
