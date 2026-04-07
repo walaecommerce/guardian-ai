@@ -468,7 +468,7 @@ export function useAuditSession() {
   const analyzeAsset = async (asset: ImageAsset, attempt = 0): Promise<{ result: AnalysisResult | null; error?: string; isCreditsExhausted?: boolean }> => {
     try {
       const base64 = await fileToBase64(asset.file);
-      
+
       const { data, error } = await supabase.functions.invoke('analyze-image', {
         body: {
           imageBase64: base64,
@@ -490,22 +490,28 @@ export function useAuditSession() {
           await new Promise(r => setTimeout(r, 10000));
           return analyzeAsset(asset, attempt + 1);
         }
+
         let errorMsg = 'Analysis failed';
+        let errorType: string | undefined;
         try {
           if (error instanceof Error && (error as any).context?.json) {
             const body = await (error as any).context.json();
             errorMsg = body?.error || body?.message || errorMsg;
+            errorType = body?.errorType;
           } else if (error instanceof Error) {
             errorMsg = error.message;
           }
-        } catch { /* use default */ }
-        if (status === 402) {
-          return { result: null, error: 'AI credits exhausted', isCreditsExhausted: true };
+        } catch {
+          /* use default */
         }
+
+        if (status === 402 || errorType === 'payment_required') {
+          return { result: null, error: errorMsg || 'AI credits exhausted', isCreditsExhausted: true };
+        }
+
         return { result: null, error: errorMsg };
       }
 
-      // Check for 402 in response body (fail-soft pattern)
       if (data?.errorType === 'payment_required') {
         return { result: null, error: data.error || 'AI credits exhausted', isCreditsExhausted: true };
       }
@@ -513,6 +519,10 @@ export function useAuditSession() {
       return { result: data as AnalysisResult };
     } catch (error: any) {
       console.error('Analysis error:', error);
+      const status = error?.context?.status;
+      if (status === 402) {
+        return { result: null, error: 'AI credits exhausted', isCreditsExhausted: true };
+      }
       return { result: null, error: error?.message || 'Analysis failed' };
     }
   };
@@ -528,7 +538,8 @@ export function useAuditSession() {
   const handleRunAudit = async () => {
     if (assets.length === 0) return;
     if (!creditGate('analyze')) return;
-    
+
+    setAiCreditsExhausted(false);
     setCurrentStep('audit');
     setIsAnalyzing(true);
     setAuditComplete(null);
@@ -539,25 +550,34 @@ export function useAuditSession() {
 
     let passedCount = 0;
     let failedCount = 0;
+    let creditsExhaustedDuringRun = false;
     const scores: number[] = [];
 
     for (let i = 0; i < assets.length; i++) {
       const asset = assets[i];
-      
-      setAssets(prev => prev.map(a => 
+
+      setAssets(prev => prev.map(a =>
         a.id === asset.id ? { ...a, isAnalyzing: true } : a
       ));
 
       setAnalyzingProgress({ current: i + 1, total: assets.length });
       addLog('processing', `🔬 Scanning ${asset.type} image: ${asset.name}`);
-      
+
       const { result, error: analysisError, isCreditsExhausted } = await analyzeAsset(asset);
-      
-      setAssets(prev => prev.map(a => 
-        a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') } : a
+
+      setAssets(prev => prev.map(a =>
+        a.id === asset.id
+          ? {
+              ...a,
+              isAnalyzing: false,
+              analysisResult: result || undefined,
+              analysisError: result ? undefined : (analysisError || 'Analysis failed')
+            }
+          : a
       ));
 
       if (isCreditsExhausted) {
+        creditsExhaustedDuringRun = true;
         setAiCreditsExhausted(true);
         addLog('error', `🚫 AI credits exhausted — stopping audit. ${assets.length - i - 1} image(s) skipped.`);
         toast({
@@ -573,14 +593,13 @@ export function useAuditSession() {
         const statusLog = result.status === 'PASS' ? 'success' : 'warning';
         const emoji = result.status === 'PASS' ? '✅' : '⚠️';
         addLog(statusLog, `${emoji} ${asset.name}: Score ${result.overallScore}% - ${result.status}`);
-        
+
         if (result.status === 'PASS') passedCount++;
         else failedCount++;
         scores.push(result.overallScore);
-        
-        // Real-time credit refresh after each image
+
         refreshCredits();
-        
+
         const sessionImageId = assetSessionMap.get(asset.id);
         if (sessionImageId) {
           await supabase
@@ -591,7 +610,7 @@ export function useAuditSession() {
             })
             .eq('id', sessionImageId);
         }
-        
+
         const criticalViolations = result.violations?.filter(v => v.severity === 'critical') || [];
         if (criticalViolations.length > 0) {
           criticalViolations.forEach(v => {
@@ -624,11 +643,12 @@ export function useAuditSession() {
         .eq('id', currentSessionId);
     }
 
-    addLog('success', '🎯 Guardian batch audit complete');
+    if (!creditsExhaustedDuringRun) {
+      addLog('success', '🎯 Guardian batch audit complete');
+    }
 
-    // Extract product identity
     const mainAssetForIdentity = assets.find(a => a.type === 'MAIN');
-    if (mainAssetForIdentity && !aiCreditsExhausted) {
+    if (mainAssetForIdentity && !creditsExhaustedDuringRun) {
       try {
         addLog('processing', '🔗 Extracting product identity card from main image...');
         const mainBase64 = await fileToBase64(mainAssetForIdentity.file);
@@ -636,9 +656,9 @@ export function useAuditSession() {
           body: { imageBase64: mainBase64, productTitle: listingTitle }
         });
 
-        // Handle 402 from extract-product-identity gracefully
         const idStatus = (idError as any)?.context?.status;
         if (idStatus === 402 || idData?.errorType === 'payment_required') {
+          creditsExhaustedDuringRun = true;
           setAiCreditsExhausted(true);
           addLog('warning', '⚠️ Product identity extraction skipped (AI credits exhausted)');
         } else if (!idError && idData?.identity) {
@@ -648,7 +668,7 @@ export function useAuditSession() {
             await supabase.from('enhancement_sessions').update({ product_identity: idData.identity }).eq('id', currentSessionId);
           }
         }
-      } catch (e) {
+      } catch {
         addLog('warning', '⚠️ Product identity extraction skipped');
       }
     }
@@ -662,9 +682,11 @@ export function useAuditSession() {
       return currentAssets;
     });
 
-    // Send Slack notifications
+    const latestAssets = creditsExhaustedDuringRun
+      ? assets
+      : assets.map(asset => asset);
     const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-    const allViolations = assets.flatMap(a => a.analysisResult?.violations || []);
+    const allViolations = latestAssets.flatMap(a => a.analysisResult?.violations || []);
     const criticals = allViolations.filter(v => v.severity === 'critical');
 
     sendSlackNotification({
@@ -687,11 +709,20 @@ export function useAuditSession() {
       });
     }
 
+    if (creditsExhaustedDuringRun) {
+      toast({
+        title: 'Audit Paused',
+        description: 'AI balance ran out. The images already analyzed were kept.',
+        variant: 'destructive',
+      });
+      refreshCredits();
+      return;
+    }
+
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
     refreshCredits();
     setTimeout(() => setAuditComplete(null), 3000);
 
-    // Auto-advance to fix step if there are failures, otherwise review
     if (failedCount > 0) {
       setCurrentStep('fix');
     } else {
@@ -1249,12 +1280,28 @@ export function useAuditSession() {
     setAiCreditsExhausted(false);
     addLog('processing', `🔄 Retrying ${failedAssets.length} failed image(s)...`);
 
-    for (const asset of failedAssets) {
+    let creditsExhaustedDuringRetry = false;
+
+    for (let i = 0; i < failedAssets.length; i++) {
+      const asset = failedAssets[i];
       setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, isAnalyzing: true } : a));
-      const { result, error: analysisError } = await analyzeAsset(asset);
+      const { result, error: analysisError, isCreditsExhausted } = await analyzeAsset(asset);
       setAssets(prev => prev.map(a =>
         a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') } : a
       ));
+
+      if (isCreditsExhausted) {
+        creditsExhaustedDuringRetry = true;
+        setAiCreditsExhausted(true);
+        addLog('error', `🚫 AI credits exhausted — retry stopped with ${failedAssets.length - i - 1} image(s) remaining.`);
+        toast({
+          title: 'AI Credits Exhausted',
+          description: 'Add more AI balance in Settings → Cloud & AI balance to continue.',
+          variant: 'destructive',
+          duration: 8000,
+        });
+        break;
+      }
 
       if (result) {
         addLog('success', `✅ ${asset.name}: Score ${result.overallScore}% - ${result.status}`);
@@ -1263,11 +1310,16 @@ export function useAuditSession() {
         addLog('error', `❌ Retry failed for ${asset.name}${analysisError ? ': ' + analysisError : ''}`);
       }
 
-      await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
+      if (i < failedAssets.length - 1) {
+        await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
+      }
     }
 
     setIsAnalyzing(false);
-    toast({ title: 'Retry Complete', description: `Retried ${failedAssets.length} image(s)` });
+
+    if (!creditsExhaustedDuringRetry) {
+      toast({ title: 'Retry Complete', description: `Retried ${failedAssets.length} image(s)` });
+    }
   };
 
   return {
