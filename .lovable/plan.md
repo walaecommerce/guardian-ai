@@ -1,65 +1,39 @@
 
-Goal: turn AI-balance exhaustion into one clear “audit paused” state, instead of showing multiple overlapping failure UIs.
 
-1. Confirmed root cause
-- The edge function already soft-returns `errorType: "payment_required"` for gateway 402s.
-- The frontend catches it, but still writes `analysisError` onto each failed asset.
-- Because of that, generic failure UI also renders:
-  - top credits banner
-  - partial-failure panel in `AuditStep`
-  - “Audit Failed” card in `AnalysisResults`
-  - destructive toast
-- So the app no longer truly crashes, but it still looks like a broken flow.
+## Plan: Update All Edge Functions to Latest Gemini Models
 
-2. Update the audit-state model
-- In `src/hooks/useAuditSession.ts`, separate “AI balance exhausted” from normal per-image failures.
-- Introduce a dedicated paused-state object, e.g.:
-  - `auditPauseReason: 'ai_balance_exhausted' | null`
-  - optional metadata like skipped count / failed asset id
-- When `analyzeAsset()` detects `payment_required`, stop the batch and set the paused state without treating it like a normal image-analysis failure.
-- Avoid storing the 402 message in `analysisError` for that asset, or clear it immediately after stopping the run.
+### Current State
+- **Backend** (`_shared/models.ts`): Uses `gemini-2.5-flash` (LLM) and `gemini-2.5-flash-image` (image gen)
+- **Client** (`src/config/models.ts`): Uses `gemini-3.1-pro-preview` with `google/` prefixes (Lovable gateway format)
+- **6 edge functions** have model names **hardcoded** instead of using the shared config
 
-3. Consolidate frontend rendering
-- In `src/pages/Index.tsx`, keep a single top-level paused notice for AI balance exhaustion.
-- Expand the existing `AICreditsExhaustedBanner` into the primary UX:
-  - heading like “Audit Paused”
-  - explanation that workspace AI balance ran out
-  - optional count of images already analyzed vs remaining
-  - CTA copy pointing to `Settings → Cloud & AI balance`
-- This banner should represent the state by itself, so users do not also see generic “audit failed” messaging.
+### What Changes
 
-4. Suppress duplicate error surfaces during this state
-- In `src/components/audit/AuditStep.tsx`
-  - hide the red “failed to analyze / Retry Failed” panel when pause reason is AI balance exhaustion
-- In `src/components/AnalysisResults.tsx`
-  - prevent the “Audit Failed” empty-state card from rendering when all failures are caused by paused AI balance
-  - instead show either:
-    - partial completed results, if any exist, or
-    - a neutral paused placeholder if none were completed
-- In `useAuditSession.ts`
-  - replace destructive duplicate toasts with one concise pause toast only once per run/retry
+**Model Updates:**
+| Role | Current | New |
+|------|---------|-----|
+| Analysis/LLM | `gemini-2.5-flash` | `gemini-3.1-pro` |
+| Verification | `gemini-2.5-flash` | `gemini-3.1-pro` |
+| Image Generation | `gemini-2.5-flash-image` | `gemini-3-flash-image` |
+| Image Editing | `gemini-2.5-flash-image` | `gemini-3-flash-image` |
 
-5. Handle retry behavior cleanly
-- In `handleRetryFailedAnalysis`, reuse the same pause logic.
-- If balance is still exhausted, keep the paused state and avoid stacking new failure errors.
-- If balance is restored, clear the paused state before retry so the normal audit UI resumes.
+### Files to Update
 
-6. Keep crash protection in place
-- Leave the global `ErrorBoundary` in `src/App.tsx` as a safeguard.
-- The fix should not rely on the boundary; it should prevent the audit flow from entering a generic failure path in the first place.
+1. **`supabase/functions/_shared/models.ts`** — Update all 4 model names to latest versions
 
-Technical details
-- Files to update:
-  - `src/hooks/useAuditSession.ts`
-  - `src/components/AICreditsExhaustedBanner.tsx`
-  - `src/components/audit/AuditStep.tsx`
-  - `src/components/AnalysisResults.tsx`
-  - `src/pages/Index.tsx`
-- Main implementation rule:
-  - treat `payment_required` as a batch-level paused state, not as an asset-level analysis failure
-- Expected result:
-  - no blank screen
-  - no stacked red states
-  - one clear paused banner/toast
-  - already analyzed results remain visible
-  - remaining images can be retried later after balance is restored
+2. **`src/config/models.ts`** — Update client-side model names (keep `google/` prefix for Lovable gateway compatibility)
+
+3. **Fix 6 hardcoded edge functions** — Replace inline model strings with `MODELS.*` imports or correct model names:
+   - `generate-suggestions/index.ts` — `google/gemini-3.1-pro-preview` → `gemini-3.1-pro`
+   - `compare-listings/index.ts` — `google/gemini-3.1-pro-preview` → `gemini-3.1-pro`
+   - `listing-scorecard/index.ts` — `google/gemini-2.5-flash` → `gemini-3.1-pro`
+   - `generate-suggested-image/index.ts` — `gemini-2.5-flash-image` → `gemini-3-flash-image`
+   - `check-policy-updates/index.ts` — `google/gemini-3.1-pro-preview` → `gemini-3.1-pro`
+   - `listing-suggestions/index.ts` — `google/gemini-3.1-pro-preview` → `gemini-3.1-pro`
+
+4. **Redeploy** all affected edge functions
+
+### Important Notes
+- Edge functions call `generativelanguage.googleapis.com` directly (not Lovable gateway), so model names must **not** have `google/` prefix
+- Several functions currently have `google/` prefix which may cause 404 errors — this fix resolves that too
+
