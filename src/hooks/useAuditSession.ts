@@ -190,7 +190,17 @@ export function useAuditSession() {
         const base64 = await fileToBase64(file);
         
         addLog('processing', `🔍 Classifying image ${downloadedCount} with AI vision...`);
-        const classification = await classifyImage(base64, product.title, product.asin !== 'UNKNOWN' ? product.asin : undefined);
+        let classification;
+        try {
+          classification = await classifyImage(base64, product.title, product.asin !== 'UNKNOWN' ? product.asin : undefined);
+        } catch (classifyErr) {
+          if (classifyErr instanceof Error && classifyErr.message === 'AI_CREDITS_EXHAUSTED') {
+            toast({ title: 'AI Credits Exhausted', description: 'Classification credits are used up. Images will be imported without AI classification.', variant: 'destructive' });
+            classification = { category: 'UNKNOWN' as ImageCategory, confidence: 0, reasoning: 'Credits exhausted' };
+          } else {
+            classification = { category: 'UNKNOWN' as ImageCategory, confidence: 0, reasoning: 'Classification failed' };
+          }
+        }
         
         const aiCategory = classification.category as ImageCategory;
         addLog('info', `   └─ Detected: ${aiCategory} (${classification.confidence}% confidence)`);
