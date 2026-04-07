@@ -18,7 +18,7 @@ export function AICreditsExhaustedBanner({ visible }: AICreditsExhaustedBannerPr
       <AlertTitle>AI Credits Exhausted</AlertTitle>
       <AlertDescription>
         Your workspace AI balance has run out. Add more credits in{' '}
-        <strong>Settings → Workspace → Usage</strong> to continue analyzing images.
+        <strong>Settings → Cloud &amp; AI balance</strong> to continue analyzing images.
       </AlertDescription>
       <Button
         variant="ghost"
