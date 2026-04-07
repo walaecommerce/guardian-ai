@@ -128,6 +128,7 @@ const Index = () => {
             onCategoryChange={session.setSelectedCategory}
             bulkProgress={session.bulkProgress}
             onBulkImport={session.handleBulkImport}
+            productAsin={session.productAsin}
           />
         )}
 
