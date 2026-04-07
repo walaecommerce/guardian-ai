@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
-import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Paintbrush, Scissors } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Paintbrush, Scissors, AlertOctagon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,7 @@ interface AnalysisResultsProps {
   onViewDetails: (asset: ImageAsset) => void;
   onReverify?: (assetId: string) => void;
   onBatchFix?: () => void;
+  onRetryAudit?: () => void;
   isBatchFixing?: boolean;
   batchFixProgress?: { current: number; total: number } | null;
   productAsin?: string;
@@ -375,6 +376,7 @@ export function AnalysisResults({
   onViewDetails,
   onReverify,
   onBatchFix,
+  onRetryAudit,
   isBatchFixing,
   batchFixProgress,
   productAsin,
@@ -382,6 +384,47 @@ export function AnalysisResults({
   getMatchingPolicyUpdate,
 }: AnalysisResultsProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult || a.isAnalyzing);
+  const failedAssets = assets.filter(a => a.analysisError && !a.analysisResult && !a.isAnalyzing);
+  const allFailed = failedAssets.length > 0 && analyzedAssets.length === 0;
+
+  // Determine the most common error reason
+  const primaryError = allFailed
+    ? failedAssets.reduce((acc, a) => {
+        const err = a.analysisError || 'Unknown error';
+        acc[err] = (acc[err] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    : null;
+  const topErrorMsg = primaryError
+    ? Object.entries(primaryError).sort((a, b) => b[1] - a[1])[0]?.[0]
+    : null;
+
+  if (allFailed) {
+    return (
+      <Card className="glass-card h-full flex items-center justify-center min-h-[400px]">
+        <CardContent className="text-center py-16">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center">
+            <AlertOctagon className="w-8 h-8 text-destructive/70" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">Audit Failed</h3>
+          <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed mb-1">
+            All {failedAssets.length} images failed to analyze.
+          </p>
+          {topErrorMsg && (
+            <p className="text-sm text-destructive font-medium mb-4">
+              Reason: {topErrorMsg}
+            </p>
+          )}
+          {onRetryAudit && (
+            <Button onClick={onRetryAudit} className="mt-2">
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Retry Audit
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (analyzedAssets.length === 0) {
     return (
