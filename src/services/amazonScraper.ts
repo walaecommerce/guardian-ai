@@ -280,37 +280,40 @@ export async function scrapeAmazonProduct(
       body: { url },
     });
 
-    if (error) {
-      // Extract the real error message from FunctionsHttpError responses
-      if (error instanceof FunctionsHttpError) {
-        try {
-          const errorBody = await error.context.json();
-          const msg = errorBody?.error || errorBody?.message || '';
-          if (
-            msg.toLowerCase().includes('captcha') ||
-            msg.toLowerCase().includes('blocked') ||
-            msg.toLowerCase().includes('bot')
-          ) {
-            throw new Error('Amazon blocked this request. Try a different product URL or upload manually.');
+      if (error) {
+        if (error instanceof FunctionsHttpError) {
+          try {
+            const errorBody = await error.context.json();
+            const msg = errorBody?.error || errorBody?.message || '';
+            const attempts = errorBody?.attempts;
+            if (
+              msg.toLowerCase().includes('captcha') ||
+              msg.toLowerCase().includes('blocked') ||
+              msg.toLowerCase().includes('bot')
+            ) {
+              throw new Error(
+                `Amazon blocked this request after ${attempts || 'multiple'} attempts. ` +
+                'Try again in a few minutes, use a different product URL, or upload images manually.'
+              );
+            }
+            if (msg) throw new Error(msg);
+          } catch (parseErr) {
+            if (parseErr instanceof Error && parseErr.message !== error.message) throw parseErr;
           }
-          if (msg) throw new Error(msg);
-        } catch (parseErr) {
-          if (parseErr instanceof Error && parseErr.message !== error.message) throw parseErr;
         }
+        throw new Error('Failed to fetch product page. Please try again or upload images manually.');
       }
-      throw new Error('Failed to fetch product page. Please try again or upload images manually.');
-    }
 
-    if (data && !data.success && data.error) {
-      if (
-        data.error.toLowerCase().includes('captcha') ||
-        data.error.toLowerCase().includes('blocked') ||
-        data.error.toLowerCase().includes('bot')
-      ) {
-        throw new Error('Amazon blocked this request. Try a different product URL or upload manually.');
+      if (data && !data.success && data.error) {
+        const lower = data.error.toLowerCase();
+        if (lower.includes('captcha') || lower.includes('blocked') || lower.includes('bot')) {
+          throw new Error(
+            `Amazon blocked this request after ${data.attempts || 'multiple'} attempts. ` +
+            'Try again in a few minutes, use a different product URL, or upload images manually.'
+          );
+        }
+        throw new Error(data.error);
       }
-      throw new Error(data.error);
-    }
 
     html = data?.html || '';
     if (!html || html.length < 1000) {
