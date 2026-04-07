@@ -20,6 +20,12 @@ export interface ExportReport {
   total_assets: number;
   passed: number;
   failed: number;
+  fix_methods?: {
+    'bg-segmentation': number;
+    'full-regeneration': number;
+    'surgical-edit': number;
+    'openai-inpainting': number;
+  };
   assets: {
     filename: string;
     type: string;
@@ -29,6 +35,7 @@ export interface ExportReport {
     violations: any[];
     fixed: boolean;
     fixed_score: number | undefined;
+    fix_method?: string;
   }[];
   competitive_analysis?: {
     competitor_title: string;
