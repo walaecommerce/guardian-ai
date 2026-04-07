@@ -82,6 +82,10 @@ const Index = () => {
         <PolicyBanner updates={highImpactUpdates} onDismiss={() => setBannerDismissed(true)} />
       )}
 
+      {/* Credit Warning Banner */}
+      <CreditWarningBanner />
+      )}
+
       {/* Sticky Command Bar */}
       <CommandBar
         onRunAudit={session.handleRunAudit}
