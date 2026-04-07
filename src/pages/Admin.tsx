@@ -72,15 +72,18 @@ export default function Admin() {
     fetchActivity(0);
   }, [isAdmin]);
 
-  async function fetchActivity(page: number) {
+  async function fetchActivity(page: number, filter: 'all' | 'scrape' | 'analyze' | 'fix' = activityFilter) {
     setActivityLoading(true);
     const from = page * ACTIVITY_PAGE_SIZE;
     const to = from + ACTIVITY_PAGE_SIZE - 1;
-    const { data, count } = await supabase
+    let query = supabase
       .from('credit_usage_log')
       .select('id, user_id, credit_type, edge_function, consumed_at', { count: 'exact' })
-      .order('consumed_at', { ascending: false })
-      .range(from, to);
+      .order('consumed_at', { ascending: false });
+    if (filter !== 'all') {
+      query = query.eq('credit_type', filter);
+    }
+    const { data, count } = await query.range(from, to);
     if (data) setActivityLog(data);
     if (count !== null) setActivityTotal(count);
     setActivityPage(page);
