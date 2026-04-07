@@ -1052,6 +1052,18 @@ export function useAuditSession() {
     let fixedCount = 0;
 
     for (let i = 0; i < failedAssets.length; i++) {
+      // Stop batch if credits exhausted during a previous fix
+      if (aiCreditsExhausted) {
+        addLog('warning', `🚫 AI credits exhausted — skipping remaining ${failedAssets.length - i} fix(es).`);
+        toast({
+          title: 'AI Credits Exhausted',
+          description: 'Add more AI balance to continue fixing images.',
+          variant: 'destructive',
+          duration: 8000,
+        });
+        break;
+      }
+
       setBatchFixProgress({ current: i + 1, total: failedAssets.length });
       await handleRequestFix(failedAssets[i].id);
       fixedCount++;
@@ -1070,8 +1082,8 @@ export function useAuditSession() {
     
     setIsBatchFixing(false);
     setBatchFixProgress(null);
-    addLog('success', `✅ All fixes complete — ${fixedCount} images corrected`);
-    toast({ title: 'Fix All Complete', description: `${fixedCount} images corrected` });
+    addLog('success', `✅ Fixes complete — ${fixedCount} images corrected`);
+    toast({ title: 'Fix Complete', description: `${fixedCount} images corrected` });
   };
 
   const handleViewDetails = (asset: ImageAsset) => {
