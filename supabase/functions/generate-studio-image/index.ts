@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,8 +50,8 @@ serve(async (req) => {
 
     if (!productName) throw new Error('Product name is required');
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     // Build prompt
     const templateFn = TEMPLATES[template] || TEMPLATES.hero;
@@ -65,7 +66,7 @@ serve(async (req) => {
         const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            Authorization: `Bearer ${GEMINI_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({

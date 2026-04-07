@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { MODELS } from "../_shared/models.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
 import { useCredit, createAdminClient } from "../_shared/credits.ts";
 
 const corsHeaders = {
@@ -8,7 +9,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ── System instruction ────────────────────────────────────────────
 
@@ -499,9 +499,9 @@ serve(async (req) => {
     const fixCategory = detectFixCategory(imageCategory, productTitle);
     console.log(`[generate-fix] Detected category: ${fixCategory} (from imageCategory=${imageCategory}, title=${productTitle?.slice(0, 40)})`);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     const isMain = imageType === 'MAIN';
@@ -543,7 +543,7 @@ serve(async (req) => {
 
     // Determine model: use imageEdit (Nano Banana 2) for secondary, imageGen for main
     const model = isSecondary ? MODELS.imageEdit : MODELS.imageGen;
-    console.log(`[generate-fix] using model: ${model} via Lovable AI gateway`);
+    console.log(`[generate-fix] using model: ${model} via Google Gemini API`);
 
     // ── Build spatial context for secondary prompts ──
 
@@ -645,7 +645,7 @@ serve(async (req) => {
 
     console.log(`[generate-fix] Sending request: contentParts=${contentParts.length}, isMain=${isMain}, bgSeg=${usedBackgroundSegmentation}, model=${model}`);
 
-    let response = await callGateway(LOVABLE_API_KEY, contentParts, model);
+    let response = await callGateway(GEMINI_API_KEY, contentParts, model);
 
     // If background segmentation attempt failed, fall back to full regeneration
     if (usedBackgroundSegmentation && (!response.ok || response.status >= 500)) {
@@ -656,7 +656,7 @@ serve(async (req) => {
       if (imageBase64) {
         fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
       }
-      response = await callGateway(LOVABLE_API_KEY, fallbackParts);
+      response = await callGateway(GEMINI_API_KEY, fallbackParts);
       usedBackgroundSegmentation = false;
       console.log(`[generate-fix] Fallback to Pattern A2 full regeneration`);
     }
@@ -702,7 +702,7 @@ serve(async (req) => {
         if (imageBase64) {
           fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
         }
-        const fallbackResp = await callGateway(LOVABLE_API_KEY, fallbackParts);
+        const fallbackResp = await callGateway(GEMINI_API_KEY, fallbackParts);
         if (fallbackResp.ok) {
           const fbText = await fallbackResp.text();
           try {
@@ -746,7 +746,7 @@ serve(async (req) => {
         if (imageBase64) {
           fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
         }
-        const fallbackResp = await callGateway(LOVABLE_API_KEY, fallbackParts);
+        const fallbackResp = await callGateway(GEMINI_API_KEY, fallbackParts);
         if (fallbackResp.ok) {
           const fbText = await fallbackResp.text();
           try {
