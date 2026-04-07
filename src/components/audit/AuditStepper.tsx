@@ -45,8 +45,8 @@ export function AuditStepper({ currentStep, onStepChange, completedSteps, hasAss
   };
 
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between gap-1 px-2">
+    <div className="w-full overflow-x-auto">
+      <div className="flex items-center gap-0.5 min-w-0">
         {STEPS.map((step, idx) => {
           const isActive = step.id === currentStep;
           const isCompleted = completedSteps.has(step.id);
@@ -55,43 +55,46 @@ export function AuditStepper({ currentStep, onStepChange, completedSteps, hasAss
           const Icon = step.icon;
 
           return (
-            <div key={step.id} className="flex items-center flex-1 last:flex-none">
-              {/* Step circle + label */}
+            <div key={step.id} className="flex items-center flex-1 min-w-0 last:flex-none">
               <button
                 onClick={() => isClickable && onStepChange(step.id)}
                 disabled={!isClickable}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-left group min-w-0',
+                  'flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all text-left group min-w-0',
                   isActive && 'bg-primary/10 border border-primary/20',
                   !isActive && isClickable && 'hover:bg-muted/50 cursor-pointer',
                   !isClickable && 'opacity-40 cursor-not-allowed'
                 )}
               >
                 <div className={cn(
-                  'flex items-center justify-center w-8 h-8 rounded-full shrink-0 transition-all',
+                  'flex items-center justify-center w-7 h-7 rounded-full shrink-0 transition-all',
                   isActive && 'bg-primary text-primary-foreground',
                   isCompleted && !isActive && 'bg-success/20 text-success border border-success/30',
                   !isActive && !isCompleted && 'bg-muted text-muted-foreground'
                 )}>
                   {isCompleted && !isActive ? (
-                    <Check className="w-4 h-4" />
+                    <Check className="w-3.5 h-3.5" />
                   ) : (
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-3.5 h-3.5" />
                   )}
                 </div>
-                <div className="min-w-0 hidden sm:block">
+                <div className="min-w-0 hidden md:block">
                   <p className={cn(
-                    'text-sm font-medium truncate',
+                    'text-xs font-medium truncate',
                     isActive ? 'text-primary' : 'text-muted-foreground'
                   )}>{step.label}</p>
-                  <p className="text-[10px] text-muted-foreground/70 truncate">{step.description}</p>
+                  <p className="text-[10px] text-muted-foreground/70 truncate leading-tight">{step.description}</p>
                 </div>
+                {/* Show label on small screens only for active step */}
+                <span className={cn(
+                  'text-xs font-medium truncate md:hidden',
+                  isActive ? 'text-primary' : 'sr-only'
+                )}>{step.label}</span>
               </button>
 
-              {/* Connector line */}
               {idx < STEPS.length - 1 && (
                 <div className={cn(
-                  'flex-1 h-px mx-1 transition-colors',
+                  'flex-1 h-px mx-0.5 min-w-2 transition-colors',
                   idx < currentIdx ? 'bg-primary/40' : 'bg-border'
                 )} />
               )}
