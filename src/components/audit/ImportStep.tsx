@@ -1,7 +1,7 @@
 import { ImageUploader, MaxImagesOption } from '@/components/ImageUploader';
 import { BulkUrlImport } from '@/components/BulkUrlImport';
 import { ImageAsset, FailedDownload } from '@/types';
-import { Upload, Link, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 interface ImportStepProps {
   assets: ImageAsset[];
@@ -35,56 +35,54 @@ export function ImportStep({
   titlePulse, assetGridRef, selectedCategory, onCategoryChange,
   bulkProgress, onBulkImport,
 }: ImportStepProps) {
+  const hasImages = assets.length > 0;
+
   return (
     <div className="space-y-6">
       {/* Hero prompt when empty */}
-      {assets.length === 0 && (
-        <div className="text-center py-12 space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-            <Sparkles className="w-8 h-8 text-primary" />
+      {!hasImages && (
+        <div className="text-center py-16 space-y-4">
+          <div className="mx-auto w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Sparkles className="w-10 h-10 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Start Your Compliance Audit</h2>
-            <p className="text-muted-foreground mt-1 max-w-md mx-auto">
-              Paste an Amazon product URL or upload images to begin. Our AI will classify, audit, and fix your listing images.
+            <h2 className="text-3xl font-bold tracking-tight">Start Your Compliance Audit</h2>
+            <p className="text-muted-foreground mt-2 max-w-lg mx-auto text-base">
+              Paste an Amazon product URL in the command bar above, or upload images below. Our AI will classify, audit, and fix your listing images.
             </p>
           </div>
         </div>
       )}
 
-      {/* Main uploader */}
-      <div className="max-w-3xl mx-auto">
-        <ImageUploader
-          assets={assets}
-          listingTitle={listingTitle}
-          amazonUrl={amazonUrl}
-          isImporting={isImporting}
-          onAssetsChange={onAssetsChange}
-          onListingTitleChange={onListingTitleChange}
-          onAmazonUrlChange={onAmazonUrlChange}
-          onImportFromAmazon={onImportFromAmazon}
-          onRunAudit={onRunAudit}
-          isAnalyzing={isAnalyzing}
-          analyzingProgress={analyzingProgress}
-          auditComplete={auditComplete}
-          failedDownloads={failedDownloads}
-          isRetrying={isRetrying}
-          onRetryFailedDownloads={onRetryFailedDownloads}
-          titlePulse={titlePulse}
-          assetGridRef={assetGridRef}
-          selectedCategory={selectedCategory}
-          onCategoryChange={onCategoryChange}
-        />
-      </div>
+      {/* Full-width uploader — no max-width constraint */}
+      <ImageUploader
+        assets={assets}
+        listingTitle={listingTitle}
+        amazonUrl={amazonUrl}
+        isImporting={isImporting}
+        onAssetsChange={onAssetsChange}
+        onListingTitleChange={onListingTitleChange}
+        onAmazonUrlChange={onAmazonUrlChange}
+        onImportFromAmazon={onImportFromAmazon}
+        onRunAudit={onRunAudit}
+        isAnalyzing={isAnalyzing}
+        analyzingProgress={analyzingProgress}
+        auditComplete={auditComplete}
+        failedDownloads={failedDownloads}
+        isRetrying={isRetrying}
+        onRetryFailedDownloads={onRetryFailedDownloads}
+        titlePulse={titlePulse}
+        assetGridRef={assetGridRef}
+        selectedCategory={selectedCategory}
+        onCategoryChange={onCategoryChange}
+      />
 
-      {/* Bulk import - collapsible for power users */}
-      <div className="max-w-3xl mx-auto">
-        <BulkUrlImport
-          isImporting={isImporting}
-          onBulkImport={onBulkImport}
-          bulkProgress={bulkProgress}
-        />
-      </div>
+      {/* Bulk import */}
+      <BulkUrlImport
+        isImporting={isImporting}
+        onBulkImport={onBulkImport}
+        bulkProgress={bulkProgress}
+      />
     </div>
   );
 }
