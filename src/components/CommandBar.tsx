@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Search, Import, Loader2, Play, Wand2, Save, MoreVertical } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { MaxImagesOption } from '@/components/ImageUploader';
 import { AuditStepper } from '@/components/audit/AuditStepper';
 import { AuditStep } from '@/hooks/useAuditSession';
