@@ -1082,7 +1082,6 @@ export function useAuditSession() {
     let fixedCount = 0;
 
     for (let i = 0; i < failedAssets.length; i++) {
-      // Stop batch if credits exhausted during a previous fix
       if (aiCreditsExhausted) {
         addLog('warning', `🚫 AI credits exhausted — skipping remaining ${failedAssets.length - i} fix(es).`);
         toast({
@@ -1114,6 +1113,109 @@ export function useAuditSession() {
     setBatchFixProgress(null);
     addLog('success', `✅ Fixes complete — ${fixedCount} images corrected`);
     toast({ title: 'Fix Complete', description: `${fixedCount} images corrected` });
+  };
+
+  // --- Batch Enhance ---
+  const [isBatchEnhancing, setIsBatchEnhancing] = useState(false);
+  const [batchEnhanceProgress, setBatchEnhanceProgress] = useState<{ current: number; total: number } | null>(null);
+
+  const handleBatchEnhance = async () => {
+    // Enhanceable = analyzed images that don't already have an enhancement
+    const enhanceable = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement'));
+    if (enhanceable.length === 0) return;
+
+    setIsBatchEnhancing(true);
+    setBatchEnhanceProgress({ current: 0, total: enhanceable.length });
+    addLog('processing', `✨ Starting Enhance All for ${enhanceable.length} images...`);
+
+    const mainAsset = assets.find(a => a.type === 'MAIN');
+    let mainImageBase64: string | undefined;
+    if (mainAsset) {
+      mainImageBase64 = await fileToBase64(
+        mainAsset.fixedImage
+          ? await fetch(mainAsset.fixedImage).then(r => r.blob()).then(b => new File([b], 'main.jpg'))
+          : mainAsset.file
+      );
+    }
+
+    let enhancedCount = 0;
+
+    for (let i = 0; i < enhanceable.length; i++) {
+      if (aiCreditsExhausted) {
+        addLog('warning', `🚫 AI credits exhausted — skipping remaining ${enhanceable.length - i} enhancement(s).`);
+        toast({ title: 'AI Credits Exhausted', description: 'Add more AI balance to continue.', variant: 'destructive', duration: 8000 });
+        break;
+      }
+
+      const asset = enhanceable[i];
+      setBatchEnhanceProgress({ current: i + 1, total: enhanceable.length });
+      addLog('processing', `🔍 Analyzing enhancement opportunities for ${asset.name}...`);
+
+      try {
+        const base64 = await fileToBase64(asset.file);
+
+        // Step 1: Get enhancement analysis
+        const { data: analysisData, error: analysisError } = await supabase.functions.invoke('enhance-analyze-image', {
+          body: {
+            imageBase64: base64,
+            mainImageBase64,
+            imageType: asset.type,
+            listingTitle,
+            imageCategory: asset.analysisResult?.productCategory || undefined,
+          },
+        });
+
+        if (analysisError) throw analysisError;
+        if (analysisData?.error) throw new Error(analysisData.error);
+
+        const opportunities = analysisData?.enhancementOpportunities || [];
+        if (opportunities.length === 0) {
+          addLog('info', `   ✅ ${asset.name} — no enhancements needed`);
+          continue;
+        }
+
+        addLog('processing', `   🎨 Generating enhanced version (${opportunities.length} improvements)...`);
+
+        // Step 2: Generate enhancement
+        const { data: enhanceData, error: enhanceError } = await supabase.functions.invoke('generate-enhancement', {
+          body: {
+            originalImage: base64,
+            mainProductImage: mainImageBase64,
+            imageCategory: analysisData.imageCategory || asset.analysisResult?.productCategory || 'UNKNOWN',
+            enhancementType: opportunities[0]?.type || 'general',
+            targetImprovements: opportunities.map((o: any) => o.description),
+            preserveElements: ['product', 'brand-text', 'key-features'],
+          },
+        });
+
+        if (enhanceError) throw enhanceError;
+        if (enhanceData?.error) throw new Error(enhanceData.error);
+        if (!enhanceData?.enhancedImage) throw new Error('No enhanced image returned');
+
+        setAssets(prev => prev.map(a =>
+          a.id === asset.id ? { ...a, fixedImage: enhanceData.enhancedImage, fixMethod: 'enhancement' as const } : a
+        ));
+
+        enhancedCount++;
+        addLog('success', `   ✨ Enhanced ${asset.name}`);
+        refreshCredits();
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Enhancement failed';
+        addLog('error', `   ❌ Enhancement failed for ${asset.name}: ${msg}`);
+      }
+
+      if (i < enhanceable.length - 1) {
+        await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
+        if ((i + 1) % RATE_LIMITS.batchCooldownEvery === 0) {
+          await countdownCooldown(RATE_LIMITS.batchCooldownDuration);
+        }
+      }
+    }
+
+    setIsBatchEnhancing(false);
+    setBatchEnhanceProgress(null);
+    addLog('success', `✅ Enhancement complete — ${enhancedCount} images improved`);
+    toast({ title: 'Enhance Complete', description: `${enhancedCount} images enhanced` });
   };
 
   const handleViewDetails = (asset: ImageAsset) => {
@@ -1393,6 +1495,8 @@ export function useAuditSession() {
     auditComplete,
     isBatchFixing,
     batchFixProgress,
+    isBatchEnhancing,
+    batchEnhanceProgress,
     logs, setLogs,
     selectedAsset, setSelectedAsset,
     showFixModal, setShowFixModal,
@@ -1425,6 +1529,7 @@ export function useAuditSession() {
     handleRequestFix,
     handleReverify,
     handleBatchFix,
+    handleBatchEnhance,
     handleViewDetails,
     handleDownload,
     handleImportCompetitor,

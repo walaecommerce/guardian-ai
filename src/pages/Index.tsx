@@ -232,6 +232,9 @@ const Index = () => {
             onGoToReview={() => session.setCurrentStep('review')}
             listingTitle={session.listingTitle}
             onApplyFix={(assetId, prompt) => session.handleRequestFix(assetId, undefined, prompt)}
+            onBatchEnhance={session.handleBatchEnhance}
+            isBatchEnhancing={session.isBatchEnhancing}
+            batchEnhanceProgress={session.batchEnhanceProgress}
           />
         )}
 
