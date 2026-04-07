@@ -1,5 +1,6 @@
 import { ScrapedProduct, ScrapedImage, ImageCategory } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 
 // ── ASIN extractor ───────────────────────────────────────────────
 export function extractAsin(url: string): string | null {
@@ -273,18 +274,32 @@ export async function scrapeAmazonProduct(
   // ── Step 3: Fetch via Firecrawl ──
   emit('processing', 'Fetching product page...');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-
   let html: string;
   try {
     const { data, error } = await supabase.functions.invoke('scrape-amazon', {
       body: { url },
     });
 
-    clearTimeout(timeout);
-
-    if (error) throw error;
+    if (error) {
+      // Extract the real error message from FunctionsHttpError responses
+      if (error instanceof FunctionsHttpError) {
+        try {
+          const errorBody = await error.context.json();
+          const msg = errorBody?.error || errorBody?.message || '';
+          if (
+            msg.toLowerCase().includes('captcha') ||
+            msg.toLowerCase().includes('blocked') ||
+            msg.toLowerCase().includes('bot')
+          ) {
+            throw new Error('Amazon blocked this request. Try a different product URL or upload manually.');
+          }
+          if (msg) throw new Error(msg);
+        } catch (parseErr) {
+          if (parseErr instanceof Error && parseErr.message !== error.message) throw parseErr;
+        }
+      }
+      throw new Error('Failed to fetch product page. Please try again or upload images manually.');
+    }
 
     if (data && !data.success && data.error) {
       if (
@@ -302,10 +317,6 @@ export async function scrapeAmazonProduct(
       throw new Error('Amazon blocked this request. Try a different product URL or upload manually.');
     }
   } catch (err: any) {
-    clearTimeout(timeout);
-    if (err.name === 'AbortError') {
-      throw new Error('Import timed out. Try again or upload images manually.');
-    }
     throw err;
   }
 
