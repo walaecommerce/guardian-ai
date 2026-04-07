@@ -1,8 +1,8 @@
 export const MODELS = {
-  analysis: "gemini-3.1-pro-preview",
-  imageGen: "google/gemini-3-pro-image-preview",
-  imageEdit: "google/gemini-3.1-flash-image-preview",
-  verification: "gemini-3.1-pro-preview"
+  analysis: "google/gemini-3.1-pro",
+  imageGen: "google/gemini-3-flash-image",
+  imageEdit: "google/gemini-3-flash-image",
+  verification: "google/gemini-3.1-pro"
 } as const;
 
 export const IMAGE_CONFIG = {
