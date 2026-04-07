@@ -465,7 +465,7 @@ export function useAuditSession() {
     setIsRetrying(false);
   };
 
-  const analyzeAsset = async (asset: ImageAsset, attempt = 0): Promise<{ result: AnalysisResult | null; error?: string }> => {
+  const analyzeAsset = async (asset: ImageAsset, attempt = 0): Promise<{ result: AnalysisResult | null; error?: string; isCreditsExhausted?: boolean }> => {
     try {
       const base64 = await fileToBase64(asset.file);
       
@@ -490,7 +490,6 @@ export function useAuditSession() {
           await new Promise(r => setTimeout(r, 10000));
           return analyzeAsset(asset, attempt + 1);
         }
-        // Extract meaningful error message
         let errorMsg = 'Analysis failed';
         try {
           if (error instanceof Error && (error as any).context?.json) {
@@ -501,11 +500,16 @@ export function useAuditSession() {
           }
         } catch { /* use default */ }
         if (status === 402) {
-          errorMsg = 'AI credits exhausted';
-          setAiCreditsExhausted(true);
+          return { result: null, error: 'AI credits exhausted', isCreditsExhausted: true };
         }
         return { result: null, error: errorMsg };
       }
+
+      // Check for 402 in response body (fail-soft pattern)
+      if (data?.errorType === 'payment_required') {
+        return { result: null, error: data.error || 'AI credits exhausted', isCreditsExhausted: true };
+      }
+
       return { result: data as AnalysisResult };
     } catch (error: any) {
       console.error('Analysis error:', error);
