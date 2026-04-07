@@ -420,14 +420,25 @@ export default function Admin() {
                 <p className="text-3xl font-bold text-foreground">{stats.totalImages}</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Credits Consumed</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-foreground">{stats.totalCreditsUsed}</p>
-              </CardContent>
-            </Card>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card className="cursor-default">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-muted-foreground">Credits Consumed</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-3xl font-bold text-foreground">{stats.totalCreditsUsed}</p>
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs space-y-1 p-3">
+                  <p className="font-medium">Breakdown</p>
+                  <p>Admin: <span className="font-semibold">{stats.adminCredits}</span></p>
+                  <p>Users: <span className="font-semibold">{stats.userCredits}</span></p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </TabsContent>
       </Tabs>
