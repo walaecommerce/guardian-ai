@@ -138,15 +138,21 @@ export function CommandBar({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 {hasAssets && !hasResults && (
-                  <DropdownMenuItem onClick={onRunAudit} disabled={isAnalyzing}>
-                    {isAnalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-                    {isAnalyzing ? 'Auditing...' : 'Run Audit'}
+                  <DropdownMenuItem onClick={onRunAudit} disabled={isAnalyzing} className="justify-between">
+                    <span className="flex items-center">
+                      {isAnalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                      {isAnalyzing ? 'Auditing...' : 'Run Audit'}
+                    </span>
+                    <kbd className={kbdClass}>⌘A</kbd>
                   </DropdownMenuItem>
                 )}
                 {hasResults && unfixedFailures > 0 && (
-                  <DropdownMenuItem onClick={onBatchFix} disabled={isBatchFixing} className="text-destructive focus:text-destructive">
-                    {isBatchFixing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
-                    Fix All ({unfixedFailures})
+                  <DropdownMenuItem onClick={onBatchFix} disabled={isBatchFixing} className="text-destructive focus:text-destructive justify-between">
+                    <span className="flex items-center">
+                      {isBatchFixing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
+                      Fix All ({unfixedFailures})
+                    </span>
+                    <kbd className={kbdClass}>⌘F</kbd>
                   </DropdownMenuItem>
                 )}
                 {hasResults && (
