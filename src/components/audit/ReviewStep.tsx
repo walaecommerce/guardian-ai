@@ -10,11 +10,11 @@ import { ComplianceReportCard } from '@/components/ComplianceReportCard';
 import { ImageAsset, ProductIdentityCard, StyleConsistencyResult } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Save, Swords, Loader2, Import } from 'lucide-react';
+import { Save, Swords, Loader2, Import, ClipboardCheck, GitCompare, FileBarChart } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface ReviewStepProps {
@@ -112,7 +112,7 @@ export function ReviewStep({
   isImportingCompetitor, competitorProgress, isAnalyzing,
   onSaveReport, onApplyFix, onImportCompetitor, onLoadAudit,
 }: ReviewStepProps) {
-  const [subTab, setSubTab] = useState('overview');
+  const [subTab, setSubTab] = useState('audit');
   const hasResults = assets.some(a => a.analysisResult);
 
   return (
@@ -132,39 +132,46 @@ export function ReviewStep({
       </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="scorecard">Score Card</TabsTrigger>
-          <TabsTrigger value="competitor">Competitor Intel</TabsTrigger>
-          <TabsTrigger value="history">Reports</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="audit" className="gap-1.5">
+            <ClipboardCheck className="w-3.5 h-3.5" />
+            Audit
+          </TabsTrigger>
+          <TabsTrigger value="compare" className="gap-1.5">
+            <GitCompare className="w-3.5 h-3.5" />
+            Fix & Compare
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="gap-1.5">
+            <FileBarChart className="w-3.5 h-3.5" />
+            Reports
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4 mt-4">
+        {/* ─── Tab 1: Audit ─── */}
+        <TabsContent value="audit" className="space-y-4 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 space-y-4">
               {productIdentity && <ProductIdentityPanel identity={productIdentity} />}
+              <ListingScoreCard assets={assets} listingTitle={listingTitle} />
+            </div>
+            <div className="space-y-4">
+              <ComplianceReportCard assets={assets} isAnalyzing={isAnalyzing} />
               <StyleConsistencyPanel
                 result={styleConsistency}
                 loading={isAnalyzingStyle}
                 imageCount={assets.filter(a => a.analysisResult).length}
               />
-              <RecommendationsPanel
-                assets={assets}
-                listingTitle={listingTitle}
-                onApplyFix={(assetId, prompt) => onApplyFix(assetId, prompt)}
-              />
-            </div>
-            <div className="space-y-4">
-              <ComplianceReportCard assets={assets} isAnalyzing={isAnalyzing} />
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="scorecard" className="mt-4">
-          <ListingScoreCard assets={assets} listingTitle={listingTitle} />
-        </TabsContent>
-
-        <TabsContent value="competitor" className="mt-4 space-y-4">
+        {/* ─── Tab 2: Fix & Compare ─── */}
+        <TabsContent value="compare" className="space-y-4 mt-4">
+          <RecommendationsPanel
+            assets={assets}
+            listingTitle={listingTitle}
+            onApplyFix={(assetId, prompt) => onApplyFix(assetId, prompt)}
+          />
           <CompetitorUrlInput
             isImporting={isImportingCompetitor}
             hasAudit={hasResults}
@@ -183,7 +190,8 @@ export function ReviewStep({
           />
         </TabsContent>
 
-        <TabsContent value="history" className="mt-4">
+        {/* ─── Tab 3: Reports ─── */}
+        <TabsContent value="reports" className="mt-4">
           <ComplianceHistory onLoadAudit={onLoadAudit} />
         </TabsContent>
       </Tabs>
