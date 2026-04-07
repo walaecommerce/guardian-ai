@@ -551,11 +551,23 @@ export function useAuditSession() {
       setAnalyzingProgress({ current: i + 1, total: assets.length });
       addLog('processing', `🔬 Scanning ${asset.type} image: ${asset.name}`);
       
-      const { result, error: analysisError } = await analyzeAsset(asset);
+      const { result, error: analysisError, isCreditsExhausted } = await analyzeAsset(asset);
       
       setAssets(prev => prev.map(a => 
         a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') } : a
       ));
+
+      if (isCreditsExhausted) {
+        setAiCreditsExhausted(true);
+        addLog('error', `🚫 AI credits exhausted — stopping audit. ${assets.length - i - 1} image(s) skipped.`);
+        toast({
+          title: 'AI Credits Exhausted',
+          description: 'Add more AI balance in Settings → Cloud & AI balance to continue.',
+          variant: 'destructive',
+          duration: 8000,
+        });
+        break;
+      }
 
       if (result) {
         const statusLog = result.status === 'PASS' ? 'success' : 'warning';
