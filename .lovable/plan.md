@@ -1,26 +1,36 @@
 
 
-# Fix: Improve Amazon import error handling and classification fallback
+## Problem
 
-## Issues Found
+When images are imported but not yet audited, the Audit step shows only a text prompt ("8 images ready for audit") with no image thumbnails. Users can't see which images they're about to audit. The `AnalysisResults` component filters out unanalyzed images entirely (returns `null` at line 235), and the `AuditStep` only shows either the "needs audit" prompt OR the results — never a gallery of pending images.
 
-1. **Generic error messages**: When scrape-amazon returns 422, the Supabase client throws a `FunctionsHttpError` with "Edge Function returned a non-2xx status code" instead of the actual message ("Amazon blocked the scraping request"). The code throws this before checking the response body.
+## Plan
 
-2. **AbortController not connected**: The 15s timeout creates an AbortController but never passes it to `supabase.functions.invoke`, so scrape requests can hang for 60+ seconds.
+### 1. Add a pre-audit image gallery to `AuditStep.tsx`
 
-3. **Classification fallback works correctly**: Code review confirmed `classifyImage` properly catches `AI_CREDITS_EXHAUSTED` / `RATE_LIMITED` errors and falls back to `{ category: 'UNKNOWN', confidence: 0 }` for other failures. No changes needed here.
+Below the "Run Audit" prompt (the dashed border box), render a thumbnail grid showing all imported images before the audit runs. This gives users visual confirmation of what they're about to audit.
 
-## Changes
+```
+When `needsAudit` is true, after the prompt box, add:
+- A grid (3-4 columns) of image thumbnail cards
+- Each card shows: image preview, MAIN/SECONDARY badge, file name
+- Clicking a card calls onSelectAsset(asset) to open details
+```
 
-### 1. Fix error extraction in `src/services/amazonScraper.ts` (~line 280-310)
-- Import `FunctionsHttpError` from `@supabase/supabase-js`
-- When catching the error, check if it's a `FunctionsHttpError` and extract the response body JSON to get the real error message
-- Parse `error.context.json()` to get `{ success, error: "Amazon blocked..." }`
-- Fall through to the existing CAPTCHA/blocked detection logic
+### 2. Also show the gallery during analysis (`isAnalyzing` state)
 
-### 2. Remove dead AbortController code
-- Remove the unused `AbortController` and `setTimeout` since `supabase.functions.invoke` doesn't support abort signals
-- Instead, rely on the edge function's own 60s timeout (which is appropriate for multi-strategy scraping)
+When the audit is running, show the same grid but with a scanning overlay/spinner on each image that hasn't been analyzed yet, so users see progress visually.
 
-## No backend changes needed.
+```
+When `isAnalyzing` is true AND not all images have results yet:
+- Show the same thumbnail grid
+- Images being analyzed get a shimmer/spinner overlay
+- Images already analyzed show their PASS/FAIL badge
+```
+
+### Files to modify
+
+- **`src/components/audit/AuditStep.tsx`** — Add a thumbnail grid section that renders when `needsAudit || isAnalyzing`. Each thumbnail is a simple Card with the image preview, type badge, and name. This sits between the "Run Audit" prompt and the `AnalysisResults` component.
+
+No changes needed to `AnalysisResults.tsx` — it continues to handle post-audit display. The new gallery in `AuditStep` covers the pre-audit and in-progress states.
 
