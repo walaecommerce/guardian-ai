@@ -438,9 +438,13 @@ serve(async (req) => {
       });
     }
     if (response.status === 402) {
-      console.error("[analyze-image] Payment required");
-      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
-        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.warn("[analyze-image] AI balance exhausted");
+      return new Response(JSON.stringify({
+        error: "AI credits exhausted. Add credits in Settings → Cloud & AI balance.",
+        errorType: "payment_required",
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
