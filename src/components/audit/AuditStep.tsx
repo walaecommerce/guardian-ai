@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowRight, Wand2, Search, CheckCircle2, XCircle, AlertTriangle, BarChart3, Loader2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 interface AuditStepProps {
   assets: ImageAsset[];
