@@ -358,7 +358,51 @@ export function exportToPDF(data: ExportReport): void {
 
   currentY = doc.lastAutoTable.finalY + 15;
 
-  data.assets.forEach(asset => {
+  // Fix Methods Used section
+  if (data.fix_methods) {
+    const methodMeta: Record<string, { label: string; color: [number, number, number] }> = {
+      'bg-segmentation': { label: 'A1 · BG Seg', color: [8, 145, 178] },
+      'full-regeneration': { label: 'A2 · Regen', color: [124, 58, 237] },
+      'surgical-edit': { label: 'T1 · Surgical', color: [5, 150, 105] },
+      'openai-inpainting': { label: 'T2 · Inpaint', color: [217, 119, 6] },
+    };
+
+    if (currentY > doc.internal.pageSize.getHeight() - 60) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Fix Methods Used', 14, currentY);
+    currentY += 8;
+
+    const methods = Object.entries(data.fix_methods).filter(([, count]) => count > 0);
+    const boxW = 40;
+    const boxH = 22;
+    const gap = 8;
+    let xStart = 14;
+
+    methods.forEach(([method, count]) => {
+      const meta = methodMeta[method];
+      if (!meta) return;
+      doc.setFillColor(245, 245, 245);
+      doc.roundedRect(xStart, currentY, boxW, boxH, 2, 2, 'F');
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(meta.color[0], meta.color[1], meta.color[2]);
+      doc.text(String(count), xStart + boxW / 2, currentY + 10, { align: 'center' });
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.text(meta.label, xStart + boxW / 2, currentY + 18, { align: 'center' });
+      xStart += boxW + gap;
+    });
+
+    currentY += boxH + 15;
+  }
+
+  // Violations detail
     if ((asset.violations || []).length === 0) return;
     if (currentY > doc.internal.pageSize.getHeight() - 50) {
       doc.addPage();
