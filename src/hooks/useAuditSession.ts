@@ -316,6 +316,7 @@ export function useAuditSession() {
       if (msg === 'NO_IMAGES') {
         addLog('warning', 'No product images found. Please upload manually.');
       } else {
+        setImportError(msg);
         addLog('error', msg);
         toast({ title: 'Import Failed', description: msg, variant: 'destructive' });
       }
