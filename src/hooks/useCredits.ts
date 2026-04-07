@@ -10,7 +10,7 @@ interface CreditRow {
 }
 
 export function useCredits() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [credits, setCredits] = useState<CreditRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,8 +43,9 @@ export function useCredits() {
   }, [credits]);
 
   const hasCredits = useCallback((type: 'scrape' | 'analyze' | 'fix') => {
+    if (isAdmin) return true;
     return remainingCredits(type) > 0;
-  }, [remainingCredits]);
+  }, [remainingCredits, isAdmin]);
 
   const totalCredits = useCallback((type: 'scrape' | 'analyze' | 'fix') => {
     const row = credits.find(c => c.credit_type === type);

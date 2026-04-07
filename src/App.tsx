@@ -17,6 +17,7 @@ import Media from "./pages/Media";
 import Onboarding from "./pages/Onboarding";
 import Pricing from "./pages/Pricing";
 import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import Landing from "./pages/Landing";
 import Privacy from "./pages/Privacy";
@@ -51,6 +52,7 @@ const App = () => (
                         <Route path="/sessions" element={<Sessions />} />
                         <Route path="/media" element={<Media />} />
                         <Route path="/settings" element={<Settings />} />
+                        <Route path="/admin" element={<Admin />} />
                         <Route path="/session/:sessionId" element={<Session />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>

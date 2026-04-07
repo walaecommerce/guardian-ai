@@ -15,6 +15,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
+  isAdmin: boolean;
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -28,6 +29,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const fetchAdminRole = useCallback(async (userId: string) => {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle();
+    setIsAdmin(!!data);
+  }, []);
 
   const fetchProfile = useCallback(async (userId: string, userMeta?: Record<string, any>) => {
     try {
@@ -144,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setSession(newSession);
               setUser(validatedUser.user);
               await fetchProfile(validatedUser.user.id, validatedUser.user.user_metadata);
+              await fetchAdminRole(validatedUser.user.id);
               setIsLoading(false);
             })();
           }, 0);
@@ -173,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(existingSession);
         setUser(validatedUser.user);
         fetchProfile(validatedUser.user.id, validatedUser.user.user_metadata)
+          .then(() => fetchAdminRole(validatedUser.user.id))
           .finally(() => setIsLoading(false));
       } else {
         setIsLoading(false);
@@ -180,10 +194,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+  }, [fetchProfile, fetchAdminRole]);
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, isLoading, signOut, refreshProfile, markOnboardingComplete }}>
+    <AuthContext.Provider value={{ user, session, profile, isAdmin, isLoading, signOut, refreshProfile, markOnboardingComplete }}>
       {children}
     </AuthContext.Provider>
   );
