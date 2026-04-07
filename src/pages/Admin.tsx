@@ -326,11 +326,14 @@ export default function Admin() {
         {/* Activity Tab */}
         <TabsContent value="activity">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Recent Activity</CardTitle>
+              <span className="text-xs text-muted-foreground">{activityTotal} total actions</span>
             </CardHeader>
             <CardContent>
-              {activityLog.length === 0 ? (
+              {activityLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+              ) : activityLog.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No activity logged yet.</p>
               ) : (
                 <div className="space-y-3">
@@ -356,6 +359,32 @@ export default function Admin() {
                       </span>
                     </div>
                   ))}
+                </div>
+              )}
+              {/* Pagination */}
+              {activityTotal > ACTIVITY_PAGE_SIZE && (
+                <div className="flex items-center justify-between pt-4 mt-4 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground">
+                    Page {activityPage + 1} of {Math.ceil(activityTotal / ACTIVITY_PAGE_SIZE)}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={activityPage === 0 || activityLoading}
+                      onClick={() => fetchActivity(activityPage - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={(activityPage + 1) * ACTIVITY_PAGE_SIZE >= activityTotal || activityLoading}
+                      onClick={() => fetchActivity(activityPage + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
