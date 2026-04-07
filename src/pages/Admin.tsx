@@ -47,6 +47,9 @@ export default function Admin() {
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [stats, setStats] = useState({ totalSessions: 0, totalImages: 0, totalCreditsUsed: 0 });
   const [activityLog, setActivityLog] = useState<UsageRow[]>([]);
+  const [activityPage, setActivityPage] = useState(0);
+  const [activityTotal, setActivityTotal] = useState(0);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingCredits, setEditingCredits] = useState<Record<string, number>>({});
   const [roleDialog, setRoleDialog] = useState<{ open: boolean; userId: string; action: 'grant' | 'revoke'; userName: string }>({
@@ -59,26 +62,42 @@ export default function Admin() {
     }
   }, [isAdmin, authLoading, navigate]);
 
+  const ACTIVITY_PAGE_SIZE = 25;
+
   useEffect(() => {
     if (!isAdmin) return;
     fetchAll();
+    fetchActivity(0);
   }, [isAdmin]);
+
+  async function fetchActivity(page: number) {
+    setActivityLoading(true);
+    const from = page * ACTIVITY_PAGE_SIZE;
+    const to = from + ACTIVITY_PAGE_SIZE - 1;
+    const { data, count } = await supabase
+      .from('credit_usage_log')
+      .select('id, user_id, credit_type, edge_function, consumed_at', { count: 'exact' })
+      .order('consumed_at', { ascending: false })
+      .range(from, to);
+    if (data) setActivityLog(data);
+    if (count !== null) setActivityTotal(count);
+    setActivityPage(page);
+    setActivityLoading(false);
+  }
 
   async function fetchAll() {
     setLoading(true);
-    const [profilesRes, creditsRes, rolesRes, sessionsRes, imagesRes, usageRes] = await Promise.all([
+    const [profilesRes, creditsRes, rolesRes, sessionsRes, imagesRes] = await Promise.all([
       supabase.from('user_profiles').select('id, email, full_name, created_at'),
       supabase.from('user_credits').select('*'),
       supabase.from('user_roles').select('user_id, role'),
       supabase.from('enhancement_sessions').select('id, user_id'),
       supabase.from('session_images').select('id'),
-      supabase.from('credit_usage_log').select('id, user_id, credit_type, edge_function, consumed_at').order('consumed_at', { ascending: false }).limit(50),
     ]);
 
     if (profilesRes.data) setUsers(profilesRes.data);
     if (creditsRes.data) setCredits(creditsRes.data);
     if (rolesRes.data) setRoles(rolesRes.data);
-    if (usageRes.data) setActivityLog(usageRes.data);
 
     const counts: Record<string, number> = {};
     sessionsRes.data?.forEach((s: any) => {
@@ -86,12 +105,7 @@ export default function Admin() {
     });
     setSessionCounts(counts);
 
-    // Sum used_credits from user_credits (non-admin consumption)
     const deducted = creditsRes.data?.reduce((sum, c) => sum + c.used_credits, 0) ?? 0;
-    // Count admin usage logs (admins skip deduction but still log)
-    const adminUserIds = new Set(rolesRes.data?.filter(r => r.role === 'admin').map(r => r.user_id) ?? []);
-    const adminLogCount = usageRes.data?.filter(l => adminUserIds.has(l.user_id)).length ?? 0;
-    // For a full count, query all usage logs
     const { count: totalLogCount } = await supabase.from('credit_usage_log').select('id', { count: 'exact', head: true });
 
     setStats({
@@ -312,11 +326,14 @@ export default function Admin() {
         {/* Activity Tab */}
         <TabsContent value="activity">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Recent Activity</CardTitle>
+              <span className="text-xs text-muted-foreground">{activityTotal} total actions</span>
             </CardHeader>
             <CardContent>
-              {activityLog.length === 0 ? (
+              {activityLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+              ) : activityLog.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No activity logged yet.</p>
               ) : (
                 <div className="space-y-3">
@@ -342,6 +359,32 @@ export default function Admin() {
                       </span>
                     </div>
                   ))}
+                </div>
+              )}
+              {/* Pagination */}
+              {activityTotal > ACTIVITY_PAGE_SIZE && (
+                <div className="flex items-center justify-between pt-4 mt-4 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground">
+                    Page {activityPage + 1} of {Math.ceil(activityTotal / ACTIVITY_PAGE_SIZE)}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={activityPage === 0 || activityLoading}
+                      onClick={() => fetchActivity(activityPage - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={(activityPage + 1) * ACTIVITY_PAGE_SIZE >= activityTotal || activityLoading}
+                      onClick={() => fetchActivity(activityPage + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
