@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuditSession, AuditStep } from '@/hooks/useAuditSession';
 import { CommandBar } from '@/components/CommandBar';
 import { ImportStep } from '@/components/audit/ImportStep';
