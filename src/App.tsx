@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import Session from "./pages/Session";
 import CampaignAudit from "./pages/CampaignAudit";
@@ -43,7 +44,8 @@ const App = () => (
                   <Route path="*" element={
                     <DashboardLayout>
                       <Routes>
-                        <Route path="/" element={<Index />} />
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/audit" element={<Index />} />
                         <Route path="/pricing" element={<Pricing />} />
                         <Route path="/campaign" element={<CampaignAudit />} />
                         <Route path="/studio" element={<Studio />} />

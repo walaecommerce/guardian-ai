@@ -1,37 +1,28 @@
 import { useState } from 'react';
-import { ListingScoreCard } from '@/components/ListingScoreCard';
-import { RecommendationsPanel } from '@/components/recommendations/RecommendationsPanel';
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
-import { ProductIdentityPanel } from '@/components/ProductIdentityPanel';
-import { StyleConsistencyPanel } from '@/components/StyleConsistencyPanel';
 import { CompetitorAudit, CompetitorData, AIComparisonResult } from '@/components/CompetitorAudit';
 import { ComplianceHistory, AuditHistoryEntry } from '@/components/ComplianceHistory';
-import { ComplianceReportCard } from '@/components/ComplianceReportCard';
-import { ImageAsset, ProductIdentityCard, StyleConsistencyResult } from '@/types';
+import { ExportButton } from '@/components/ExportButton';
+import { ImageAsset } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Save, Swords, Loader2, Import, ClipboardCheck, GitCompare, FileBarChart } from 'lucide-react';
+import { Save, Swords, Loader2, Import, FileBarChart, GitCompare } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface ReviewStepProps {
   assets: ImageAsset[];
   listingTitle: string;
   productAsin: string | null;
-  productIdentity: ProductIdentityCard | null;
-  styleConsistency: StyleConsistencyResult | null;
-  isAnalyzingStyle: boolean;
   competitorData: CompetitorData | null;
   aiComparison: AIComparisonResult | null;
   isLoadingAIComparison: boolean;
   isImportingCompetitor: boolean;
   competitorProgress: { current: number; total: number } | null;
-  isAnalyzing: boolean;
   onSaveReport: () => void;
-  onApplyFix: (assetId: string, prompt?: string) => void;
   onImportCompetitor: (url: string) => void;
   onLoadAudit: (entry: AuditHistoryEntry) => void;
 }
@@ -107,12 +98,12 @@ function CompetitorUrlInput({
 }
 
 export function ReviewStep({
-  assets, listingTitle, productAsin, productIdentity, styleConsistency,
-  isAnalyzingStyle, competitorData, aiComparison, isLoadingAIComparison,
-  isImportingCompetitor, competitorProgress, isAnalyzing,
-  onSaveReport, onApplyFix, onImportCompetitor, onLoadAudit,
+  assets, listingTitle, productAsin,
+  competitorData, aiComparison, isLoadingAIComparison,
+  isImportingCompetitor, competitorProgress,
+  onSaveReport, onImportCompetitor, onLoadAudit,
 }: ReviewStepProps) {
-  const [subTab, setSubTab] = useState('audit');
+  const [subTab, setSubTab] = useState('reports');
   const hasResults = assets.some(a => a.analysisResult);
 
   return (
@@ -132,46 +123,24 @@ export function ReviewStep({
       </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="audit" className="gap-1.5">
-            <ClipboardCheck className="w-3.5 h-3.5" />
-            Audit
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="reports" className="gap-1.5">
+            <FileBarChart className="w-3.5 h-3.5" />
+            Reports & History
           </TabsTrigger>
           <TabsTrigger value="compare" className="gap-1.5">
             <GitCompare className="w-3.5 h-3.5" />
-            Fix & Compare
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="gap-1.5">
-            <FileBarChart className="w-3.5 h-3.5" />
-            Reports
+            Competitor Analysis
           </TabsTrigger>
         </TabsList>
 
-        {/* ─── Tab 1: Audit ─── */}
-        <TabsContent value="audit" className="space-y-4 mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 space-y-4">
-              {productIdentity && <ProductIdentityPanel identity={productIdentity} />}
-              <ListingScoreCard assets={assets} listingTitle={listingTitle} />
-            </div>
-            <div className="space-y-4">
-              <ComplianceReportCard assets={assets} isAnalyzing={isAnalyzing} />
-              <StyleConsistencyPanel
-                result={styleConsistency}
-                loading={isAnalyzingStyle}
-                imageCount={assets.filter(a => a.analysisResult).length}
-              />
-            </div>
-          </div>
+        {/* ─── Tab 1: Reports ─── */}
+        <TabsContent value="reports" className="mt-4">
+          <ComplianceHistory onLoadAudit={onLoadAudit} />
         </TabsContent>
 
-        {/* ─── Tab 2: Fix & Compare ─── */}
+        {/* ─── Tab 2: Competitor ─── */}
         <TabsContent value="compare" className="space-y-4 mt-4">
-          <RecommendationsPanel
-            assets={assets}
-            listingTitle={listingTitle}
-            onApplyFix={(assetId, prompt) => onApplyFix(assetId, prompt)}
-          />
           <CompetitorUrlInput
             isImporting={isImportingCompetitor}
             hasAudit={hasResults}
@@ -188,11 +157,6 @@ export function ReviewStep({
             aiComparison={aiComparison}
             isLoadingAIComparison={isLoadingAIComparison}
           />
-        </TabsContent>
-
-        {/* ─── Tab 3: Reports ─── */}
-        <TabsContent value="reports" className="mt-4">
-          <ComplianceHistory onLoadAudit={onLoadAudit} />
         </TabsContent>
       </Tabs>
     </div>
