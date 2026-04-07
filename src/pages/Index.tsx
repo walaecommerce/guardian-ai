@@ -184,10 +184,6 @@ const Index = () => {
           />
         )}
 
-        {/* Session history at bottom */}
-        <div className="mt-6">
-          <SessionHistory currentSessionId={session.currentSessionId || undefined} />
-        </div>
       </main>
 
       {/* Right slide-in drawer for image details */}
