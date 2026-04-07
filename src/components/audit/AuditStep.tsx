@@ -5,7 +5,7 @@ import { CompetitorData } from '@/components/CompetitorAudit';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowRight, Wand2, Search, CheckCircle2, XCircle, AlertTriangle, BarChart3 } from 'lucide-react';
+import { ArrowRight, Wand2, Search, CheckCircle2, XCircle, AlertTriangle, BarChart3, Loader2 } from 'lucide-react';
 
 interface AuditStepProps {
   assets: ImageAsset[];
