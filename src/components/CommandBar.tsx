@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Loader2, Play, Wand2, Save, Download } from 'lucide-react';
+import { Loader2, Play, Wand2, Save, Sparkles, Zap } from 'lucide-react';
 import { AuditStepper } from '@/components/audit/AuditStepper';
 import { AuditStep } from '@/hooks/useAuditSession';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,11 @@ interface CommandBarProps {
   onBatchFix: () => void;
   isBatchFixing: boolean;
   batchFixProgress: { current: number; total: number } | null;
+  onBatchEnhance: () => void;
+  isBatchEnhancing: boolean;
+  batchEnhanceProgress: { current: number; total: number } | null;
+  enhanceableCount: number;
+  onFixAndEnhance: () => void;
   onSaveReport: () => void;
   assetCount: number;
   analyzedCount: number;
@@ -27,6 +32,8 @@ interface CommandBarProps {
 export function CommandBar({
   onRunAudit, isAnalyzing, analyzingProgress,
   onBatchFix, isBatchFixing, batchFixProgress,
+  onBatchEnhance, isBatchEnhancing, batchEnhanceProgress, enhanceableCount,
+  onFixAndEnhance,
   onSaveReport,
   assetCount, analyzedCount, failedCount, fixedCount,
   currentStep, onStepChange, completedSteps,
@@ -34,41 +41,70 @@ export function CommandBar({
   const hasAssets = assetCount > 0;
   const hasResults = analyzedCount > 0;
   const unfixedFailures = failedCount - fixedCount;
+  const isBusy = isAnalyzing || isBatchFixing || isBatchEnhancing;
 
-  // Contextual primary action based on current step
-  const primaryAction = useMemo(() => {
+  // Contextual primary actions based on current step
+  const primaryActions = useMemo(() => {
+    const actions: React.ReactNode[] = [];
+
     if (currentStep === 'import' && hasAssets && !hasResults) {
-      return (
-        <Button size="sm" onClick={onRunAudit} disabled={isAnalyzing} className="h-8 text-xs">
+      actions.push(
+        <Button key="audit" size="sm" onClick={onRunAudit} disabled={isBusy} className="h-8 text-xs">
           {isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Play className="w-3.5 h-3.5 mr-1.5" />}
           {isAnalyzing ? 'Auditing…' : 'Run Audit'}
         </Button>
       );
     }
-    if (currentStep === 'audit' && hasResults && unfixedFailures > 0) {
-      return (
-        <Button size="sm" variant="destructive" onClick={onBatchFix} disabled={isBatchFixing} className="h-8 text-xs">
-          {isBatchFixing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Wand2 className="w-3.5 h-3.5 mr-1.5" />}
-          Fix All ({unfixedFailures})
-        </Button>
-      );
+
+    if ((currentStep === 'audit' || currentStep === 'fix') && hasResults) {
+      // Show combo button when both fix + enhance are available
+      if (unfixedFailures > 0 && enhanceableCount > 0) {
+        actions.push(
+          <Button key="combo" size="sm" onClick={onFixAndEnhance} disabled={isBusy} className="h-8 text-xs">
+            {(isBatchFixing || isBatchEnhancing) ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Zap className="w-3.5 h-3.5 mr-1.5" />}
+            Fix & Enhance All
+          </Button>
+        );
+      }
+
+      if (unfixedFailures > 0) {
+        actions.push(
+          <Button key="fix" size="sm" variant="destructive" onClick={onBatchFix} disabled={isBusy} className="h-8 text-xs">
+            {isBatchFixing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Wand2 className="w-3.5 h-3.5 mr-1.5" />}
+            Fix All ({unfixedFailures})
+          </Button>
+        );
+      }
+
+      if (enhanceableCount > 0) {
+        actions.push(
+          <Button key="enhance" size="sm" variant="outline" onClick={onBatchEnhance} disabled={isBusy} className="h-8 text-xs">
+            {isBatchEnhancing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+            Enhance All ({enhanceableCount})
+          </Button>
+        );
+      }
     }
+
     if (currentStep === 'review' && hasResults) {
-      return (
-        <Button size="sm" variant="outline" onClick={onSaveReport} className="h-8 text-xs">
+      actions.push(
+        <Button key="save" size="sm" variant="outline" onClick={onSaveReport} className="h-8 text-xs">
           <Save className="w-3.5 h-3.5 mr-1.5" />
           Save Report
         </Button>
       );
     }
-    return null;
-  }, [currentStep, hasAssets, hasResults, unfixedFailures, isAnalyzing, isBatchFixing, onRunAudit, onBatchFix, onSaveReport]);
+
+    return actions;
+  }, [currentStep, hasAssets, hasResults, unfixedFailures, enhanceableCount, isBusy, isAnalyzing, isBatchFixing, isBatchEnhancing, onRunAudit, onBatchFix, onBatchEnhance, onFixAndEnhance, onSaveReport]);
 
   // Active progress bar
   const activeProgress = isAnalyzing && analyzingProgress
     ? { label: `Auditing ${analyzingProgress.current}/${analyzingProgress.total}`, value: (analyzingProgress.current / analyzingProgress.total) * 100 }
     : isBatchFixing && batchFixProgress
     ? { label: `Fixing ${batchFixProgress.current}/${batchFixProgress.total}`, value: (batchFixProgress.current / batchFixProgress.total) * 100 }
+    : isBatchEnhancing && batchEnhanceProgress
+    ? { label: `Enhancing ${batchEnhanceProgress.current}/${batchEnhanceProgress.total}`, value: (batchEnhanceProgress.current / batchEnhanceProgress.total) * 100 }
     : null;
 
   return (
@@ -108,8 +144,10 @@ export function CommandBar({
           </div>
         )}
 
-        {/* Contextual primary action */}
-        {primaryAction}
+        {/* Contextual primary actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {primaryActions}
+        </div>
       </div>
 
       {/* Progress bar */}

@@ -72,6 +72,22 @@ function convertMessages(messages: any[]): {
 
 // ── Convert OpenAI tools → Gemini function declarations ─────────
 
+// Recursively strip fields unsupported by Gemini (e.g. additionalProperties)
+function cleanSchema(schema: any): any {
+  if (typeof schema !== 'object' || schema === null) return schema;
+  const { additionalProperties, ...rest } = schema;
+  const cleaned: any = { ...rest };
+  if (cleaned.properties) {
+    const props: any = {};
+    for (const key of Object.keys(cleaned.properties)) {
+      props[key] = cleanSchema(cleaned.properties[key]);
+    }
+    cleaned.properties = props;
+  }
+  if (cleaned.items) cleaned.items = cleanSchema(cleaned.items);
+  return cleaned;
+}
+
 function convertTools(
   tools?: any[],
   toolChoice?: any
@@ -81,7 +97,7 @@ function convertTools(
   const functionDeclarations = tools.map((t: any) => ({
     name: t.function.name,
     description: t.function.description,
-    parameters: t.function.parameters,
+    parameters: cleanSchema(t.function.parameters),
   }));
 
   const result: any = { tools: [{ functionDeclarations }] };
