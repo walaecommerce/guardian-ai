@@ -1,10 +1,8 @@
 import {
-  Shield, BarChart3, Sparkles, Activity, CreditCard, LogOut, Settings, User, Search, ChevronUp, History, ChevronDown, Image, ShieldCheck,
+  Shield, BarChart3, Sparkles, Activity, CreditCard, LogOut, Settings, User, Search, ChevronUp, History, Image, ShieldCheck, Home,
 } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useCredits } from '@/hooks/useCredits';
-import { useSubscription } from '@/hooks/useSubscription';
 import {
   Sidebar,
   SidebarContent,
@@ -19,21 +17,16 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useState } from 'react';
 
 const WORKSPACE_ITEMS = [
-  { title: 'Single Audit', url: '/', icon: Search },
+  { title: 'Home', url: '/', icon: Home },
+  { title: 'Audit', url: '/audit', icon: Search },
   { title: 'Campaign', url: '/campaign', icon: BarChart3 },
   { title: 'Sessions', url: '/sessions', icon: History },
   { title: 'Media', url: '/media', icon: Image },
@@ -55,8 +48,6 @@ function NavGroup({
   collapsed: boolean;
   currentPath: string;
 }) {
-  const hasActive = items.some((i) => currentPath === i.url);
-
   return (
     <SidebarGroup>
       <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
@@ -100,20 +91,11 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile, signOut, isAdmin } = useAuth();
-  const { remainingCredits, totalCredits } = useCredits();
-  const { plan } = useSubscription();
-  const [creditsOpen, setCreditsOpen] = useState(true);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
   };
-
-  const creditTypes = [
-    { type: 'scrape' as const, label: 'Scrape', icon: Search },
-    { type: 'analyze' as const, label: 'Analyze', icon: BarChart3 },
-    { type: 'fix' as const, label: 'Fix', icon: Sparkles },
-  ];
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
@@ -159,48 +141,6 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {/* Collapsible Credits section */}
-        {!collapsed && user && (
-          <SidebarGroup>
-            <Collapsible open={creditsOpen} onOpenChange={setCreditsOpen}>
-              <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-1 group">
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                  Credits · <span className="capitalize text-primary">{plan}</span>
-                </span>
-                <ChevronDown className={`w-3 h-3 text-muted-foreground/60 transition-transform ${creditsOpen ? 'rotate-180' : ''}`} />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <div className="px-3 pt-1 space-y-2">
-                    {creditTypes.map(({ type, label, icon: Icon }) => {
-                      const remaining = remainingCredits(type);
-                      const total = totalCredits(type);
-                      const pct = total > 0 ? (remaining / total) * 100 : 0;
-                      return (
-                        <div key={type} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="flex items-center gap-1.5 text-muted-foreground">
-                              <Icon className="w-3 h-3" />
-                              {label}
-                            </span>
-                            <span className="text-foreground font-medium">{remaining}/{total}</span>
-                          </div>
-                          <div className="h-1 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-primary/60 transition-all duration-500"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
           </SidebarGroup>
         )}
       </SidebarContent>

@@ -1,13 +1,13 @@
-import { Search, BarChart3, Sparkles, Activity, History, Image } from 'lucide-react';
+import { Home, Search, History, Sparkles, Activity, Image } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
-  { title: 'Audit', url: '/', icon: Search },
+  { title: 'Home', url: '/', icon: Home },
+  { title: 'Audit', url: '/audit', icon: Search },
   { title: 'Sessions', url: '/sessions', icon: History },
-  { title: 'Media', url: '/media', icon: Image },
   { title: 'Studio', url: '/studio', icon: Sparkles },
-  { title: 'Tracker', url: '/tracker', icon: Activity },
+  { title: 'More', url: '/media', icon: Image },
 ];
 
 export function MobileBottomNav() {
