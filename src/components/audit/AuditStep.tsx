@@ -24,6 +24,7 @@ interface AuditStepProps {
   onGoToFix: () => void;
   onRunAudit: () => void;
   onSelectAsset: (asset: ImageAsset) => void;
+  onRetryFailedAnalysis: () => void;
 }
 
 export function AuditStep({
@@ -31,12 +32,14 @@ export function AuditStep({
   onRequestFix, onViewDetails, onReverify, onBatchFix,
   isBatchFixing, batchFixProgress, productAsin, competitorData,
   getMatchingPolicyUpdate, onGoToFix, onRunAudit, onSelectAsset,
+  onRetryFailedAnalysis,
 }: AuditStepProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const passedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS');
   const failedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING');
+  const errorAssets = assets.filter(a => a.analysisError);
   const hasResults = analyzedAssets.length > 0;
-  const needsAudit = assets.length > 0 && !hasResults && !isAnalyzing;
+  const needsAudit = assets.length > 0 && !hasResults && !isAnalyzing && errorAssets.length === 0;
 
   const scores = analyzedAssets.map(a => a.analysisResult?.overallScore || 0);
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
@@ -117,6 +120,28 @@ export function AuditStep({
             );
           })}
         </div>
+        </div>
+      )}
+
+      {/* Partial failure banner */}
+      {!isAnalyzing && errorAssets.length > 0 && (
+        <div className="flex flex-col gap-2 p-4 rounded-lg border border-destructive/30 bg-destructive/5">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-destructive">
+              {analyzedAssets.length > 0
+                ? `${analyzedAssets.length} of ${assets.length} images analyzed. ${errorAssets.length} failed.`
+                : `${errorAssets.length} image(s) failed to analyze.`}
+            </p>
+            <Button variant="outline" size="sm" onClick={onRetryFailedAnalysis} disabled={isAnalyzing}>
+              Retry Failed
+            </Button>
+          </div>
+          <ul className="text-xs text-muted-foreground space-y-0.5">
+            {errorAssets.slice(0, 5).map(a => (
+              <li key={a.id}>• {a.name}: {a.analysisError}</li>
+            ))}
+            {errorAssets.length > 5 && <li>…and {errorAssets.length - 5} more</li>}
+          </ul>
         </div>
       )}
 

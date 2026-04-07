@@ -50,6 +50,8 @@ export function useAuditSession() {
   const [competitorProgress, setCompetitorProgress] = useState<{ current: number; total: number } | null>(null);
   const [aiComparison, setAiComparison] = useState<AIComparisonResult | null>(null);
   const [isLoadingAIComparison, setIsLoadingAIComparison] = useState(false);
+  const [aiCreditsExhausted, setAiCreditsExhausted] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // Stepper state
   const [currentStep, setCurrentStep] = useState<AuditStep>('import');
@@ -124,9 +126,40 @@ export function useAuditSession() {
     
     const maxCount = maxImages === 'all' ? Infinity : parseInt(maxImages, 10);
     setIsImporting(true);
+    setImportError(null);
+
+    // Exponential backoff retry for scraping
+    let product: Awaited<ReturnType<typeof scrapeAmazonProduct>> | null = null;
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          addLog('warning', `⏳ Retry ${attempt}/${maxRetries - 1} — waiting ${delay / 1000}s...`);
+          await new Promise(r => setTimeout(r, delay));
+        }
+        product = await scrapeAmazonProduct(amazonUrl, addLog);
+        break; // success
+      } catch (scrapeErr) {
+        const msg = scrapeErr instanceof Error ? scrapeErr.message : 'Scrape failed';
+        if (attempt < maxRetries - 1) {
+          addLog('warning', `⚠️ Import attempt ${attempt + 1} failed: ${msg}`);
+        } else {
+          setImportError(msg);
+          addLog('error', msg);
+          toast({ title: 'Import Failed', description: `${msg}. You can retry.`, variant: 'destructive' });
+          setIsImporting(false);
+          return;
+        }
+      }
+    }
+
+    if (!product) {
+      setIsImporting(false);
+      return;
+    }
 
     try {
-      const product = await scrapeAmazonProduct(amazonUrl, addLog);
       const imagesToProcess = product.images.slice(0, maxCount);
       setProductAsin(product.asin !== 'UNKNOWN' ? product.asin : null);
       
@@ -283,6 +316,7 @@ export function useAuditSession() {
       if (msg === 'NO_IMAGES') {
         addLog('warning', 'No product images found. Please upload manually.');
       } else {
+        setImportError(msg);
         addLog('error', msg);
         toast({ title: 'Import Failed', description: msg, variant: 'destructive' });
       }
@@ -466,7 +500,10 @@ export function useAuditSession() {
             errorMsg = error.message;
           }
         } catch { /* use default */ }
-        if (status === 402) errorMsg = 'AI credits exhausted';
+        if (status === 402) {
+          errorMsg = 'AI credits exhausted';
+          setAiCreditsExhausted(true);
+        }
         return { result: null, error: errorMsg };
       }
       return { result: data as AnalysisResult };
@@ -524,6 +561,9 @@ export function useAuditSession() {
         if (result.status === 'PASS') passedCount++;
         else failedCount++;
         scores.push(result.overallScore);
+        
+        // Real-time credit refresh after each image
+        refreshCredits();
         
         const sessionImageId = assetSessionMap.get(asset.id);
         if (sessionImageId) {
@@ -1165,6 +1205,35 @@ export function useAuditSession() {
     }
   };
 
+  const handleRetryFailedAnalysis = async () => {
+    const failedAssets = assets.filter(a => a.analysisError);
+    if (failedAssets.length === 0) return;
+
+    setIsAnalyzing(true);
+    setAiCreditsExhausted(false);
+    addLog('processing', `🔄 Retrying ${failedAssets.length} failed image(s)...`);
+
+    for (const asset of failedAssets) {
+      setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, isAnalyzing: true } : a));
+      const { result, error: analysisError } = await analyzeAsset(asset);
+      setAssets(prev => prev.map(a =>
+        a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') } : a
+      ));
+
+      if (result) {
+        addLog('success', `✅ ${asset.name}: Score ${result.overallScore}% - ${result.status}`);
+        refreshCredits();
+      } else {
+        addLog('error', `❌ Retry failed for ${asset.name}${analysisError ? ': ' + analysisError : ''}`);
+      }
+
+      await new Promise(r => setTimeout(r, RATE_LIMITS.delayBetweenRequests));
+    }
+
+    setIsAnalyzing(false);
+    toast({ title: 'Retry Complete', description: `Retried ${failedAssets.length} image(s)` });
+  };
+
   return {
     // State
     assets, setAssets,
@@ -1198,6 +1267,8 @@ export function useAuditSession() {
     titlePulse,
     uploadSectionRef,
     assetGridRef,
+    aiCreditsExhausted,
+    importError,
 
     // Handlers
     addLog,
@@ -1212,5 +1283,6 @@ export function useAuditSession() {
     handleViewDetails,
     handleDownload,
     handleImportCompetitor,
+    handleRetryFailedAnalysis,
   };
 }

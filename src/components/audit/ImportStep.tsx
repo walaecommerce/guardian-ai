@@ -32,6 +32,7 @@ interface ImportStepProps {
   bulkProgress: { current: number; total: number } | null;
   onBulkImport: (urls: string[]) => void;
   productAsin: string | null;
+  importError: string | null;
 }
 
 export function ImportStep({
@@ -40,7 +41,7 @@ export function ImportStep({
   onImportFromAmazon, onRunAudit, isAnalyzing, analyzingProgress,
   auditComplete, failedDownloads, isRetrying, onRetryFailedDownloads,
   titlePulse, assetGridRef, selectedCategory, onCategoryChange,
-  bulkProgress, onBulkImport, productAsin,
+  bulkProgress, onBulkImport, productAsin, importError,
 }: ImportStepProps) {
   const hasImages = assets.length > 0;
   const [maxImages, setMaxImages] = useState<MaxImagesOption>('20');
@@ -108,6 +109,19 @@ export function ImportStep({
                 </>
               )}
             </Button>
+            {importError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
+                <span className="text-sm text-destructive flex-1">{importError}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onImportFromAmazon(maxImages)}
+                  disabled={isImporting}
+                >
+                  Retry Import
+                </Button>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground text-center">
               Supports all Amazon marketplaces (.com, .co.uk, .de, .ca, etc.)
             </p>
