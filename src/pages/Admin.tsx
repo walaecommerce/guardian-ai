@@ -86,10 +86,18 @@ export default function Admin() {
     });
     setSessionCounts(counts);
 
+    // Sum used_credits from user_credits (non-admin consumption)
+    const deducted = creditsRes.data?.reduce((sum, c) => sum + c.used_credits, 0) ?? 0;
+    // Count admin usage logs (admins skip deduction but still log)
+    const adminUserIds = new Set(rolesRes.data?.filter(r => r.role === 'admin').map(r => r.user_id) ?? []);
+    const adminLogCount = usageRes.data?.filter(l => adminUserIds.has(l.user_id)).length ?? 0;
+    // For a full count, query all usage logs
+    const { count: totalLogCount } = await supabase.from('credit_usage_log').select('id', { count: 'exact', head: true });
+
     setStats({
       totalSessions: sessionsRes.data?.length ?? 0,
       totalImages: imagesRes.data?.length ?? 0,
-      totalCreditsUsed: creditsRes.data?.reduce((sum, c) => sum + c.used_credits, 0) ?? 0,
+      totalCreditsUsed: totalLogCount ?? deducted,
     });
 
     setLoading(false);
