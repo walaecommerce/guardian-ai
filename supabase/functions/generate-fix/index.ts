@@ -519,6 +519,8 @@ serve(async (req) => {
       imageCategory,
       productIdentity,
       useOpenAIInpainting,
+      violations,
+      scoringRationale,
     } = await req.json();
 
     const fixCategory = detectFixCategory(imageCategory, productTitle);
