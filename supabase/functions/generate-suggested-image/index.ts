@@ -33,19 +33,12 @@ Requirements:
 
 Specific instructions: ${prompt}`;
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-3-flash-image",
-        messages: [
-          { role: "user", content: enhancedPrompt },
-        ],
-        modalities: ["image", "text"],
-      }),
+    const response = await fetchGemini({
+      model: MODELS.imageGen,
+      messages: [
+        { role: "user", content: enhancedPrompt },
+      ],
+      modalities: ["image", "text"],
     });
 
     if (!response.ok) {
