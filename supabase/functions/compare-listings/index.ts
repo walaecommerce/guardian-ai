@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
+import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,101 +56,94 @@ Return ONLY this JSON structure:
 
     console.log("[compare-listings] Calling AI gateway...");
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-3.1-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "return_comparison",
-              description: "Return the competitive comparison report",
-              parameters: {
-                type: "object",
-                properties: {
-                  score_comparison: {
+    const response = await fetchGemini({
+      model: MODELS.analysis,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "return_comparison",
+            description: "Return the competitive comparison report",
+            parameters: {
+              type: "object",
+              properties: {
+                score_comparison: {
+                  type: "object",
+                  properties: {
+                    your_score: { type: "number" },
+                    competitor_score: { type: "number" },
+                    winner: { type: "string", enum: ["you", "competitor", "tie"] },
+                  },
+                  required: ["your_score", "competitor_score", "winner"],
+                },
+                image_count_comparison: {
+                  type: "object",
+                  properties: {
+                    your_count: { type: "number" },
+                    competitor_count: { type: "number" },
+                    slots_you_are_missing: { type: "number" },
+                  },
+                  required: ["your_count", "competitor_count", "slots_you_are_missing"],
+                },
+                image_types_competitor_has_you_dont: {
+                  type: "array",
+                  items: {
                     type: "object",
                     properties: {
-                      your_score: { type: "number" },
-                      competitor_score: { type: "number" },
-                      winner: { type: "string", enum: ["you", "competitor", "tie"] },
+                      type: { type: "string" },
+                      description: { type: "string" },
+                      recommendation: { type: "string" },
                     },
-                    required: ["your_score", "competitor_score", "winner"],
-                  },
-                  image_count_comparison: {
-                    type: "object",
-                    properties: {
-                      your_count: { type: "number" },
-                      competitor_count: { type: "number" },
-                      slots_you_are_missing: { type: "number" },
-                    },
-                    required: ["your_count", "competitor_count", "slots_you_are_missing"],
-                  },
-                  image_types_competitor_has_you_dont: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        type: { type: "string" },
-                        description: { type: "string" },
-                        recommendation: { type: "string" },
-                      },
-                      required: ["type", "description", "recommendation"],
-                    },
-                  },
-                  competitor_violations: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        violation: { type: "string" },
-                        severity: { type: "string" },
-                        your_opportunity: { type: "string" },
-                      },
-                      required: ["violation", "severity", "your_opportunity"],
-                    },
-                  },
-                  your_advantages: {
-                    type: "array",
-                    items: { type: "string" },
-                  },
-                  priority_actions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        action: { type: "string" },
-                        reason: { type: "string" },
-                        impact: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
-                      },
-                      required: ["action", "reason", "impact"],
-                    },
+                    required: ["type", "description", "recommendation"],
                   },
                 },
-                required: [
-                  "score_comparison",
-                  "image_count_comparison",
-                  "image_types_competitor_has_you_dont",
-                  "competitor_violations",
-                  "your_advantages",
-                  "priority_actions",
-                ],
-                additionalProperties: false,
+                competitor_violations: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      violation: { type: "string" },
+                      severity: { type: "string" },
+                      your_opportunity: { type: "string" },
+                    },
+                    required: ["violation", "severity", "your_opportunity"],
+                  },
+                },
+                your_advantages: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                priority_actions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      action: { type: "string" },
+                      reason: { type: "string" },
+                      impact: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
+                    },
+                    required: ["action", "reason", "impact"],
+                  },
+                },
               },
+              required: [
+                "score_comparison",
+                "image_count_comparison",
+                "image_types_competitor_has_you_dont",
+                "competitor_violations",
+                "your_advantages",
+                "priority_actions",
+              ],
+              additionalProperties: false,
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "return_comparison" } },
-      }),
+        },
+      ],
+      tool_choice: { type: "function", function: { name: "return_comparison" } },
     });
 
     if (!response.ok) {

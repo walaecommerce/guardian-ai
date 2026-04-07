@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
+import { MODELS } from "../_shared/models.ts";
 
-const GATEWAY_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -28,20 +29,14 @@ Images analyzed: ${imageCount}
 
 Generate improvement recommendations.`;
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-3.1-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.4,
-        tools: [
+    const response = await fetchGemini({
+      model: MODELS.analysis,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.4,
+      tools: [
           {
             type: "function",
             function: {
@@ -116,7 +111,6 @@ Generate improvement recommendations.`;
           },
         ],
         tool_choice: { type: "function", function: { name: "return_suggestions" } },
-      }),
     });
 
     if (!response.ok) {

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
 
-const GATEWAY_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -157,19 +157,12 @@ Compare against the main product image provided and identify all opportunities t
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(mainImageBase64) } });
     }
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODELS.analysis,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: contentParts },
-        ],
-      }),
+    const response = await fetchGemini({
+      model: MODELS.analysis,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: contentParts },
+      ],
     });
 
     if (response.status === 429) {
