@@ -403,6 +403,7 @@ export function exportToPDF(data: ExportReport): void {
   }
 
   // Violations detail
+  data.assets.forEach(asset => {
     if ((asset.violations || []).length === 0) return;
     if (currentY > doc.internal.pageSize.getHeight() - 50) {
       doc.addPage();
