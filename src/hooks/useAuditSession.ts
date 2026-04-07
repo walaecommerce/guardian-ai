@@ -50,6 +50,8 @@ export function useAuditSession() {
   const [competitorProgress, setCompetitorProgress] = useState<{ current: number; total: number } | null>(null);
   const [aiComparison, setAiComparison] = useState<AIComparisonResult | null>(null);
   const [isLoadingAIComparison, setIsLoadingAIComparison] = useState(false);
+  const [aiCreditsExhausted, setAiCreditsExhausted] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // Stepper state
   const [currentStep, setCurrentStep] = useState<AuditStep>('import');
@@ -466,7 +468,10 @@ export function useAuditSession() {
             errorMsg = error.message;
           }
         } catch { /* use default */ }
-        if (status === 402) errorMsg = 'AI credits exhausted';
+        if (status === 402) {
+          errorMsg = 'AI credits exhausted';
+          setAiCreditsExhausted(true);
+        }
         return { result: null, error: errorMsg };
       }
       return { result: data as AnalysisResult };
@@ -524,6 +529,9 @@ export function useAuditSession() {
         if (result.status === 'PASS') passedCount++;
         else failedCount++;
         scores.push(result.overallScore);
+        
+        // Real-time credit refresh after each image
+        refreshCredits();
         
         const sessionImageId = assetSessionMap.get(asset.id);
         if (sessionImageId) {
