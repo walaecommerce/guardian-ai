@@ -5,7 +5,7 @@ import { CompetitorData } from '@/components/CompetitorAudit';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowRight, Wand2, Search, CheckCircle2, XCircle, AlertTriangle, BarChart3 } from 'lucide-react';
+import { ArrowRight, Wand2, Search, CheckCircle2, XCircle, AlertTriangle, BarChart3, Loader2 } from 'lucide-react';
 
 interface AuditStepProps {
   assets: ImageAsset[];
@@ -52,6 +52,55 @@ export function AuditStep({
           <Button onClick={onRunAudit} size="lg" className="mt-2">
             Run Audit
           </Button>
+        </div>
+      )}
+
+      {/* Pre-audit / in-progress image gallery */}
+      {(needsAudit || (isAnalyzing && analyzedAssets.length < assets.length)) && (
+        <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+          {assets.map((asset) => {
+            const hasResult = !!asset.analysisResult;
+            const isPassing = asset.analysisResult?.status === 'PASS';
+            return (
+              <button
+                key={asset.id}
+                onClick={() => onSelectAsset(asset)}
+                className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <img src={asset.preview} alt={asset.name} className="w-full h-full object-cover" />
+
+                {/* Type badge */}
+                <span className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                  asset.type === 'MAIN' ? 'bg-amber-400 text-amber-900' : 'bg-muted text-muted-foreground'
+                }`}>
+                  {asset.type === 'MAIN' ? 'MAIN' : 'SEC'}
+                </span>
+
+                {/* Analysis status overlay */}
+                {isAnalyzing && !hasResult && (
+                  <div className="absolute inset-0 bg-background/70 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                )}
+
+                {/* Pass/Fail badge after analysis */}
+                {hasResult && (
+                  <div className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center ${
+                    isPassing ? 'bg-green-500' : 'bg-destructive'
+                  }`}>
+                    {isPassing
+                      ? <CheckCircle2 className="w-3 h-3 text-white" />
+                      : <XCircle className="w-3 h-3 text-white" />}
+                  </div>
+                )}
+
+                {/* File name on hover */}
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-[10px] text-white truncate">{asset.name}</p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
