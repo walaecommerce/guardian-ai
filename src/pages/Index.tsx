@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuditSession, AuditStep } from '@/hooks/useAuditSession';
 import { CommandBar } from '@/components/CommandBar';
 import { ImportStep } from '@/components/audit/ImportStep';
@@ -22,6 +22,27 @@ const Index = () => {
   const [drawerAsset, setDrawerAsset] = useState<ImageAsset | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { toast } = useToast();
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl && e.key === 'i') {
+        e.preventDefault();
+        if (session.amazonUrl && !session.isImporting) session.handleImportFromAmazon('20');
+      } else if (ctrl && e.key === 'a') {
+        e.preventDefault();
+        if (session.assets.length > 0 && !session.isAnalyzing) session.handleRunAudit();
+      } else if (ctrl && e.key === 'f') {
+        e.preventDefault();
+        if (!session.isBatchFixing) session.handleBatchFix();
+      } else if (e.key === 'Escape') {
+        setDrawerOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [session, drawerOpen]);
 
   const completedSteps = useMemo(() => {
     const completed = new Set<AuditStep>();
