@@ -12,6 +12,7 @@ import CampaignAudit from "./pages/CampaignAudit";
 import Studio from "./pages/Studio";
 import Tracker from "./pages/Tracker";
 import TestChecklist from "./pages/TestChecklist";
+import Sessions from "./pages/Sessions";
 import Onboarding from "./pages/Onboarding";
 import Pricing from "./pages/Pricing";
 import Settings from "./pages/Settings";
