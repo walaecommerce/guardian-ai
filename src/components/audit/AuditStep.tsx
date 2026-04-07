@@ -20,7 +20,7 @@ interface AuditStepProps {
   batchFixProgress: { current: number; total: number } | null;
   productAsin?: string;
   competitorData: CompetitorData | null;
-  getMatchingPolicyUpdate?: (category: string) => any;
+  getMatchingPolicyUpdate?: (violationMessage: string, violationCategory: string) => any;
   onGoToFix: () => void;
   onRunAudit: () => void;
 }
