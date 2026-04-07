@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Upload, Link, X, Image as ImageIcon, Loader2, Shield, Crop, Star, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Loader2, Shield, Crop, Star, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -183,78 +183,38 @@ export function ImageUploader({
 
   return (
     <div className="space-y-4">
-      {/* Amazon URL Import */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Link className="w-4 h-4 text-primary" />
-            Import from Amazon
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Paste Amazon product URL..."
-              value={amazonUrl}
-              onChange={(e) => onAmazonUrlChange(e.target.value)}
-              className="flex-1"
-            />
-            <Select value={maxImages} onValueChange={(v) => setMaxImages(v as MaxImagesOption)}>
-              <SelectTrigger className="w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="20">20 max</SelectItem>
-                <SelectItem value="50">50 max</SelectItem>
-                <SelectItem value="all">All</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button 
-              onClick={() => onImportFromAmazon(maxImages)}
-              disabled={!amazonUrl || isImporting}
-            >
-              {isImporting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                'Import'
-              )}
-            </Button>
-          </div>
-          
-          {/* Failed Downloads Alert */}
-          {failedDownloads.length > 0 && (
-            <Alert variant="destructive" className="mt-3">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription className="flex items-center justify-between">
-                <span>
-                  {failedDownloads.length} image{failedDownloads.length > 1 ? 's' : ''} failed to download
-                </span>
-                {onRetryFailedDownloads && (
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={onRetryFailedDownloads}
-                    disabled={isRetrying}
-                    className="ml-2"
-                  >
-                    {isRetrying ? (
-                      <>
-                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        Retrying...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-3 h-3 mr-1" />
-                        Retry Failed
-                      </>
-                    )}
-                  </Button>
+      {/* Failed Downloads Alert */}
+      {failedDownloads.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              {failedDownloads.length} image{failedDownloads.length > 1 ? 's' : ''} failed to download
+            </span>
+            {onRetryFailedDownloads && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={onRetryFailedDownloads}
+                disabled={isRetrying}
+                className="ml-2"
+              >
+                {isRetrying ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Retry Failed
+                  </>
                 )}
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Drag & Drop Upload */}
       <Card>
