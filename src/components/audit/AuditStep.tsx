@@ -104,6 +104,7 @@ export function AuditStep({
         onViewDetails={(asset) => { onSelectAsset(asset); }}
         onReverify={onReverify}
         onBatchFix={onBatchFix}
+        onRetryAudit={onRunAudit}
         isBatchFixing={isBatchFixing}
         batchFixProgress={batchFixProgress}
         productAsin={productAsin}

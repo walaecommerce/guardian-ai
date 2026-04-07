@@ -101,7 +101,7 @@ const Session = () => {
     });
   };
 
-  const analyzeAsset = async (asset: ImageAsset): Promise<AnalysisResult | null> => {
+  const analyzeAsset = async (asset: ImageAsset): Promise<{ result: AnalysisResult | null; error?: string }> => {
     try {
       const base64 = await fileToBase64(asset.file);
       
@@ -109,11 +109,24 @@ const Session = () => {
         body: { imageBase64: base64, imageType: asset.type, listingTitle }
       });
 
-      if (error) throw error;
-      return data as AnalysisResult;
-    } catch (error) {
+      if (error) {
+        let errorMsg = 'Analysis failed';
+        try {
+          if ((error as any)?.context?.json) {
+            const body = await (error as any).context.json();
+            errorMsg = body?.error || body?.message || errorMsg;
+          } else if (error instanceof Error) {
+            errorMsg = error.message;
+          }
+        } catch { /* use default */ }
+        const status = (error as any)?.context?.status;
+        if (status === 402) errorMsg = 'AI credits exhausted';
+        return { result: null, error: errorMsg };
+      }
+      return { result: data as AnalysisResult };
+    } catch (error: any) {
       console.error('Analysis error:', error);
-      return null;
+      return { result: null, error: error?.message || 'Analysis failed' };
     }
   };
 
@@ -138,10 +151,10 @@ const Session = () => {
 
       addLog('processing', `🔬 Scanning ${asset.type} image: ${asset.name}`);
       
-      const result = await analyzeAsset(asset);
+      const { result, error: analysisError } = await analyzeAsset(asset);
       
       setAssets(prev => prev.map(a => 
-        a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined } : a
+        a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') } : a
       ));
 
       if (result) {
@@ -166,7 +179,7 @@ const Session = () => {
             .eq('id', sessionImageId);
         }
       } else {
-        addLog('error', `❌ Failed to analyze ${asset.name}`);
+        addLog('error', `❌ Failed to analyze ${asset.name}${analysisError ? ': ' + analysisError : ''}`);
       }
 
       // Rate limit delays
@@ -751,6 +764,7 @@ const Session = () => {
                   onViewDetails={handleViewDetails}
                   onReverify={handleReverify}
                   onBatchFix={handleBatchFix}
+                  onRetryAudit={handleRunAudit}
                   isBatchFixing={isBatchFixing}
                   productAsin={productAsin || undefined}
                 />
