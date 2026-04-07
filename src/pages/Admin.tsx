@@ -47,6 +47,9 @@ export default function Admin() {
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [stats, setStats] = useState({ totalSessions: 0, totalImages: 0, totalCreditsUsed: 0 });
   const [activityLog, setActivityLog] = useState<UsageRow[]>([]);
+  const [activityPage, setActivityPage] = useState(0);
+  const [activityTotal, setActivityTotal] = useState(0);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingCredits, setEditingCredits] = useState<Record<string, number>>({});
   const [roleDialog, setRoleDialog] = useState<{ open: boolean; userId: string; action: 'grant' | 'revoke'; userName: string }>({
