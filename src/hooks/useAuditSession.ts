@@ -628,14 +628,20 @@ export function useAuditSession() {
 
     // Extract product identity
     const mainAssetForIdentity = assets.find(a => a.type === 'MAIN');
-    if (mainAssetForIdentity) {
+    if (mainAssetForIdentity && !aiCreditsExhausted) {
       try {
         addLog('processing', '🔗 Extracting product identity card from main image...');
         const mainBase64 = await fileToBase64(mainAssetForIdentity.file);
         const { data: idData, error: idError } = await supabase.functions.invoke('extract-product-identity', {
           body: { imageBase64: mainBase64, productTitle: listingTitle }
         });
-        if (!idError && idData?.identity) {
+
+        // Handle 402 from extract-product-identity gracefully
+        const idStatus = (idError as any)?.context?.status;
+        if (idStatus === 402 || idData?.errorType === 'payment_required') {
+          setAiCreditsExhausted(true);
+          addLog('warning', '⚠️ Product identity extraction skipped (AI credits exhausted)');
+        } else if (!idError && idData?.identity) {
           setProductIdentity(idData.identity);
           addLog('success', `✅ Product identity extracted: ${idData.identity.brandName} - ${idData.identity.productName}`);
           if (currentSessionId) {
