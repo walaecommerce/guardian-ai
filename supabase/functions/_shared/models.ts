@@ -1,6 +1,6 @@
 export const MODELS = {
-  analysis: "google/gemini-3.1-pro-preview",
-  imageGen: "google/gemini-3-pro-image-preview",
-  imageEdit: "google/gemini-3.1-flash-image-preview",
-  verification: "google/gemini-3.1-pro-preview",
+  analysis: "gemini-2.5-pro",
+  imageGen: "gemini-2.0-flash-preview-image-generation",
+  imageEdit: "gemini-2.0-flash-preview-image-generation",
+  verification: "gemini-2.5-pro",
 };
