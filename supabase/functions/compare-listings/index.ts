@@ -159,8 +159,8 @@ Return ONLY this JSON structure:
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits required. Add credits in Settings → Workspace → Usage." }), {
-          status: 402,
+        return new Response(JSON.stringify({ error: "AI credits required. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
