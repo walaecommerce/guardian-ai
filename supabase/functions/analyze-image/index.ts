@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
+import { useCredit, getUserIdFromAuth, createAdminClient } from "../_shared/credits.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -371,6 +372,27 @@ serve(async (req) => {
   }
 
   try {
+    // Deduct analyze credit
+    try {
+      const userId = await getUserIdFromAuth(req);
+      const admin = createAdminClient();
+      await useCredit(admin, userId, 'analyze');
+    } catch (creditErr: any) {
+      if (creditErr?.status === 402) {
+        return new Response(
+          JSON.stringify({ error: creditErr.message || 'No analyze credits remaining', errorType: 'payment_required' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (creditErr?.status === 401) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.warn('[analyze-image] Credit check failed, proceeding:', creditErr);
+    }
+
     const { imageBase64, imageType, listingTitle, forcedCategory } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");

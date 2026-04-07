@@ -1,5 +1,5 @@
 import {
-  Shield, BarChart3, Sparkles, Activity, CreditCard, LogOut, Settings, User, Search, ChevronUp, History, ChevronDown,
+  Shield, BarChart3, Sparkles, Activity, CreditCard, LogOut, Settings, User, Search, ChevronUp, History, ChevronDown, Image,
 } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,6 +36,7 @@ const WORKSPACE_ITEMS = [
   { title: 'Single Audit', url: '/', icon: Search },
   { title: 'Campaign', url: '/campaign', icon: BarChart3 },
   { title: 'Sessions', url: '/sessions', icon: History },
+  { title: 'Media', url: '/media', icon: Image },
 ];
 
 const TOOLS_ITEMS = [

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useCreditGate } from '@/hooks/useCreditGate';
+import { useCredits } from '@/hooks/useCredits';
 import { useAuth } from '@/hooks/useAuth';
 import { RATE_LIMITS } from '@/config/models';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
@@ -19,6 +20,7 @@ export type AuditStep = 'import' | 'audit' | 'fix' | 'review';
 
 export function useAuditSession() {
   const { guard: creditGate } = useCreditGate();
+  const { refresh: refreshCredits } = useCredits();
   const { user } = useAuth();
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [listingTitle, setListingTitle] = useState('');
@@ -271,6 +273,7 @@ export function useAuditSession() {
 
         // Auto-advance to audit step
         setCurrentStep('audit');
+        refreshCredits();
       } else {
         throw new Error('No images could be downloaded');
       }
@@ -612,6 +615,7 @@ export function useAuditSession() {
     }
 
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
+    refreshCredits();
     setTimeout(() => setAuditComplete(null), 3000);
 
     // Auto-advance to fix step if there are failures, otherwise review
@@ -903,6 +907,7 @@ export function useAuditSession() {
         
         addLog('success', `🎉 Fix complete for ${asset.name}`);
         toast({ title: 'Fix Generated', description: 'AI-corrected image is ready and saved' });
+        refreshCredits();
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Fix failed';

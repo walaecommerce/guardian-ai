@@ -3,7 +3,9 @@ import { ComplianceReportCard } from '@/components/ComplianceReportCard';
 import { ImageAsset, LogEntry } from '@/types';
 import { CompetitorData } from '@/components/CompetitorAudit';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Wand2, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { ArrowRight, Wand2, Search, CheckCircle2, XCircle, AlertTriangle, BarChart3 } from 'lucide-react';
 
 interface AuditStepProps {
   assets: ImageAsset[];
@@ -30,9 +32,14 @@ export function AuditStep({
   getMatchingPolicyUpdate, onGoToFix, onRunAudit, onSelectAsset,
 }: AuditStepProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult);
+  const passedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS');
   const failedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING');
   const hasResults = analyzedAssets.length > 0;
   const needsAudit = assets.length > 0 && !hasResults && !isAnalyzing;
+
+  const scores = analyzedAssets.map(a => a.analysisResult?.overallScore || 0);
+  const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  const criticalCount = analyzedAssets.flatMap(a => a.analysisResult?.violations || []).filter(v => v.severity?.toLowerCase() === 'critical').length;
 
   return (
     <div className="space-y-6">
@@ -45,6 +52,47 @@ export function AuditStep({
           <Button onClick={onRunAudit} size="lg" className="mt-2">
             Run Audit
           </Button>
+        </div>
+      )}
+
+      {/* Compliance Scorecard Summary */}
+      {hasResults && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="border-border/50">
+            <CardContent className="p-4 text-center">
+              <div className={`text-3xl font-bold ${avgScore >= 80 ? 'text-green-500' : avgScore >= 50 ? 'text-yellow-500' : 'text-destructive'}`}>
+                {avgScore}%
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Overall Score</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="p-4 text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
+                <span className="text-2xl font-bold text-foreground">{passedAssets.length}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Passed</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="p-4 text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <XCircle className="w-5 h-5 text-destructive" />
+                <span className="text-2xl font-bold text-foreground">{failedAssets.length}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Need Fixing</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="p-4 text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                <span className="text-2xl font-bold text-foreground">{criticalCount}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Critical Issues</p>
+            </CardContent>
+          </Card>
         </div>
       )}
 

@@ -1,11 +1,11 @@
-import { Search, BarChart3, Sparkles, Activity, History } from 'lucide-react';
+import { Search, BarChart3, Sparkles, Activity, History, Image } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { title: 'Audit', url: '/', icon: Search },
-  { title: 'Campaign', url: '/campaign', icon: BarChart3 },
   { title: 'Sessions', url: '/sessions', icon: History },
+  { title: 'Media', url: '/media', icon: Image },
   { title: 'Studio', url: '/studio', icon: Sparkles },
   { title: 'Tracker', url: '/tracker', icon: Activity },
 ];

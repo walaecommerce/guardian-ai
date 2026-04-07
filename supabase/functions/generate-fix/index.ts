@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { MODELS } from "../_shared/models.ts";
+import { useCredit, createAdminClient } from "../_shared/credits.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -453,6 +454,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  try {
     // Auth validation
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -464,6 +466,20 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     console.log(`[generate-fix] Authenticated user: ${claimsData.claims.sub}`);
+
+    // Deduct fix credit
+    try {
+      const admin = createAdminClient();
+      await useCredit(admin, claimsData.claims.sub as string, 'fix');
+    } catch (creditErr: any) {
+      if (creditErr?.status === 402) {
+        return new Response(
+          JSON.stringify({ error: creditErr.message || 'No fix credits remaining', errorType: 'payment_required' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.warn('[generate-fix] Credit check failed, proceeding:', creditErr);
+    }
 
     const {
       imageBase64,
