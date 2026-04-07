@@ -32,6 +32,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/landing" element={<Landing />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             <Route path="*" element={
               <AuthGuard>
                 <Routes>
@@ -48,8 +50,6 @@ const App = () => (
                         <Route path="/sessions" element={<Sessions />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/session/:sessionId" element={<Session />} />
-                        <Route path="/privacy" element={<Privacy />} />
-                        <Route path="/terms" element={<Terms />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </DashboardLayout>

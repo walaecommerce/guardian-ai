@@ -287,8 +287,8 @@ export default function Landing() {
             <span>© {new Date().getFullYear()} AGC Listing Guardian</span>
           </div>
           <div className="flex gap-6">
-            <a href="#" className="hover:text-foreground transition-colors">Terms</a>
-            <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
+            <a href="/terms" className="hover:text-foreground transition-colors">Terms</a>
+            <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>
             <button onClick={() => scrollTo('pricing')} className="hover:text-foreground transition-colors">Pricing</button>
           </div>
         </div>

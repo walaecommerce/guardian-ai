@@ -103,7 +103,10 @@ function LoginScreen() {
 
           {/* Fine print */}
           <p className="text-xs text-center text-muted-foreground">
-            By signing in you agree to our terms of service and privacy policy
+            By signing in you agree to our{' '}
+            <a href="/terms" className="underline hover:text-foreground transition-colors">terms of service</a>
+            {' '}and{' '}
+            <a href="/privacy" className="underline hover:text-foreground transition-colors">privacy policy</a>
           </p>
         </div>
       </div>
