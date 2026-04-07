@@ -1419,6 +1419,15 @@ export function useAuditSession() {
     }
   };
 
+  const enhanceableCount = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
+
+  const handleFixAndEnhance = async () => {
+    addLog('processing', '🔧✨ Starting Fix & Enhance All...');
+    await handleBatchFix();
+    await handleBatchEnhance();
+    addLog('success', '🎯 Fix & Enhance All complete');
+  };
+
   const handleResumeAudit = async () => {
     const unanalyzedAssets = assets.filter(a => !a.analysisResult && !a.analysisError);
     if (unanalyzedAssets.length === 0) return;
@@ -1530,6 +1539,8 @@ export function useAuditSession() {
     handleReverify,
     handleBatchFix,
     handleBatchEnhance,
+    handleFixAndEnhance,
+    enhanceableCount,
     handleViewDetails,
     handleDownload,
     handleImportCompetitor,
