@@ -25,6 +25,7 @@ interface AuditStepProps {
   onRunAudit: () => void;
   onSelectAsset: (asset: ImageAsset) => void;
   onRetryFailedAnalysis: () => void;
+  aiCreditsExhausted?: boolean;
 }
 
 export function AuditStep({
@@ -32,7 +33,7 @@ export function AuditStep({
   onRequestFix, onViewDetails, onReverify, onBatchFix,
   isBatchFixing, batchFixProgress, productAsin, competitorData,
   getMatchingPolicyUpdate, onGoToFix, onRunAudit, onSelectAsset,
-  onRetryFailedAnalysis,
+  onRetryFailedAnalysis, aiCreditsExhausted,
 }: AuditStepProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const passedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS');
@@ -123,8 +124,8 @@ export function AuditStep({
         </div>
       )}
 
-      {/* Partial failure banner */}
-      {!isAnalyzing && errorAssets.length > 0 && (
+      {/* Partial failure banner — hidden when pause is due to credits exhaustion */}
+      {!isAnalyzing && errorAssets.length > 0 && !aiCreditsExhausted && (
         <div className="flex flex-col gap-2 p-4 rounded-lg border border-destructive/30 bg-destructive/5">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-destructive">

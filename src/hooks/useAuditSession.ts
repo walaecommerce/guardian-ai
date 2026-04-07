@@ -565,6 +565,17 @@ export function useAuditSession() {
 
       const { result, error: analysisError, isCreditsExhausted } = await analyzeAsset(asset);
 
+      if (isCreditsExhausted) {
+        // Don't store analysisError — treat as batch-level pause, not per-asset failure
+        setAssets(prev => prev.map(a =>
+          a.id === asset.id ? { ...a, isAnalyzing: false } : a
+        ));
+        creditsExhaustedDuringRun = true;
+        setAiCreditsExhausted(true);
+        addLog('error', `🚫 AI credits exhausted — audit paused. ${assets.length - i - 1} image(s) skipped.`);
+        break;
+      }
+
       setAssets(prev => prev.map(a =>
         a.id === asset.id
           ? {
@@ -575,19 +586,6 @@ export function useAuditSession() {
             }
           : a
       ));
-
-      if (isCreditsExhausted) {
-        creditsExhaustedDuringRun = true;
-        setAiCreditsExhausted(true);
-        addLog('error', `🚫 AI credits exhausted — stopping audit. ${assets.length - i - 1} image(s) skipped.`);
-        toast({
-          title: 'AI Credits Exhausted',
-          description: 'Add more AI balance in Settings → Cloud & AI balance to continue.',
-          variant: 'destructive',
-          duration: 8000,
-        });
-        break;
-      }
 
       if (result) {
         const statusLog = result.status === 'PASS' ? 'success' : 'warning';
@@ -712,8 +710,7 @@ export function useAuditSession() {
     if (creditsExhaustedDuringRun) {
       toast({
         title: 'Audit Paused',
-        description: 'AI balance ran out. The images already analyzed were kept.',
-        variant: 'destructive',
+        description: 'AI balance ran out. Already-analyzed results are preserved.',
       });
       refreshCredits();
       return;
@@ -1286,22 +1283,20 @@ export function useAuditSession() {
       const asset = failedAssets[i];
       setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, isAnalyzing: true } : a));
       const { result, error: analysisError, isCreditsExhausted } = await analyzeAsset(asset);
-      setAssets(prev => prev.map(a =>
-        a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') } : a
-      ));
 
       if (isCreditsExhausted) {
+        setAssets(prev => prev.map(a =>
+          a.id === asset.id ? { ...a, isAnalyzing: false } : a
+        ));
         creditsExhaustedDuringRetry = true;
         setAiCreditsExhausted(true);
         addLog('error', `🚫 AI credits exhausted — retry stopped with ${failedAssets.length - i - 1} image(s) remaining.`);
-        toast({
-          title: 'AI Credits Exhausted',
-          description: 'Add more AI balance in Settings → Cloud & AI balance to continue.',
-          variant: 'destructive',
-          duration: 8000,
-        });
         break;
       }
+
+      setAssets(prev => prev.map(a =>
+        a.id === asset.id ? { ...a, isAnalyzing: false, analysisResult: result || undefined, analysisError: result ? undefined : (analysisError || 'Analysis failed') } : a
+      ));
 
       if (result) {
         addLog('success', `✅ ${asset.name}: Score ${result.overallScore}% - ${result.status}`);
