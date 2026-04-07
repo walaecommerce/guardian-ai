@@ -273,6 +273,7 @@ export function useAuditSession() {
 
         // Auto-advance to audit step
         setCurrentStep('audit');
+        refreshCredits();
       } else {
         throw new Error('No images could be downloaded');
       }
@@ -614,6 +615,7 @@ export function useAuditSession() {
     }
 
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved to session history.' });
+    refreshCredits();
     setTimeout(() => setAuditComplete(null), 3000);
 
     // Auto-advance to fix step if there are failures, otherwise review
@@ -905,6 +907,7 @@ export function useAuditSession() {
         
         addLog('success', `🎉 Fix complete for ${asset.name}`);
         toast({ title: 'Fix Generated', description: 'AI-corrected image is ready and saved' });
+        refreshCredits();
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Fix failed';
