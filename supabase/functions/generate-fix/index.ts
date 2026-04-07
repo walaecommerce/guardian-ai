@@ -213,12 +213,31 @@ const toDataUrl = (dataUrl: string): string => {
 
 // ── Gateway request helpers ─────────────────────────────────────
 
+const IMAGE_MODEL_FALLBACK = "gemini-2.5-flash-image";
+
 async function callGateway(apiKey: string, contentParts: any[], model?: string): Promise<Response> {
-  return fetchGemini({
-    model: model || MODELS.imageGen,
+  const requestedModel = model || MODELS.imageGen;
+
+  let response = await fetchGemini({
+    model: requestedModel,
     messages: [{ role: "user", content: contentParts }],
     modalities: ["image", "text"],
   });
+
+  if (response.status === 404 && requestedModel !== IMAGE_MODEL_FALLBACK) {
+    const errorText = await response.text();
+    console.warn(
+      `[generate-fix] Model ${requestedModel} unavailable for generateContent, retrying with ${IMAGE_MODEL_FALLBACK}: ${errorText.substring(0, 300)}`,
+    );
+
+    response = await fetchGemini({
+      model: IMAGE_MODEL_FALLBACK,
+      messages: [{ role: "user", content: contentParts }],
+      modalities: ["image", "text"],
+    });
+  }
+
+  return response;
 }
 
 function extractImageFromResponse(data: any): string | null {
