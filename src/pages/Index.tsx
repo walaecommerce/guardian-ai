@@ -162,7 +162,11 @@ const Index = () => {
         )}
       </div>
 
-      <AICreditsExhaustedBanner visible={session.aiCreditsExhausted} />
+      <AICreditsExhaustedBanner
+        visible={session.aiCreditsExhausted}
+        analyzedCount={session.assets.filter(a => a.analysisResult).length}
+        totalCount={session.assets.length}
+      />
 
       {/* Step content */}
       <main className="flex-1 px-6 pb-6">
@@ -212,6 +216,7 @@ const Index = () => {
             onRunAudit={session.handleRunAudit}
             onSelectAsset={handleSelectAsset}
             onRetryFailedAnalysis={session.handleRetryFailedAnalysis}
+            aiCreditsExhausted={session.aiCreditsExhausted}
           />
         )}
 

@@ -40,6 +40,7 @@ interface AnalysisResultsProps {
   productAsin?: string;
   competitorData?: CompetitorData | null;
   getMatchingPolicyUpdate?: (message: string, category: string) => PolicyUpdate | null;
+  aiCreditsExhausted?: boolean;
 }
 
 // ── Score Gauge with animated counter + circular ring ──
@@ -382,6 +383,7 @@ export function AnalysisResults({
   productAsin,
   competitorData,
   getMatchingPolicyUpdate,
+  aiCreditsExhausted,
 }: AnalysisResultsProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult || a.isAnalyzing);
   const failedAssets = assets.filter(a => a.analysisError && !a.analysisResult && !a.isAnalyzing);
@@ -399,7 +401,7 @@ export function AnalysisResults({
     ? Object.entries(primaryError).sort((a, b) => b[1] - a[1])[0]?.[0]
     : null;
 
-  if (allFailed) {
+  if (allFailed && !aiCreditsExhausted) {
     return (
       <Card className="glass-card h-full flex items-center justify-center min-h-[400px]">
         <CardContent className="text-center py-16">
