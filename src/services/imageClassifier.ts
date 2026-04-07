@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { ImageCategory } from '@/types';
 
 export interface ClassificationResult {
@@ -46,6 +47,22 @@ export async function classifyImage(
     });
 
     if (error) {
+      // Extract error details from FunctionsHttpError response
+      if (error instanceof FunctionsHttpError) {
+        try {
+          const errorBody = await error.context.json();
+          if (errorBody?.errorType === 'payment_required') {
+            throw new Error('AI_CREDITS_EXHAUSTED');
+          }
+          if (errorBody?.errorType === 'rate_limit') {
+            throw new Error('RATE_LIMITED');
+          }
+        } catch (parseErr) {
+          if (parseErr instanceof Error && (parseErr.message === 'AI_CREDITS_EXHAUSTED' || parseErr.message === 'RATE_LIMITED')) {
+            throw parseErr;
+          }
+        }
+      }
       console.error('Classification API error:', error);
       throw error;
     }
@@ -61,6 +78,11 @@ export async function classifyImage(
 
     return result;
   } catch (error) {
+    // Re-throw credit/rate errors so callers can handle them
+    if (error instanceof Error && (error.message === 'AI_CREDITS_EXHAUSTED' || error.message === 'RATE_LIMITED')) {
+      throw error;
+    }
+
     console.error('Image classification failed:', error);
     
     // Return fallback result
