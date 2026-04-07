@@ -1,13 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ImageAsset } from '@/types';
-import { 
-  Package, ExternalLink, Pencil, Check, X, Trash2, Plus, 
-  Play, Image as ImageIcon 
+import { AmazonGalleryPreview } from '@/components/AmazonGalleryPreview';
+import {
+  Package, ExternalLink, Pencil, Check, X, Trash2, Plus,
+  Play, Image as ImageIcon, GripVertical, Loader2, ArrowRight,
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { CATEGORY_RULES } from '@/config/categoryRules';
 
 interface ProductSummaryCardProps {
   assets: ImageAsset[];
@@ -20,6 +38,7 @@ interface ProductSummaryCardProps {
   onAssetsChange: (assets: ImageAsset[]) => void;
   onRunAudit: () => void;
   isAnalyzing: boolean;
+  analyzingProgress?: { current: number; total: number };
   onAddMoreImages: () => void;
 }
 
@@ -34,10 +53,15 @@ export function ProductSummaryCard({
   onAssetsChange,
   onRunAudit,
   isAnalyzing,
+  analyzingProgress,
   onAddMoreImages,
 }: ProductSummaryCardProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(listingTitle);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
   const handleSaveTitle = () => {
     onListingTitleChange(editTitle);
@@ -46,31 +70,41 @@ export function ProductSummaryCard({
 
   const handleRemoveImage = (assetId: string) => {
     const updated = assets.filter(a => a.id !== assetId);
-    // Reassign MAIN if we removed the main image
     if (updated.length > 0 && !updated.some(a => a.type === 'MAIN')) {
       updated[0] = { ...updated[0], type: 'MAIN' };
     }
     onAssetsChange(updated);
   };
 
-  const handleSetAsMain = (assetId: string) => {
-    const updated = assets.map(a => ({
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = assets.findIndex(a => a.id === active.id);
+    const newIndex = assets.findIndex(a => a.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = [...assets];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+
+    // Reassign types based on position
+    const updated = reordered.map((a, i) => ({
       ...a,
-      type: a.id === assetId ? 'MAIN' as const : 'SECONDARY' as const,
+      type: i === 0 ? 'MAIN' as const : 'SECONDARY' as const,
     }));
     onAssetsChange(updated);
   };
 
-  // Group: first MAIN, then rest
-  const mainAsset = assets.find(a => a.type === 'MAIN');
-  const secondaryAssets = assets.filter(a => a.type !== 'MAIN');
+  const secondaryCount = assets.filter(a => a.type !== 'MAIN').length;
+  const categoryKeys = Object.keys(CATEGORY_RULES);
 
   return (
-    <Card className="border-border/50">
+    <Card className="border-primary/20 bg-card/50 backdrop-blur-xl">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Package className="w-5 h-5 text-primary shrink-0" />
               <CardTitle className="text-lg">Product Summary</CardTitle>
               {productAsin && (
@@ -78,6 +112,19 @@ export function ProductSummaryCard({
                   {productAsin}
                 </Badge>
               )}
+              {/* Category selector */}
+              <Select value={selectedCategory} onValueChange={onCategoryChange}>
+                <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs border-border/50">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryKeys.map(key => (
+                    <SelectItem key={key} value={key} className="text-xs">
+                      {key.replace(/_/g, ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Editable title */}
@@ -122,112 +169,175 @@ export function ProductSummaryCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Image gallery grid */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
+        {/* Image gallery header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              {assets.length} Images Imported
+              {assets.length} Images
             </p>
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onAddMoreImages}>
-              <Plus className="w-3 h-3 mr-1" />
-              Add More
-            </Button>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">
+              MAIN + {secondaryCount} secondary
+            </Badge>
           </div>
-
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-            {/* Main image first */}
-            {mainAsset && (
-              <ImageThumbnail
-                asset={mainAsset}
-                isMain
-                onRemove={() => handleRemoveImage(mainAsset.id)}
-                onSetMain={() => {}}
-              />
-            )}
-            {secondaryAssets.map(asset => (
-              <ImageThumbnail
-                key={asset.id}
-                asset={asset}
-                isMain={false}
-                onRemove={() => handleRemoveImage(asset.id)}
-                onSetMain={() => handleSetAsMain(asset.id)}
-              />
-            ))}
-          </div>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onAddMoreImages}>
+            <Plus className="w-3 h-3 mr-1" />
+            Add More
+          </Button>
         </div>
+
+        {/* Draggable image grid */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={assets.map(a => a.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+              {assets.map((asset, index) => (
+                <SortableImageThumbnail
+                  key={asset.id}
+                  asset={asset}
+                  index={index}
+                  onRemove={() => handleRemoveImage(asset.id)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+
+        {/* Amazon Gallery Preview */}
+        {assets.length > 0 && (
+          <AmazonGalleryPreview assets={assets} />
+        )}
 
         {/* Start Audit CTA */}
         <Button
           onClick={onRunAudit}
           disabled={isAnalyzing || assets.length === 0}
           size="lg"
-          className="w-full"
+          className={`w-full h-12 text-base font-bold transition-all ${
+            !isAnalyzing && assets.length > 0
+              ? 'bg-gradient-to-r from-primary to-accent shadow-[0_0_20px_hsl(187_100%_50%/0.3)] hover:shadow-[0_0_30px_hsl(187_100%_50%/0.4)]'
+              : ''
+          }`}
         >
-          <Play className="w-4 h-4 mr-2" />
-          Start Compliance Audit ({assets.length} images)
+          {isAnalyzing ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Analyzing {analyzingProgress ? `${analyzingProgress.current}/${analyzingProgress.total}` : '...'}
+            </>
+          ) : (
+            <>
+              <Play className="w-5 h-5 mr-2" />
+              Start Compliance Audit ({assets.length} images)
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </>
+          )}
         </Button>
       </CardContent>
     </Card>
   );
 }
 
-function ImageThumbnail({
+/* ─── Sortable Thumbnail ────────────────────────────────────── */
+
+function SortableImageThumbnail({
   asset,
-  isMain,
+  index,
   onRemove,
-  onSetMain,
 }: {
   asset: ImageAsset;
-  isMain: boolean;
+  index: number;
   onRemove: () => void;
-  onSetMain: () => void;
 }) {
-  const categoryLabel = asset.name.split('_')[0] || 'UNKNOWN';
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: asset.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  const isMain = index === 0;
+  const categoryLabel = asset.analysisResult?.productCategory
+    || asset.name.split('_')[0]
+    || 'UNKNOWN';
+
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => setDims({ w: img.naturalWidth, h: img.naturalHeight });
+    img.src = asset.preview;
+  }, [asset.preview]);
 
   return (
-    <div className="group relative aspect-square rounded-lg overflow-hidden border border-border/50 bg-muted/30">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group relative aspect-square rounded-xl overflow-hidden border bg-muted/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_16px_hsl(187_100%_50%/0.15)] ${
+        isMain ? 'border-primary/40 ring-1 ring-primary/20' : 'border-border/50'
+      } ${isDragging ? 'ring-2 ring-primary' : ''}`}
+    >
       <img
         src={asset.preview}
         alt={asset.name}
         className="w-full h-full object-cover"
       />
 
-      {/* Main badge */}
-      {isMain && (
-        <Badge className="absolute top-1 left-1 text-[9px] px-1 py-0 bg-primary/90 text-primary-foreground">
-          MAIN
-        </Badge>
-      )}
-
-      {/* Category label */}
-      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3">
-        <span className="text-[9px] font-medium text-white/90 uppercase tracking-wider">
-          {categoryLabel}
-        </span>
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-1 right-1 p-0.5 rounded bg-black/40 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="w-3 h-3" />
       </div>
 
-      {/* Hover actions */}
-      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-        {!isMain && (
-          <Button
-            size="icon"
-            variant="secondary"
-            className="h-6 w-6"
-            onClick={onSetMain}
-            title="Set as Main"
-          >
-            <ImageIcon className="w-3 h-3" />
-          </Button>
+      {/* Position badge */}
+      {isMain ? (
+        <Badge className="absolute top-1 left-1 text-[9px] px-1.5 py-0 bg-primary/90 text-primary-foreground font-bold">
+          1st · Landing
+        </Badge>
+      ) : (
+        <span className="absolute top-1 left-1 text-[9px] px-1 py-0 rounded bg-black/50 text-white/80 font-medium">
+          {index + 1}
+        </span>
+      )}
+
+      {/* Category + dimensions bottom bar */}
+      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3 flex items-end justify-between">
+        <span className="text-[9px] font-medium text-white/90 uppercase tracking-wider truncate">
+          {categoryLabel}
+        </span>
+        {dims && (
+          <span className="text-[8px] text-white/60 tabular-nums shrink-0">
+            {dims.w}×{dims.h}
+          </span>
         )}
-        <Button
-          size="icon"
-          variant="destructive"
-          className="h-6 w-6"
-          onClick={onRemove}
-          title="Remove"
-        >
-          <Trash2 className="w-3 h-3" />
-        </Button>
+      </div>
+
+      {/* Hover overlay with actions */}
+      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="destructive"
+                className="h-7 w-7"
+                onClick={onRemove}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">Remove image</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );

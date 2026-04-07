@@ -168,6 +168,7 @@ export function ImportStep({
         onAssetsChange={onAssetsChange}
         onRunAudit={onRunAudit}
         isAnalyzing={isAnalyzing}
+        analyzingProgress={analyzingProgress}
         onAddMoreImages={() => fileInputRef.current?.click()}
       />
 
