@@ -39,7 +39,7 @@ Specific instructions: ${prompt}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.5-flash-image",
+        model: "gemini-3-flash-image",
         messages: [
           { role: "user", content: enhancedPrompt },
         ],
