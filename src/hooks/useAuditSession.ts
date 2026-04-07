@@ -830,10 +830,11 @@ export function useAuditSession() {
             const serverType: string | undefined = body?.errorType;
 
             if (status === 402 || serverType === 'payment_required') {
+              setAiCreditsExhausted(true);
               addLog('error', `❌ ${serverMsg || 'Not enough AI credits.'}`);
               setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
               setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
-              toast({ title: 'AI Credits Required', description: serverMsg || 'Not enough credits', variant: 'destructive' });
+              toast({ title: 'AI Credits Exhausted', description: 'Add more AI balance in Settings → Cloud & AI balance to continue.', variant: 'destructive', duration: 8000 });
               return;
             }
             throw genError;
