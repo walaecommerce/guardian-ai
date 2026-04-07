@@ -86,6 +86,15 @@ const Media = () => {
   const getSessionLabel = (s: SessionInfo) => {
     const title = (s.listing_title || 'Untitled').substring(0, 25);
     const suffix = s.product_asin || format(new Date(s.created_at), 'MMM d');
+    // Check for duplicate title+ASIN combos and append date for disambiguation
+    const duplicates = sessions.filter(
+      other => (other.listing_title || 'Untitled').substring(0, 25) === title
+        && (other.product_asin || '') === (s.product_asin || '')
+    );
+    if (duplicates.length > 1) {
+      const dateStr = format(new Date(s.created_at), 'MMM d, h:mma');
+      return `${title} · ${suffix} · ${dateStr}`;
+    }
     return `${title} · ${suffix}`;
   };
 
