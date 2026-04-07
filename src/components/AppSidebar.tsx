@@ -1,5 +1,5 @@
 import {
-  Shield, BarChart3, Sparkles, Activity, CreditCard, LogOut, Settings, User, Search, ChevronUp,
+  Shield, BarChart3, Sparkles, Activity, CreditCard, LogOut, Settings, User, Search, ChevronUp, History, ChevronDown,
 } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,19 +19,79 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useState } from 'react';
 
-const NAV_ITEMS = [
+const WORKSPACE_ITEMS = [
   { title: 'Single Audit', url: '/', icon: Search },
   { title: 'Campaign', url: '/campaign', icon: BarChart3 },
+  { title: 'Sessions', url: '/sessions', icon: History },
+];
+
+const TOOLS_ITEMS = [
   { title: 'Studio', url: '/studio', icon: Sparkles },
   { title: 'Tracker', url: '/tracker', icon: Activity },
 ];
+
+function NavGroup({
+  label,
+  items,
+  collapsed,
+  currentPath,
+}: {
+  label: string;
+  items: typeof WORKSPACE_ITEMS;
+  collapsed: boolean;
+  currentPath: string;
+}) {
+  const hasActive = items.some((i) => currentPath === i.url);
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
+        {label}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => {
+            const active = currentPath === item.url;
+            return (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={active}
+                  tooltip={collapsed ? item.title : undefined}
+                >
+                  <Link
+                    to={item.url}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      active
+                        ? 'bg-primary/10 text-primary border border-primary/15'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4 shrink-0" />
+                    {!collapsed && <span>{item.title}</span>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -41,8 +101,7 @@ export function AppSidebar() {
   const { user, profile, signOut } = useAuth();
   const { remainingCredits, totalCredits } = useCredits();
   const { plan } = useSubscription();
-
-  const isActive = (path: string) => location.pathname === path;
+  const [creditsOpen, setCreditsOpen] = useState(true);
 
   const handleSignOut = async () => {
     await signOut();
@@ -56,7 +115,7 @@ export function AppSidebar() {
   ];
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-white/5">
+    <Sidebar collapsible="icon" className="border-r border-border/50">
       <SidebarHeader className="p-4">
         <Link to="/" className="flex items-center gap-3 group">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 shrink-0 group-hover:bg-primary/15 transition-colors">
@@ -71,76 +130,48 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV_ITEMS.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={collapsed ? item.title : undefined}
-                  >
-                    <Link
-                      to={item.url}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        isActive(item.url)
-                          ? 'bg-primary/10 text-primary border border-primary/15'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
-                      }`}
-                    >
-                      <item.icon className="w-4 h-4 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <NavGroup label="Workspace" items={WORKSPACE_ITEMS} collapsed={collapsed} currentPath={location.pathname} />
+        <NavGroup label="Tools" items={TOOLS_ITEMS} collapsed={collapsed} currentPath={location.pathname} />
 
-        {/* Credits section */}
+        {/* Collapsible Credits section */}
         {!collapsed && user && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
-              Credits · <span className="capitalize text-primary">{plan}</span>
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="px-3 space-y-2">
-                {creditTypes.map(({ type, label, icon: Icon }) => {
-                  const remaining = remainingCredits(type);
-                  const total = totalCredits(type);
-                  const pct = total > 0 ? (remaining / total) * 100 : 0;
-                  return (
-                    <div key={type} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                          <Icon className="w-3 h-3" />
-                          {label}
-                        </span>
-                        <span className="text-foreground font-medium">{remaining}/{total}</span>
-                      </div>
-                      <div className="h-1 rounded-full bg-white/5 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary/60 transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-                <Link
-                  to="/pricing"
-                  className="flex items-center justify-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg text-xs font-medium text-primary bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors"
-                >
-                  <CreditCard className="w-3 h-3" />
-                  Upgrade Plan
-                </Link>
-              </div>
-            </SidebarGroupContent>
+            <Collapsible open={creditsOpen} onOpenChange={setCreditsOpen}>
+              <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-1 group">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                  Credits · <span className="capitalize text-primary">{plan}</span>
+                </span>
+                <ChevronDown className={`w-3 h-3 text-muted-foreground/60 transition-transform ${creditsOpen ? 'rotate-180' : ''}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <div className="px-3 pt-1 space-y-2">
+                    {creditTypes.map(({ type, label, icon: Icon }) => {
+                      const remaining = remainingCredits(type);
+                      const total = totalCredits(type);
+                      const pct = total > 0 ? (remaining / total) * 100 : 0;
+                      return (
+                        <div key={type} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <Icon className="w-3 h-3" />
+                              {label}
+                            </span>
+                            <span className="text-foreground font-medium">{remaining}/{total}</span>
+                          </div>
+                          <div className="h-1 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary/60 transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
           </SidebarGroup>
         )}
       </SidebarContent>
@@ -150,8 +181,8 @@ export function AppSidebar() {
         {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-white/5 transition-colors text-left">
-                <div className="w-7 h-7 rounded-full overflow-hidden border border-white/10 shrink-0">
+              <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-muted/50 transition-colors text-left">
+                <div className="w-7 h-7 rounded-full overflow-hidden border border-border shrink-0">
                   {profile?.avatar_url ? (
                     <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
                   ) : (
@@ -173,7 +204,7 @@ export function AppSidebar() {
                 {!collapsed && <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />}
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-52 bg-card border-white/10">
+            <DropdownMenuContent side="top" align="start" className="w-52">
               <DropdownMenuItem onClick={() => navigate('/pricing')} className="gap-2 cursor-pointer text-sm">
                 <CreditCard className="w-4 h-4" />
                 Upgrade Plan
@@ -182,7 +213,7 @@ export function AppSidebar() {
                 <Settings className="w-4 h-4" />
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/5" />
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-sm text-destructive focus:text-destructive">
                 <LogOut className="w-4 h-4" />
                 Sign Out
