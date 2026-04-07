@@ -112,9 +112,16 @@ function ProfileTab() {
 
 // ── Billing Tab ──────────────────────────────────────────────
 
+const usageChartConfig = {
+  scrape: { label: 'Scrapes', color: 'hsl(var(--primary))' },
+  analyze: { label: 'Analyses', color: 'hsl(var(--accent-foreground))' },
+  fix: { label: 'Fixes', color: 'hsl(var(--destructive))' },
+};
+
 function BillingTab() {
   const { plan, subscribed, subscriptionEnd, openPortal } = useSubscription();
   const { remainingCredits, totalCredits } = useCredits();
+  const { data: usageData, loading: usageLoading } = useCreditsHistory(30);
   const navigate = useNavigate();
   const tier = getTierByPlan(plan);
 
@@ -123,6 +130,8 @@ function BillingTab() {
     { type: 'analyze' as const, icon: BarChart3, label: 'Analyses' },
     { type: 'fix' as const, icon: Sparkles, label: 'Fixes' },
   ];
+
+  const hasUsageData = usageData.some(d => d.scrape + d.analyze + d.fix > 0);
 
   return (
     <div className="space-y-6">
@@ -199,6 +208,55 @@ function BillingTab() {
               </div>
             );
           })}
+        </CardContent>
+      </Card>
+
+      {/* Usage History Chart */}
+      <Card className="border-white/5 bg-white/[0.02]">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+            Usage History
+          </CardTitle>
+          <CardDescription>Credit consumption over the last 30 days</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {usageLoading ? (
+            <div className="flex items-center justify-center h-48">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !hasUsageData ? (
+            <div className="flex flex-col items-center justify-center h-48 text-center">
+              <BarChart3 className="w-8 h-8 text-muted-foreground/40 mb-2" />
+              <p className="text-sm text-muted-foreground">No usage data yet</p>
+              <p className="text-xs text-muted-foreground/60">Credits consumed will appear here</p>
+            </div>
+          ) : (
+            <ChartContainer config={usageChartConfig} className="h-64 w-full">
+              <BarChart data={usageData} barCategoryGap="20%">
+                <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/30" />
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11 }}
+                  interval="preserveStartEnd"
+                  className="text-muted-foreground"
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11 }}
+                  allowDecimals={false}
+                  className="text-muted-foreground"
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="scrape" stackId="a" fill="var(--color-scrape)" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="analyze" stackId="a" fill="var(--color-analyze)" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="fix" stackId="a" fill="var(--color-fix)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
+          )}
         </CardContent>
       </Card>
     </div>
