@@ -214,17 +214,10 @@ const toDataUrl = (dataUrl: string): string => {
 // ── Gateway request helpers ─────────────────────────────────────
 
 async function callGateway(apiKey: string, contentParts: any[], model?: string): Promise<Response> {
-  return fetch(GATEWAY_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: model || MODELS.imageGen,
-      messages: [{ role: "user", content: contentParts }],
-      modalities: ["image", "text"],
-    }),
+  return fetchGemini({
+    model: model || MODELS.imageGen,
+    messages: [{ role: "user", content: contentParts }],
+    modalities: ["image", "text"],
   });
 }
 
