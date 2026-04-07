@@ -83,10 +83,6 @@ const Index = () => {
 
       {/* Sticky Command Bar */}
       <CommandBar
-        amazonUrl={session.amazonUrl}
-        onAmazonUrlChange={session.setAmazonUrl}
-        onImportFromAmazon={session.handleImportFromAmazon}
-        isImporting={session.isImporting}
         onRunAudit={session.handleRunAudit}
         isAnalyzing={session.isAnalyzing}
         analyzingProgress={session.analyzingProgress}
