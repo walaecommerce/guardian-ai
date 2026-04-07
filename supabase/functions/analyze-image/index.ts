@@ -380,8 +380,11 @@ serve(async (req) => {
     } catch (creditErr: any) {
       if (creditErr?.status === 402) {
         return new Response(
-          JSON.stringify({ error: creditErr.message || 'No analyze credits remaining', errorType: 'payment_required' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({
+            error: creditErr.message || 'No analyze credits remaining',
+            errorType: 'payment_required'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       if (creditErr?.status === 401) {
