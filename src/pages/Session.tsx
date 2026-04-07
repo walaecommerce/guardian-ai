@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCreditGate } from '@/hooks/useCreditGate';
+import { useCredits } from '@/hooks/useCredits';
 import { RATE_LIMITS } from '@/config/models';
 import { useParams, Link } from 'react-router-dom';
 
@@ -31,6 +32,7 @@ import { uploadImage } from '@/services/imageStorage';
 import { extractAsin } from '@/services/amazonScraper';
 
 const Session = () => {
+  const { refresh: refreshCredits } = useCredits();
   const { guard: creditGate } = useCreditGate();
   const { sessionId } = useParams<{ sessionId: string }>();
   const { loadSession, isLoading: isLoadingSession, error: loadError } = useSessionLoader();
@@ -220,6 +222,7 @@ const Session = () => {
     addLog('success', '🎯 Guardian batch audit complete');
     setIsAnalyzing(false);
     toast({ title: 'Audit Complete', description: 'All images analyzed and saved.' });
+    refreshCredits();
   };
 
   const handleSaveReport = async () => {
@@ -453,6 +456,7 @@ const Session = () => {
         
         addLog('success', `🎉 Fix complete for ${asset.name}`);
         toast({ title: 'Fix Generated', description: 'AI-corrected image is ready and saved' });
+        refreshCredits();
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Fix failed';
@@ -487,6 +491,7 @@ const Session = () => {
     setIsBatchFixing(false);
     addLog('success', `✅ Batch fix complete!`);
     toast({ title: 'Batch Fix Complete', description: `Fixed ${failedAssets.length} images` });
+    refreshCredits();
   };
 
   const handleReverify = async (assetId: string) => {
