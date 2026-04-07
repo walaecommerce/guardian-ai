@@ -116,7 +116,7 @@ Return this EXACT JSON structure:
     }
     if (response.status === 402) {
       return new Response(JSON.stringify({ error: "AI credits exhausted.", errorType: "payment_required" }), {
-        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     if (!response.ok) {

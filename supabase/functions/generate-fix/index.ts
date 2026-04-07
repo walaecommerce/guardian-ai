@@ -677,7 +677,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.",
         errorType: "payment_required",
-      }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!response.ok) {
