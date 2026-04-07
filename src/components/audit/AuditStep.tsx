@@ -117,6 +117,7 @@ export function AuditStep({
             );
           })}
         </div>
+        </div>
       )}
 
       {/* Compliance Scorecard Summary */}
