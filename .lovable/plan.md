@@ -1,39 +1,55 @@
 
 
-## Plan: Update All Edge Functions to Latest Gemini Models
+## Plan: Add "Enhance All" Batch Operation to Fix Step
 
-### Current State
-- **Backend** (`_shared/models.ts`): Uses `gemini-2.5-flash` (LLM) and `gemini-2.5-flash-image` (image gen)
-- **Client** (`src/config/models.ts`): Uses `gemini-3.1-pro-preview` with `google/` prefixes (Lovable gateway format)
-- **6 edge functions** have model names **hardcoded** instead of using the shared config
+### Summary
+Add an "Enhance All" button alongside the existing "Fix All" button in the Fix step. "Fix All" targets compliance failures (FAIL/WARNING images without fixes). "Enhance All" targets ALL images (including PASS) to improve their marketing quality using the existing `enhance-analyze-image` and `generate-enhancement` edge functions.
 
 ### What Changes
 
-**Model Updates:**
-| Role | Current | New |
-|------|---------|-----|
-| Analysis/LLM | `gemini-2.5-flash` | `gemini-3.1-pro` |
-| Verification | `gemini-2.5-flash` | `gemini-3.1-pro` |
-| Image Generation | `gemini-2.5-flash-image` | `gemini-3-flash-image` |
-| Image Editing | `gemini-2.5-flash-image` | `gemini-3-flash-image` |
+#### 1. Add `handleBatchEnhance` to `useAuditSession.ts`
+- New state: `isBatchEnhancing`, `batchEnhanceProgress`
+- New handler that iterates through enhanceable images (all analyzed images, or optionally only PASS images that haven't been enhanced yet)
+- For each image: calls `enhance-analyze-image` to get enhancement analysis, then `generate-enhancement` to produce the enhanced version
+- Stores the enhanced image in `fixedImage` (reusing the existing field) with `fixMethod` set to a new value like `'enhancement'`
+- Sequential processing with rate limit delays (same pattern as batch fix)
+- Expose new state and handler in the return object
 
-### Files to Update
+#### 2. Add `'enhancement'` to `FixMethod` type in `types.ts`
+- Extend `FixMethod` union: `'bg-segmentation' | 'full-regeneration' | 'openai-inpainting' | 'surgical-edit' | 'enhancement'`
 
-1. **`supabase/functions/_shared/models.ts`** — Update all 4 model names to latest versions
+#### 3. Update `FixStep.tsx` UI
+- Add an "Enhance All" button (with Sparkles icon) next to "Fix All"
+- New props: `onBatchEnhance`, `isBatchEnhancing`, `batchEnhanceProgress`
+- Show enhance progress bar when enhancing
+- Count enhanceable images (analyzed images without enhanced versions)
+- When both Fix All and Enhance All are available, show both buttons side by side
 
-2. **`src/config/models.ts`** — Update client-side model names (keep `google/` prefix for Lovable gateway compatibility)
+#### 4. Update `CommandBar.tsx`
+- Add "Enhance All" as a secondary action when on the fix step and there are enhanceable images
 
-3. **Fix 6 hardcoded edge functions** — Replace inline model strings with `MODELS.*` imports or correct model names:
-   - `generate-suggestions/index.ts` — `google/gemini-3.1-pro-preview` → `gemini-3.1-pro`
-   - `compare-listings/index.ts` — `google/gemini-3.1-pro-preview` → `gemini-3.1-pro`
-   - `listing-scorecard/index.ts` — `google/gemini-2.5-flash` → `gemini-3.1-pro`
-   - `generate-suggested-image/index.ts` — `gemini-2.5-flash-image` → `gemini-3-flash-image`
-   - `check-policy-updates/index.ts` — `google/gemini-3.1-pro-preview` → `gemini-3.1-pro`
-   - `listing-suggestions/index.ts` — `google/gemini-3.1-pro-preview` → `gemini-3.1-pro`
+#### 5. Wire up in `Index.tsx`
+- Pass the new `handleBatchEnhance`, `isBatchEnhancing`, `batchEnhanceProgress` props to `FixStep`
 
-4. **Redeploy** all affected edge functions
+### Technical Details
 
-### Important Notes
-- Edge functions call `generativelanguage.googleapis.com` directly (not Lovable gateway), so model names must **not** have `google/` prefix
-- Several functions currently have `google/` prefix which may cause 404 errors — this fix resolves that too
+**Enhance flow per image:**
+```
+1. Call enhance-analyze-image → get EnhancementAnalysis
+2. Extract top enhancement opportunities
+3. Call generate-enhancement with analysis + main image reference
+4. Store result as fixedImage with fixMethod = 'enhancement'
+```
+
+**Button logic:**
+- "Fix All (N)" — shown when there are FAIL/WARNING images without fixes
+- "Enhance All (N)" — shown when there are analyzed images that could benefit from enhancement (PASS images or already-fixed images)
+- Both can coexist; they target different image sets
+
+### Files Modified
+1. `src/types.ts` — Add `'enhancement'` to `FixMethod`
+2. `src/hooks/useAuditSession.ts` — Add batch enhance state + handler
+3. `src/components/audit/FixStep.tsx` — Add Enhance All button + progress
+4. `src/pages/Index.tsx` — Wire new props
+5. `src/components/CommandBar.tsx` — Add enhance action (optional)
 
