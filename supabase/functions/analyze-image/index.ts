@@ -251,6 +251,44 @@ Return this EXACT JSON structure:
       "recommendation": "<how to fix>"
     }
   ],
+  "spatial_analysis": {
+    "overlay_elements": [
+      {
+        "id": "<unique_id e.g. badge_1>",
+        "type": "<best_seller_badge|amazons_choice_badge|watermark|promotional_text|ribbon|starburst|other>",
+        "location": "<top-left|top-right|bottom-left|bottom-right|center|top-center|bottom-center>",
+        "bounds": { "top": <%>, "left": <%>, "width": <%>, "height": <%> },
+        "is_part_of_packaging": <boolean — true if physically printed on product, false if digitally overlaid>,
+        "action": "remove" | "preserve"
+      }
+    ],
+    "text_zones": [
+      {
+        "id": "<unique_id e.g. text_1>",
+        "location": "<position description>",
+        "bounds": { "top": <%>, "left": <%>, "width": <%>, "height": <%> },
+        "content": "<visible text>",
+        "protection": "CRITICAL" | "HIGH" | "MEDIUM"
+      }
+    ],
+    "product_zones": [
+      {
+        "id": "<unique_id e.g. prod_1>",
+        "location": "<position description>",
+        "bounds": { "top": <%>, "left": <%>, "width": <%>, "height": <%> },
+        "coverage": <%>,
+        "type": "packaged-product" | "unpackaged-product" | "lifestyle-shot" | "demonstration"
+      }
+    ],
+    "protected_areas": [
+      {
+        "id": "<unique_id e.g. prot_1>",
+        "reason": "<why this area is protected>",
+        "bounds": { "top": <%>, "left": <%>, "width": <%>, "height": <%> },
+        "description": "<what is in this area>"
+      }
+    ]
+  },
   "content_consistency": {
     "packaging_text_detected": "<all text read from product packaging>",
     "extracted_details": {
@@ -298,6 +336,13 @@ STATUS MAPPING (derive from score — do NOT default to PASS):
 - Score below 50: status = "FAIL", severity = "HIGH" or "CRITICAL"
 
 IMPORTANT: Do NOT round scores up to 100. A score of 100 means literally zero issues found — no minor lighting concern, no slight text legibility issue, nothing. Be a strict grader.
+
+SPATIAL ANALYSIS — CRITICAL:
+You MUST populate the spatial_analysis object for EVERY image. Scan the entire image:
+- For MAIN images: Look for promotional badges (Best Seller, Amazon's Choice, etc.) that need removal. Map the product boundaries precisely.
+- For SECONDARY images: Map all text zones, infographic elements, and any prohibited overlays.
+- Provide bounding box estimates as percentages (0-100) of image width/height.
+- Mark overlay elements that are NOT part of the physical packaging as action: "remove".
 
 TEXT READABILITY SCORING (SECONDARY images only):
 - 100: All text is large, high-contrast, minimal density — perfect mobile readability
