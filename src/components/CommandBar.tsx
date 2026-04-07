@@ -98,16 +98,26 @@ export function CommandBar({
         {/* Desktop: inline action buttons */}
         <div className="hidden md:flex items-center gap-2">
           {hasAssets && !hasResults && (
-            <Button size="sm" onClick={onRunAudit} disabled={isAnalyzing} className="h-9">
-              {isAnalyzing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Play className="w-4 h-4 mr-1.5" />}
-              {isAnalyzing ? 'Auditing...' : 'Run Audit'}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" onClick={onRunAudit} disabled={isAnalyzing} className="h-9">
+                  {isAnalyzing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Play className="w-4 h-4 mr-1.5" />}
+                  {isAnalyzing ? 'Auditing...' : 'Run Audit'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Run Audit<kbd className={kbdClass}>⌘A</kbd></TooltipContent>
+            </Tooltip>
           )}
           {hasResults && unfixedFailures > 0 && (
-            <Button size="sm" variant="destructive" onClick={onBatchFix} disabled={isBatchFixing} className="h-9">
-              {isBatchFixing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1.5" />}
-              Fix All ({unfixedFailures})
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="destructive" onClick={onBatchFix} disabled={isBatchFixing} className="h-9">
+                  {isBatchFixing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1.5" />}
+                  Fix All ({unfixedFailures})
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Fix All<kbd className={kbdClass}>⌘F</kbd></TooltipContent>
+            </Tooltip>
           )}
           {hasResults && (
             <Button size="sm" variant="outline" onClick={onSaveReport} className="h-9">
