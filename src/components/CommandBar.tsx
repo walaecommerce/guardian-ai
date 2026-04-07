@@ -4,34 +4,29 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Import, Loader2, Play, Wand2, Save, ChevronDown } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Search, Import, Loader2, Play, Wand2, Save, MoreVertical } from 'lucide-react';
 import { MaxImagesOption } from '@/components/ImageUploader';
 import { AuditStepper } from '@/components/audit/AuditStepper';
 import { AuditStep } from '@/hooks/useAuditSession';
 import { cn } from '@/lib/utils';
 
 interface CommandBarProps {
-  // URL & import
   amazonUrl: string;
   onAmazonUrlChange: (url: string) => void;
   onImportFromAmazon: (maxImages: MaxImagesOption) => void;
   isImporting: boolean;
-  // Audit
   onRunAudit: () => void;
   isAnalyzing: boolean;
   analyzingProgress?: { current: number; total: number };
-  // Fix
   onBatchFix: () => void;
   isBatchFixing: boolean;
   batchFixProgress: { current: number; total: number } | null;
-  // Save
   onSaveReport: () => void;
-  // Counts
   assetCount: number;
   analyzedCount: number;
   failedCount: number;
   fixedCount: number;
-  // Stepper
   currentStep: AuditStep;
   onStepChange: (step: AuditStep) => void;
   completedSteps: Set<AuditStep>;
@@ -51,16 +46,19 @@ export function CommandBar({
   const hasResults = analyzedCount > 0;
   const unfixedFailures = failedCount - fixedCount;
 
+  // Whether there are any action items for the dropdown
+  const hasActions = (hasAssets && !hasResults) || (hasResults && unfixedFailures > 0) || hasResults;
+
   return (
     <div className="sticky top-12 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
       {/* URL Bar + Actions */}
-      <div className="px-4 py-2.5 flex items-center gap-3">
-        {/* URL Input */}
-        <div className="flex items-center gap-2 flex-1 max-w-xl">
-          <div className="relative flex-1">
+      <div className="px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-3">
+        {/* URL Input — full width on mobile, capped on desktop */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0 max-w-xl">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Paste Amazon product URL..."
+              placeholder="Amazon URL..."
               value={amazonUrl}
               onChange={e => onAmazonUrlChange(e.target.value)}
               disabled={isImporting}
@@ -68,7 +66,7 @@ export function CommandBar({
             />
           </div>
           <Select value={maxImages} onValueChange={(v) => setMaxImages(v as MaxImagesOption)}>
-            <SelectTrigger className="w-20 h-9 text-xs">
+            <SelectTrigger className="w-16 sm:w-20 h-9 text-xs shrink-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -77,36 +75,31 @@ export function CommandBar({
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
-          <Button 
-            size="sm" 
-            onClick={() => onImportFromAmazon(maxImages)} 
+          <Button
+            size="sm"
+            onClick={() => onImportFromAmazon(maxImages)}
             disabled={!amazonUrl || isImporting}
-            className="h-9"
+            className="h-9 shrink-0"
           >
-            {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Import className="w-4 h-4 mr-1.5" />}
-            {isImporting ? 'Importing...' : 'Import'}
+            {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Import className="w-4 h-4 sm:mr-1.5" />}
+            <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import'}</span>
           </Button>
         </div>
 
-        {/* Divider */}
-        <div className="w-px h-6 bg-border" />
-
-        {/* Context-aware action buttons */}
-        <div className="flex items-center gap-2">
+        {/* Desktop: inline action buttons */}
+        <div className="hidden md:flex items-center gap-2">
           {hasAssets && !hasResults && (
             <Button size="sm" onClick={onRunAudit} disabled={isAnalyzing} className="h-9">
               {isAnalyzing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Play className="w-4 h-4 mr-1.5" />}
               {isAnalyzing ? 'Auditing...' : 'Run Audit'}
             </Button>
           )}
-
           {hasResults && unfixedFailures > 0 && (
             <Button size="sm" variant="destructive" onClick={onBatchFix} disabled={isBatchFixing} className="h-9">
               {isBatchFixing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1.5" />}
               Fix All ({unfixedFailures})
             </Button>
           )}
-
           {hasResults && (
             <Button size="sm" variant="outline" onClick={onSaveReport} className="h-9">
               <Save className="w-4 h-4 mr-1.5" />
@@ -115,29 +108,63 @@ export function CommandBar({
           )}
         </div>
 
-        {/* Status counters */}
+        {/* Mobile: overflow dropdown */}
+        {hasActions && (
+          <div className="md:hidden shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-9 w-9">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {hasAssets && !hasResults && (
+                  <DropdownMenuItem onClick={onRunAudit} disabled={isAnalyzing}>
+                    {isAnalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                    {isAnalyzing ? 'Auditing...' : 'Run Audit'}
+                  </DropdownMenuItem>
+                )}
+                {hasResults && unfixedFailures > 0 && (
+                  <DropdownMenuItem onClick={onBatchFix} disabled={isBatchFixing} className="text-destructive focus:text-destructive">
+                    {isBatchFixing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
+                    Fix All ({unfixedFailures})
+                  </DropdownMenuItem>
+                )}
+                {hasResults && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onSaveReport}>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Report
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
+        {/* Desktop: status counters */}
         {hasAssets && (
-          <>
+          <div className="hidden lg:flex items-center gap-2 text-xs shrink-0">
             <div className="w-px h-6 bg-border" />
-            <div className="flex items-center gap-2 text-xs">
-              <Badge variant="secondary" className="font-mono">{assetCount} imgs</Badge>
-              {analyzedCount > 0 && (
-                <Badge variant="outline" className="font-mono text-success border-success/30">{analyzedCount - failedCount} pass</Badge>
-              )}
-              {failedCount > 0 && (
-                <Badge variant="outline" className="font-mono text-destructive border-destructive/30">{failedCount} fail</Badge>
-              )}
-              {fixedCount > 0 && (
-                <Badge variant="outline" className="font-mono text-primary border-primary/30">{fixedCount} fixed</Badge>
-              )}
-            </div>
-          </>
+            <Badge variant="secondary" className="font-mono">{assetCount} imgs</Badge>
+            {analyzedCount > 0 && (
+              <Badge variant="outline" className="font-mono text-success border-success/30">{analyzedCount - failedCount} pass</Badge>
+            )}
+            {failedCount > 0 && (
+              <Badge variant="outline" className="font-mono text-destructive border-destructive/30">{failedCount} fail</Badge>
+            )}
+            {fixedCount > 0 && (
+              <Badge variant="outline" className="font-mono text-primary border-primary/30">{fixedCount} fixed</Badge>
+            )}
+          </div>
         )}
       </div>
 
       {/* Progress bar */}
       {(isAnalyzing && analyzingProgress) && (
-        <div className="px-4 pb-2">
+        <div className="px-3 sm:px-4 pb-2">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
             <Loader2 className="w-3 h-3 animate-spin" />
             Auditing {analyzingProgress.current}/{analyzingProgress.total}
@@ -147,7 +174,7 @@ export function CommandBar({
       )}
 
       {isBatchFixing && batchFixProgress && (
-        <div className="px-4 pb-2">
+        <div className="px-3 sm:px-4 pb-2">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
             <Loader2 className="w-3 h-3 animate-spin" />
             Fixing {batchFixProgress.current}/{batchFixProgress.total}
@@ -157,7 +184,7 @@ export function CommandBar({
       )}
 
       {/* Stepper */}
-      <div className="px-4 pb-2">
+      <div className="px-3 sm:px-4 pb-2">
         <AuditStepper
           currentStep={currentStep}
           onStepChange={onStepChange}
@@ -170,7 +197,7 @@ export function CommandBar({
 
       {/* Mini progress indicator */}
       {hasAssets && (
-        <div className="px-4 pb-2.5 flex items-center gap-4 text-[11px] text-muted-foreground">
+        <div className="px-3 sm:px-4 pb-2.5 flex items-center gap-3 sm:gap-4 text-[11px] text-muted-foreground flex-wrap">
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary" />
             <span className="font-medium text-foreground">{assetCount}</span> imported
