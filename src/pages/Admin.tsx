@@ -51,6 +51,7 @@ export default function Admin() {
   const [activityPage, setActivityPage] = useState(0);
   const [activityTotal, setActivityTotal] = useState(0);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<'all' | 'scrape' | 'analyze' | 'fix'>('all');
   const [loading, setLoading] = useState(true);
   const [editingCredits, setEditingCredits] = useState<Record<string, number>>({});
   const [roleDialog, setRoleDialog] = useState<{ open: boolean; userId: string; action: 'grant' | 'revoke'; userName: string }>({
@@ -71,15 +72,18 @@ export default function Admin() {
     fetchActivity(0);
   }, [isAdmin]);
 
-  async function fetchActivity(page: number) {
+  async function fetchActivity(page: number, filter: 'all' | 'scrape' | 'analyze' | 'fix' = activityFilter) {
     setActivityLoading(true);
     const from = page * ACTIVITY_PAGE_SIZE;
     const to = from + ACTIVITY_PAGE_SIZE - 1;
-    const { data, count } = await supabase
+    let query = supabase
       .from('credit_usage_log')
       .select('id, user_id, credit_type, edge_function, consumed_at', { count: 'exact' })
-      .order('consumed_at', { ascending: false })
-      .range(from, to);
+      .order('consumed_at', { ascending: false });
+    if (filter !== 'all') {
+      query = query.eq('credit_type', filter);
+    }
+    const { data, count } = await query.range(from, to);
     if (data) setActivityLog(data);
     if (count !== null) setActivityTotal(count);
     setActivityPage(page);
@@ -336,9 +340,25 @@ export default function Admin() {
         {/* Activity Tab */}
         <TabsContent value="activity">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
               <CardTitle className="text-lg">Recent Activity</CardTitle>
-              <span className="text-xs text-muted-foreground">{activityTotal} total actions</span>
+              <div className="flex items-center gap-3">
+                <select
+                  value={activityFilter}
+                  onChange={(e) => {
+                    const val = e.target.value as typeof activityFilter;
+                    setActivityFilter(val);
+                    fetchActivity(0, val);
+                  }}
+                  className="text-xs bg-background border border-border rounded-md px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="all">All types</option>
+                  <option value="scrape">Scrape</option>
+                  <option value="analyze">Analyze</option>
+                  <option value="fix">Fix</option>
+                </select>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{activityTotal} actions</span>
+              </div>
             </CardHeader>
             <CardContent>
               {activityLoading ? (
