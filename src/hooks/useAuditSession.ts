@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useCreditGate } from '@/hooks/useCreditGate';
+import { useCredits } from '@/hooks/useCredits';
 import { useAuth } from '@/hooks/useAuth';
 import { RATE_LIMITS } from '@/config/models';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
@@ -19,6 +20,7 @@ export type AuditStep = 'import' | 'audit' | 'fix' | 'review';
 
 export function useAuditSession() {
   const { guard: creditGate } = useCreditGate();
+  const { refresh: refreshCredits } = useCredits();
   const { user } = useAuth();
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [listingTitle, setListingTitle] = useState('');
