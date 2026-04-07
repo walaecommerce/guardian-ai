@@ -608,7 +608,7 @@ serve(async (req) => {
 
       if (imageBase64 && !isRetryAfterBgSegFail) {
         // PATTERN A1 — Background-only edit (primary approach for MAIN)
-        let prompt = customPrompt || buildBackgroundReplacementPrompt(title, fixCategory, productIdentity);
+        let prompt = customPrompt || buildBackgroundReplacementPrompt(title, fixCategory, productIdentity, violations);
         if (previousCritique) {
           prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
         }
@@ -638,7 +638,7 @@ serve(async (req) => {
 
     } else if (mainImageBase64) {
       // PATTERN C — SECONDARY with main reference
-      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity);
+      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity, violations);
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
       if (previousCritique) {
