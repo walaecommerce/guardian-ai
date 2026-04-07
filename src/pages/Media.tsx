@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +46,7 @@ const Media = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [filterSession, setFilterSession] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
 
@@ -81,9 +83,16 @@ const Media = () => {
     return session?.listing_title || session?.product_asin || 'Unknown Session';
   };
 
+  const getSessionLabel = (s: SessionInfo) => {
+    const title = (s.listing_title || 'Untitled').substring(0, 25);
+    const suffix = s.product_asin || format(new Date(s.created_at), 'MMM d');
+    return `${title} · ${suffix}`;
+  };
+
   const filteredImages = images.filter(img => {
     if (filterSession !== 'all' && img.session_id !== filterSession) return false;
     if (filterStatus !== 'all' && img.status !== filterStatus) return false;
+    if (filterCategory !== 'all' && img.image_category !== filterCategory) return false;
     if (searchQuery && !img.image_name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
@@ -140,7 +149,7 @@ const Media = () => {
               <SelectItem value="all">All Sessions</SelectItem>
               {sessions.map(s => (
                 <SelectItem key={s.id} value={s.id}>
-                  {(s.listing_title || s.product_asin || 'Untitled').substring(0, 30)}
+                  {getSessionLabel(s)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -155,6 +164,21 @@ const Media = () => {
               <SelectItem value="passed">Passed</SelectItem>
               <SelectItem value="failed">Failed</SelectItem>
               <SelectItem value="fixed">Fixed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-full sm:w-44">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="PRODUCT_SHOT">Product Shot</SelectItem>
+              <SelectItem value="INFOGRAPHIC">Infographic</SelectItem>
+              <SelectItem value="LIFESTYLE">Lifestyle</SelectItem>
+              <SelectItem value="PACKAGING">Packaging</SelectItem>
+              <SelectItem value="SIZE_CHART">Size Chart</SelectItem>
+              <SelectItem value="COMPARISON">Comparison</SelectItem>
+              <SelectItem value="OTHER">Other</SelectItem>
             </SelectContent>
           </Select>
         </div>

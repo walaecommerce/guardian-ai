@@ -12,6 +12,7 @@ import { PolicyBanner } from '@/components/PolicyUpdates';
 import { AuditHistoryEntry } from '@/components/ComplianceHistory';
 import { usePolicyUpdates } from '@/hooks/usePolicyUpdates';
 import { CreditWarningBanner } from '@/components/CreditWarningBanner';
+import { AICreditsExhaustedBanner } from '@/components/AICreditsExhaustedBanner';
 import { useToast } from '@/hooks/use-toast';
 import { ImageAsset } from '@/types';
 
@@ -82,8 +83,9 @@ const Index = () => {
         <PolicyBanner updates={highImpactUpdates} onDismiss={() => setBannerDismissed(true)} />
       )}
 
-      {/* Credit Warning Banner */}
+      {/* Credit Warning Banners */}
       <CreditWarningBanner />
+      <AICreditsExhaustedBanner visible={session.aiCreditsExhausted} />
 
       {/* Sticky Command Bar */}
       <CommandBar
@@ -129,6 +131,7 @@ const Index = () => {
             bulkProgress={session.bulkProgress}
             onBulkImport={session.handleBulkImport}
             productAsin={session.productAsin}
+            importError={session.importError}
           />
         )}
 
@@ -149,6 +152,7 @@ const Index = () => {
             onGoToFix={() => session.setCurrentStep('fix')}
             onRunAudit={session.handleRunAudit}
             onSelectAsset={handleSelectAsset}
+            onRetryFailedAnalysis={session.handleRetryFailedAnalysis}
           />
         )}
 

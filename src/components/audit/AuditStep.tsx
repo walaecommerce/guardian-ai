@@ -24,6 +24,7 @@ interface AuditStepProps {
   onGoToFix: () => void;
   onRunAudit: () => void;
   onSelectAsset: (asset: ImageAsset) => void;
+  onRetryFailedAnalysis: () => void;
 }
 
 export function AuditStep({
@@ -31,12 +32,14 @@ export function AuditStep({
   onRequestFix, onViewDetails, onReverify, onBatchFix,
   isBatchFixing, batchFixProgress, productAsin, competitorData,
   getMatchingPolicyUpdate, onGoToFix, onRunAudit, onSelectAsset,
+  onRetryFailedAnalysis,
 }: AuditStepProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const passedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS');
   const failedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING');
+  const errorAssets = assets.filter(a => a.analysisError);
   const hasResults = analyzedAssets.length > 0;
-  const needsAudit = assets.length > 0 && !hasResults && !isAnalyzing;
+  const needsAudit = assets.length > 0 && !hasResults && !isAnalyzing && errorAssets.length === 0;
 
   const scores = analyzedAssets.map(a => a.analysisResult?.overallScore || 0);
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
