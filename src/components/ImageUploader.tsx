@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Upload, Link, X, Image as ImageIcon, Loader2, Shield, Crop, Star, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Loader2, Shield, Crop, Star, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
