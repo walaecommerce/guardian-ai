@@ -84,7 +84,6 @@ const Index = () => {
 
       {/* Credit Warning Banner */}
       <CreditWarningBanner />
-      )}
 
       {/* Sticky Command Bar */}
       <CommandBar
