@@ -101,9 +101,22 @@ export function generateExportData(
         })),
         fixed: !!asset.fixedImage,
         fixed_score: undefined,
+        fix_method: asset.fixMethod,
       };
     }),
   };
+
+  // Aggregate fix method counts
+  const fixMethodCounts = { 'bg-segmentation': 0, 'full-regeneration': 0, 'surgical-edit': 0, 'openai-inpainting': 0 };
+  assets.filter(a => a.fixedImage && a.fixMethod).forEach(a => {
+    if (a.fixMethod && a.fixMethod in fixMethodCounts) {
+      fixMethodCounts[a.fixMethod]++;
+    }
+  });
+  const totalFixes = Object.values(fixMethodCounts).reduce((s, c) => s + c, 0);
+  if (totalFixes > 0) {
+    report.fix_methods = fixMethodCounts;
+  }
 
   // Add competitive analysis if competitor data exists
   if (competitorData) {
