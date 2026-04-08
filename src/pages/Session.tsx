@@ -342,8 +342,32 @@ const Session = () => {
             }
           });
 
-          if (genError) throw genError;
-          if (genData?.error) throw new Error(genData.error);
+          if (genError) {
+            const errorContext = (genError as any)?.context;
+            const status = errorContext?.status as number | undefined;
+            let body: any = undefined;
+            if (errorContext?.body) {
+              try { body = typeof errorContext.body === 'string' ? JSON.parse(errorContext.body) : errorContext.body; } catch { body = undefined; }
+            }
+            const serverMsg: string | undefined = body?.error || body?.message;
+            const serverType: string | undefined = body?.errorType;
+
+            if (status === 402 || serverType === 'payment_required') {
+              addLog('error', `❌ ${serverMsg || 'No fix credits remaining'}`);
+              toast({ title: 'Fix Credits Exhausted', description: serverMsg || 'Upgrade your plan to continue.', variant: 'destructive' });
+              return;
+            }
+
+            throw new Error(serverMsg || (genError as any)?.message || 'Generation failed');
+          }
+          if (genData?.error) {
+            if (genData.errorType === 'payment_required') {
+              addLog('error', `❌ ${genData.error}`);
+              toast({ title: 'Fix Credits Exhausted', description: genData.error || 'Upgrade your plan to continue.', variant: 'destructive' });
+              return;
+            }
+            throw new Error(genData.error);
+          }
           if (!genData?.fixedImage) throw new Error('No image generated');
 
           addLog('success', `✨ AI generation complete`);
