@@ -770,7 +770,7 @@ const Session = () => {
                     className="w-full"
                   >
                     <Save className="h-4 w-4 mr-2" />
-                    Save Report
+                    Save to History
                   </Button>
                 )}
                 {assets.length === 0 && (

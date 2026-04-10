@@ -11,7 +11,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Save, Swords, Loader2, Import, FileBarChart, GitCompare, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Save, Swords, Loader2, Import, FileBarChart, GitCompare, Search, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface ReviewStepProps {
@@ -108,6 +109,14 @@ export function ReviewStep({
   const [subTab, setSubTab] = useState('reports');
   const hasResults = assets.some(a => a.analysisResult);
 
+  const analyzedAssets = assets.filter(a => a.analysisResult);
+  const passedCount = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS').length;
+  const failedCount = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING').length;
+  const fixedCount = assets.filter(a => a.fixedImage).length;
+  const scores = analyzedAssets.map(a => a.analysisResult?.overallScore || 0);
+  const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  const allClean = failedCount === 0 || fixedCount >= failedCount;
+
   if (!hasResults) {
     return (
       <EmptyState
@@ -122,6 +131,33 @@ export function ReviewStep({
 
   return (
     <div className="space-y-4">
+      {/* Completion summary */}
+      <Card className={allClean ? 'border-green-500/20 bg-green-500/5' : 'border-yellow-500/20 bg-yellow-500/5'}>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center gap-3">
+            {allClean ? (
+              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+            )}
+            <div className="flex-1">
+              <p className="text-sm font-semibold">
+                {allClean ? 'Audit Complete — All Issues Resolved' : `${failedCount - fixedCount} issue${failedCount - fixedCount !== 1 ? 's' : ''} still need fixing`}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {analyzedAssets.length} images analyzed • {avgScore}% average score
+                {fixedCount > 0 && ` • ${fixedCount} fixed`}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <Badge variant="outline" className="text-xs">{passedCount} passed</Badge>
+              {failedCount > 0 && <Badge variant="destructive" className="text-xs">{failedCount} failed</Badge>}
+              {fixedCount > 0 && <Badge className="bg-primary/15 text-primary border-primary/30 text-xs">{fixedCount} fixed</Badge>}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Top action bar */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg font-semibold">Review & Export</h3>
