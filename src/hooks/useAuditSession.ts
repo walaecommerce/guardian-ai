@@ -4,6 +4,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { useAuth } from '@/hooks/useAuth';
 import { RATE_LIMITS } from '@/config/models';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
+import { runDeterministicAudit } from '@/utils/deterministicAudit';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
 import { extractImageCategory } from '@/utils/imageCategory';
@@ -471,12 +472,28 @@ export function useAuditSession() {
     try {
       const base64 = await fileToBase64(asset.file);
 
+      // Run deterministic checks first
+      let deterministicFindings: any[] | undefined;
+      try {
+        const detResult = await runDeterministicAudit(asset.preview, asset.type);
+        deterministicFindings = detResult.findings;
+        const failCount = detResult.findings.filter(f => !f.passed).length;
+        if (failCount > 0) {
+          addLog('info', `   📐 Deterministic pre-check: ${failCount} issue(s) detected`);
+        } else {
+          addLog('info', `   📐 Deterministic pre-check: all passed`);
+        }
+      } catch (detErr) {
+        console.error('Deterministic audit error (non-fatal):', detErr);
+      }
+
       const { data, error } = await supabase.functions.invoke('analyze-image', {
         body: {
           imageBase64: base64,
           imageType: asset.type,
           listingTitle,
           forcedCategory: selectedCategory !== 'AUTO' ? selectedCategory : undefined,
+          deterministicFindings,
         }
       });
 

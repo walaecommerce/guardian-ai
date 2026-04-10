@@ -470,7 +470,7 @@ serve(async (req) => {
 
     const bodyOrError = await parseJsonBody(req);
     if (bodyOrError instanceof Response) return bodyOrError;
-    const { imageBase64, imageType, listingTitle, forcedCategory } = bodyOrError as Record<string, any>;
+    const { imageBase64, imageType, listingTitle, forcedCategory, deterministicFindings } = bodyOrError as Record<string, any>;
 
     if (!imageBase64) return errorResponse(400, 'Missing required field: imageBase64', {}, corsHeaders);
 
@@ -481,7 +481,19 @@ serve(async (req) => {
     console.log(`[analyze-image] Analyzing ${imageType} image with category detection...`);
 
     const systemPrompt = buildAnalysisPrompt(isMain, titleRef, forcedCategory || undefined);
-    const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}`;
+
+    // Build deterministic context if provided
+    let deterministicContext = '';
+    if (deterministicFindings && Array.isArray(deterministicFindings) && deterministicFindings.length > 0) {
+      const failedFindings = deterministicFindings.filter((f: any) => !f.passed);
+      const passedFindings = deterministicFindings.filter((f: any) => f.passed);
+      deterministicContext = `\n\nPRE-ANALYSIS DETERMINISTIC FINDINGS (already verified — incorporate these, do NOT contradict them):
+${failedFindings.length > 0 ? `FAILED checks:\n${failedFindings.map((f: any) => `- [${f.rule_id}] ${f.message} (measured: ${f.evidence?.measured_value}, threshold: ${f.evidence?.threshold})`).join('\n')}` : 'All deterministic checks passed.'}
+${passedFindings.length > 0 ? `PASSED checks:\n${passedFindings.map((f: any) => `- [${f.rule_id}] ${f.message}`).join('\n')}` : ''}
+IMPORTANT: If a deterministic check FAILED with severity "critical", your overall score MUST reflect this. Do not override deterministic failures with a passing score.`;
+    }
+
+    const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}${deterministicContext}`;
 
     const response = await fetchGemini({
       model: MODELS.analysis,
@@ -609,10 +621,22 @@ serve(async (req) => {
       };
     };
 
+    // Compute policy_status from deterministic findings if available
+    let policyStatus: 'pass' | 'warning' | 'fail' = derivedStatus === 'FAIL' ? 'fail' : derivedStatus === 'WARNING' ? 'warning' : 'pass';
+    if (deterministicFindings && Array.isArray(deterministicFindings)) {
+      const hasCriticalFail = deterministicFindings.some((f: any) => !f.passed && f.severity === 'critical');
+      if (hasCriticalFail) policyStatus = 'fail';
+      else if (deterministicFindings.some((f: any) => !f.passed && f.severity === 'warning') && policyStatus === 'pass') {
+        policyStatus = 'warning';
+      }
+    }
+
     const mappedResult = {
       overallScore: score,
       status: derivedStatus,
       severity: normalizeSeverity(derivedSeverity),
+      policyStatus,
+      qualityScore: score,
       scoringRationale: rawResult.scoring_rationale || rawResult.scoringRationale || null,
       productCategory: detectedCategory,
       violations: (rawResult.violations || []).map((v: any) => ({
@@ -620,6 +644,8 @@ serve(async (req) => {
         category: v.rule || 'general',
         message: v.description || v.message || '',
         recommendation: v.recommendation || '',
+        rule_id: v.rule_id || undefined,
+        evidence: v.evidence || undefined,
       })),
       contentConsistency: rawResult.content_consistency ? {
         packagingTextDetected: rawResult.content_consistency.packaging_text_detected || '',
@@ -647,6 +673,7 @@ serve(async (req) => {
       spatialAnalysis: normalizeSpatialAnalysis(rawResult.spatialAnalysis || rawResult.spatial_analysis),
       textReadabilityScore: rawResult.text_readability_score ?? rawResult.textReadabilityScore ?? null,
       emotionalAppealScore: rawResult.emotional_appeal_score ?? rawResult.emotionalAppealScore ?? null,
+      deterministicFindings: deterministicFindings || undefined,
     };
 
     return new Response(JSON.stringify(mappedResult), {

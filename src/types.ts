@@ -76,6 +76,16 @@ export interface Violation {
   message: string;
   recommendation: string;
   affectedZone?: string; // ID of the affected spatial zone
+  rule_id?: string;      // Policy rule that triggered this
+  evidence?: {
+    rule_id: string;
+    source: string;
+    why_triggered: string;
+    measured_value: string | number;
+    threshold: string | number;
+    bounding_box?: { top: number; left: number; width: number; height: number };
+    ocr_snippet?: string;
+  };
 }
 
 // Spatial Analysis Types for zone-aware editing
@@ -128,6 +138,8 @@ export interface SpatialAnalysis {
 export interface AnalysisResult {
   overallScore: number;
   status: 'PASS' | 'WARNING' | 'FAIL';
+  policyStatus?: 'pass' | 'warning' | 'fail';
+  qualityScore?: number;
   scoringRationale?: string;
   productCategory?: string;
   mainImageAnalysis?: MainImageAnalysis;
@@ -136,6 +148,22 @@ export interface AnalysisResult {
   violations: Violation[];
   fixRecommendations: string[];
   generativePrompt?: string;
+  deterministicFindings?: DeterministicFindingSummary[];
+}
+
+/** Compact summary of a deterministic finding stored on AnalysisResult */
+export interface DeterministicFindingSummary {
+  rule_id: string;
+  severity: 'critical' | 'warning' | 'info';
+  passed: boolean;
+  message: string;
+  evidence?: {
+    rule_id: string;
+    source: string;
+    why_triggered: string;
+    measured_value: string | number;
+    threshold: string | number;
+  };
 }
 
 // Verification Types
