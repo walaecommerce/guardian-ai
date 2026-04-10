@@ -82,6 +82,7 @@ const Studio = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
 
+  const [category, setCategory] = useState('GENERAL');
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<GeneratedImage[]>([]);
   const [history] = useState<GeneratedImage[]>(getHistory);
@@ -135,6 +136,7 @@ const Studio = () => {
           template: selectedTemplate,
           aspectRatio,
           resolution,
+          category,
           customPrompt: showAdvanced && customPrompt ? customPrompt : undefined,
         },
       });

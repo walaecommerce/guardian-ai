@@ -49,12 +49,18 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
         fixRecommendations: a.analysisResult!.fixRecommendations,
       }));
 
+      // Run deterministic title analysis to pass to backend
+      const { analyzeTitleCompliance } = await import('@/utils/titleAnalyzer');
+      const titleCompliance = analyzeTitleCompliance(listingTitle);
+      const titleRuleViolations = titleCompliance.findings.filter(f => !f.passed);
+
       const { data: result, error: fnError } = await supabase.functions.invoke('generate-suggestions', {
         body: {
           listingTitle,
           auditResults,
           scoreCardData: null,
           imageCount: assets.length,
+          titleRuleViolations,
         },
       });
 
@@ -177,7 +183,7 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
               <ImageImprovementsTab items={data.image_improvements || []} assets={assets} onApplyFix={onApplyFix} />
             </TabsContent>
             <TabsContent value="title" className="mt-3">
-              <TitleImprovementsTab items={data.title_improvements || []} />
+              <TitleImprovementsTab items={data.title_improvements || []} listingTitle={listingTitle} />
             </TabsContent>
           </Tabs>
 
