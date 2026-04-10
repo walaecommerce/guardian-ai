@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Sparkles, ImagePlus, Zap, Type, Image as ImageIcon, Lightbulb } from 'lucide-react';
 import { ImageAsset } from '@/types';
-import { extractImageCategory, getDominantCategory } from '@/utils/imageCategory';
+import { extractImageCategory, getDominantProductCategory } from '@/utils/imageCategory';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SuggestionsData } from './types';
@@ -194,7 +194,7 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
             </TabsList>
 
             <TabsContent value="missing" className="mt-3">
-              <MissingImagesTab items={data.missing_image_types || []} onImageGenerated={onImageGenerated} listingTitle={listingTitle} category={getDominantCategory(assets)} />
+              <MissingImagesTab items={data.missing_image_types || []} onImageGenerated={onImageGenerated} listingTitle={listingTitle} category={getDominantProductCategory(assets)} />
             </TabsContent>
             <TabsContent value="quickwins" className="mt-3">
               <QuickWinsTab items={data.quick_wins || []} />
