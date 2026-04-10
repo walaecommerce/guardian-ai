@@ -47,7 +47,10 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
+    // Auth guard
+    const authResult = await requireAuth(req, corsHeaders);
+    if (isAuthError(authResult)) return authResult;
+
     const { claims, productTitle, asin } = await req.json();
     
     const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
