@@ -65,6 +65,7 @@ interface SavedCampaign {
   date: string;
   score: number;
   products: number;
+  status: string;
   summary: CampaignSummary;
 }
 
