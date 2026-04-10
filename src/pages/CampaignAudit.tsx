@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useCreditGate } from '@/hooks/useCreditGate';
+import { useAuth } from '@/hooks/useAuth';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,21 +66,7 @@ interface SavedCampaign {
   summary: CampaignSummary;
 }
 
-const CAMPAIGNS_KEY = 'guardian-campaigns';
 const PRODUCT_COOLDOWN = 15000;
-
-function getSavedCampaigns(): SavedCampaign[] {
-  try {
-    return JSON.parse(localStorage.getItem(CAMPAIGNS_KEY) || '[]');
-  } catch { return []; }
-}
-
-function saveCampaign(campaign: SavedCampaign) {
-  const existing = getSavedCampaigns();
-  existing.unshift(campaign);
-  // Keep last 20
-  localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(existing.slice(0, 20)));
-}
 
 // ── Status badge ─────────────────────────────────────────────
 
@@ -110,6 +97,7 @@ function scoreColor(score: number): string {
 
 const CampaignAudit = () => {
   const { guard: creditGate } = useCreditGate();
+  const { user } = useAuth();
   const [urls, setUrls] = useState('');
   const [campaignName, setCampaignName] = useState('');
   const [clientName, setClientName] = useState('');
@@ -118,10 +106,33 @@ const CampaignAudit = () => {
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [cooldown, setCooldown] = useState(0);
   const [summary, setSummary] = useState<CampaignSummary | null>(null);
-  const [savedCampaigns] = useState<SavedCampaign[]>(getSavedCampaigns);
+  const [savedCampaigns, setSavedCampaigns] = useState<SavedCampaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const abortRef = useRef(false);
   const { toast } = useToast();
+
+  // Load saved campaigns from Supabase
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('campaign_audits')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (data) {
+        setSavedCampaigns(data.map(c => ({
+          id: c.id,
+          name: c.name,
+          client: c.client,
+          date: c.created_at,
+          score: c.score,
+          products: c.products_count,
+          summary: (c.summary as any) || {},
+        })));
+      }
+    })();
+  }, [user]);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -317,15 +328,43 @@ const CampaignAudit = () => {
     setIsRunning(false);
     setCurrentIndex(-1);
 
-    // Save to localStorage
-    saveCampaign({
-      name: campaignSummary.campaign_name,
-      client: clientName,
-      date: campaignSummary.date,
-      score: avgScore,
-      products: completedProducts.length,
-      summary: campaignSummary,
-    });
+    // Save to Supabase
+    if (user) {
+      // Strip large base64 image data before storing
+      const strippedProducts = completedProducts.map(p => ({
+        ...p,
+        assets: p.assets.map(a => ({
+          id: a.id, name: a.name, type: a.type,
+          analysisResult: a.analysisResult,
+        })),
+      }));
+      const strippedSummary = { ...campaignSummary, products: strippedProducts };
+
+      const { data: inserted } = await supabase
+        .from('campaign_audits')
+        .insert([{
+          user_id: user.id,
+          name: campaignSummary.campaign_name,
+          client: clientName,
+          score: avgScore,
+          products_count: completedProducts.length,
+          summary: JSON.parse(JSON.stringify(strippedSummary)),
+        }])
+        .select()
+        .single();
+
+      if (inserted) {
+        setSavedCampaigns(prev => [{
+          id: inserted.id,
+          name: inserted.name,
+          client: inserted.client,
+          date: inserted.created_at,
+          score: inserted.score,
+          products: inserted.products_count,
+          summary: strippedSummary as any,
+        }, ...prev].slice(0, 20));
+      }
+    }
 
     toast({ title: 'Campaign Complete', description: `Audited ${completedProducts.length} products with ${avgScore}% average score` });
   };
@@ -333,15 +372,14 @@ const CampaignAudit = () => {
   const stopCampaign = () => { abortRef.current = true; };
 
   // ── Load saved campaign ────────────────────────────────────
-  const loadCampaign = (dateKey: string) => {
-    const campaigns = getSavedCampaigns();
-    const found = campaigns.find(c => c.date === dateKey);
+  const loadCampaign = (idOrDate: string) => {
+    const found = savedCampaigns.find(c => c.id === idOrDate || c.date === idOrDate);
     if (found) {
       setSummary(found.summary);
-      setProducts(found.summary.products);
+      setProducts(found.summary.products || []);
       setCampaignName(found.name);
       setClientName(found.client);
-      setSelectedCampaign(dateKey);
+      setSelectedCampaign(idOrDate);
     }
   };
 
