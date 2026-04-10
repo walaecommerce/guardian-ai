@@ -146,6 +146,7 @@ const Studio = () => {
     }
 
     setIsGenerating(true);
+    logEvent('studio_generation_started', { template: selectedTemplate, productName });
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-studio-image', {
@@ -183,6 +184,7 @@ const Studio = () => {
       analyzeGenerated(newImage);
 
     } catch (e) {
+      logEvent('studio_generation_failed', { template: selectedTemplate, productName, error: e instanceof Error ? e.message : 'unknown' });
       toast({
         title: 'Generation failed',
         description: e instanceof Error ? e.message : 'Unknown error',
