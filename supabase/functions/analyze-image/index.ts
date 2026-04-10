@@ -443,29 +443,7 @@ serve(async (req) => {
   }
 
   try {
-    // Deduct analyze credit
-    try {
-      const userId = await getUserIdFromAuth(req);
-      const admin = createAdminClient();
-      await useCredit(admin, userId, 'analyze');
-    } catch (creditErr: any) {
-      if (creditErr?.status === 402) {
-        return new Response(
-          JSON.stringify({
-            error: creditErr.message || 'No analyze credits remaining',
-            errorType: 'payment_required'
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (creditErr?.status === 401) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      console.warn('[analyze-image] Credit check failed, proceeding:', creditErr);
-    }
+    const { geminiApiKey } = await resolveAuth(req);
 
     const { imageBase64, imageType, listingTitle, forcedCategory } = await req.json();
 
