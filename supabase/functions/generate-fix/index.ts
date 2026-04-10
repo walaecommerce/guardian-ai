@@ -480,31 +480,7 @@ serve(async (req) => {
   }
 
   try {
-    // Auth validation
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    const supabaseAuth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(authHeader.replace('Bearer ', ''));
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    console.log(`[generate-fix] Authenticated user: ${claimsData.claims.sub}`);
-
-    // Deduct fix credit
-    try {
-      const admin = createAdminClient();
-      await useCredit(admin, claimsData.claims.sub as string, 'fix');
-    } catch (creditErr: any) {
-      if (creditErr?.status === 402) {
-        return new Response(
-          JSON.stringify({ error: creditErr.message || 'No fix credits remaining', errorType: 'payment_required' }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      console.warn('[generate-fix] Credit check failed, proceeding:', creditErr);
-    }
+    const { geminiApiKey } = await resolveAuth(req);
 
     const {
       imageBase64,
@@ -525,7 +501,6 @@ serve(async (req) => {
 
     const fixCategory = detectFixCategory(imageCategory, productTitle);
     console.log(`[generate-fix] Detected category: ${fixCategory} (from imageCategory=${imageCategory}, title=${productTitle?.slice(0, 40)})`);
-    }
 
     const isMain = imageType === 'MAIN';
     const isSecondary = !isMain;
