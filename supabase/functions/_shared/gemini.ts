@@ -7,11 +7,7 @@
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-function getApiKey(): string {
-  const key = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-  if (!key) throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
-  return key;
-}
+// API key is now passed per-call via FetchGeminiOptions.apiKey
 
 // ── Convert OpenAI messages → Gemini contents ────────────────────
 
