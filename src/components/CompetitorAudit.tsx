@@ -13,6 +13,7 @@ import {
   CheckCircle, XCircle, AlertTriangle, ImageIcon, Lightbulb, ShieldCheck,
   Swords, Trophy, Target, Zap, ChevronRight,
 } from 'lucide-react';
+import { extractImageCategory } from '@/utils/imageCategory';
 import { ImageAsset, ImageCategory } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -110,7 +111,7 @@ function buildSummary(assets: ImageAsset[], title: string): ListingSummary {
 
   const cats: Record<string, number> = {};
   assets.forEach(a => {
-    const cat = a.name.split('_')[0] || 'UNKNOWN';
+    const cat = extractImageCategory(a);
     cats[cat] = (cats[cat] || 0) + 1;
   });
 

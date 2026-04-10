@@ -6,6 +6,8 @@ import { RATE_LIMITS } from '@/config/models';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
+import { extractImageCategory } from '@/utils/imageCategory';
+import { buildAssetFromDownload } from '@/utils/sessionAssetHelpers';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { uploadImage } from '@/services/imageStorage';
@@ -1237,7 +1239,7 @@ export function useAuditSession() {
         imageCount: assets.length,
         images: assets.filter(a => a.analysisResult).map(a => ({
           type: a.type,
-          category: a.name.split('_')[0],
+          category: extractImageCategory(a),
           score: a.analysisResult?.overallScore,
           status: a.analysisResult?.status,
           violations: a.analysisResult?.violations?.map(v => ({ severity: v.severity, message: v.message })) || [],
@@ -1249,7 +1251,7 @@ export function useAuditSession() {
         imageCount: compData.imageCount,
         images: compData.assets.filter(a => a.analysisResult).map(a => ({
           type: a.type,
-          category: a.name.split('_')[0],
+          category: extractImageCategory(a),
           score: a.analysisResult?.overallScore,
           status: a.analysisResult?.status,
           violations: a.analysisResult?.violations?.map(v => ({ severity: v.severity, message: v.message })) || [],
@@ -1299,18 +1301,13 @@ export function useAuditSession() {
         const classification = await classifyImage(base64, product.title, product.asin !== 'UNKNOWN' ? product.asin : undefined);
         const aiCategory = classification.category as ImageCategory;
 
-        const assetId = `comp_${Math.random().toString(36).substring(2, 9)}`;
-        const isFirst = compAssets.length === 0;
-
-        const asset: ImageAsset = {
-          id: assetId,
+        const asset = buildAssetFromDownload(
           file,
-          preview: URL.createObjectURL(file),
-          type: isFirst ? 'MAIN' : 'SECONDARY',
-          name: `${aiCategory}_${file.name}`,
-          sourceUrl: imagesToProcess[i].url,
+          aiCategory,
+          imagesToProcess[i].url,
           contentHash,
-        };
+          compAssets.length === 0,
+        );
 
         addLog('processing', `Auditing competitor image ${compAssets.length + 1}...`);
         const { result } = await analyzeAsset(asset);
@@ -1333,7 +1330,7 @@ export function useAuditSession() {
 
       const categories: Record<string, number> = {};
       compAssets.forEach(a => {
-        const cat = a.name.split('_')[0] || 'UNKNOWN';
+        const cat = extractImageCategory(a);
         categories[cat] = (categories[cat] || 0) + 1;
       });
 
