@@ -464,6 +464,11 @@ export default function Admin() {
             </TooltipProvider>
           </div>
         </TabsContent>
+
+        {/* AI Status Tab */}
+        <TabsContent value="ai-status">
+          <AIProviderStatusPanel />
+        </TabsContent>
       </Tabs>
 
       {/* Role Confirmation Dialog */}
