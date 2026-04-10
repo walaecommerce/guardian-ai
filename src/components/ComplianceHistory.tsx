@@ -51,7 +51,7 @@ export async function saveAuditToHistory(assets: ImageAsset[], listingTitle: str
     })),
   };
 
-  await supabase.from('compliance_reports').insert({
+  await supabase.from('compliance_reports').insert([{
     user_id: user.id,
     listing_title: listingTitle || 'Untitled Listing',
     total_images: analyzed.length,
@@ -59,7 +59,7 @@ export async function saveAuditToHistory(assets: ImageAsset[], listingTitle: str
     failed_count: failed,
     average_score: avgScore,
     report_data: reportData,
-  });
+  }]);
 }
 
 /**

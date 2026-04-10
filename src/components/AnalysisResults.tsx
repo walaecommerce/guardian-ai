@@ -454,7 +454,10 @@ export function AnalysisResults({
     : 0;
 
   // FEATURE 3: Violation Trend Badges
-  const trend = getScoreTrend(listingTitle);
+  const [trend, setTrend] = useState<{ prevScore: number; prevDate: string; direction: 'up' | 'down' | 'same' } | null>(null);
+  useEffect(() => {
+    getScoreTrend(listingTitle).then(setTrend);
+  }, [listingTitle]);
 
   return (
     <div className="space-y-4">

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import {
   getNotificationPrefs, saveNotificationPrefs, NotificationPrefs,
-  getNotificationLog, NotificationLogEntry,
+  NotificationLogEntry,
 } from '@/components/NotificationSettings';
 
 // ── Profile Tab ──────────────────────────────────────────────
