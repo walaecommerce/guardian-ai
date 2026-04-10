@@ -627,7 +627,7 @@ ${productPages}
                   <span className="text-sm font-medium">
                     {isRunning
                       ? `Auditing product ${currentIndex + 1} of ${products.length}…`
-                      : 'Campaign paused — you can resume or start over'}
+                      : `Paused — ${products.filter(p => p.status === 'complete').length} of ${products.length} products done`}
                   </span>
                   <div className="flex items-center gap-3">
                     {cooldown > 0 && (

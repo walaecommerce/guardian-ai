@@ -27,7 +27,9 @@ import {
   CheckCircle2,
   XCircle,
   Wrench,
-  Loader2
+  Loader2,
+  Sparkles,
+  Wand2
 } from 'lucide-react';
 import { uploadImage } from '@/services/imageStorage';
 import { extractAsin } from '@/services/amazonScraper';
@@ -655,6 +657,9 @@ const Session = () => {
     );
   }
 
+  const isStudioOrigin = (productIdentity as any)?.origin === 'studio';
+  const studioMeta = isStudioOrigin ? productIdentity as any : null;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       
@@ -663,12 +668,22 @@ const Session = () => {
         {/* Back Navigation & Session Info */}
         <div className="mb-6">
           <Link 
-            to="/" 
+            to={isStudioOrigin ? "/studio" : "/"} 
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Home
+            {isStudioOrigin ? 'Back to Studio' : 'Back to Home'}
           </Link>
+          
+          {isStudioOrigin && (
+            <div className="flex items-center gap-2 mb-3 p-2.5 rounded-lg border border-primary/20 bg-primary/5">
+              <Sparkles className="h-4 w-4 text-primary flex-shrink-0" />
+              <p className="text-sm text-foreground">
+                This session was created from <strong>Studio</strong> ({studioMeta?.templateName || studioMeta?.template}).
+                Run the fixer below to improve compliance, then download the result.
+              </p>
+            </div>
+          )}
           
           <Card className="bg-muted/30 border-border/50">
             <CardContent className="py-4">
@@ -680,6 +695,11 @@ const Session = () => {
                     <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-muted-foreground">
                       {productAsin && (
                         <span className="font-mono">{productAsin}</span>
+                      )}
+                      {isStudioOrigin && (
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                          Studio
+                        </Badge>
                       )}
                       <Badge variant="outline" className={getStatusColor(sessionStatus)}>
                         {sessionStatus === 'in_progress' ? 'In Progress' : sessionStatus === 'completed' ? 'Completed' : sessionStatus.replace('_', ' ')}
@@ -745,6 +765,8 @@ const Session = () => {
                     <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analyzing…</>
                   ) : assets.some(a => a.analysisResult) ? (
                     'Re-run Audit'
+                  ) : isStudioOrigin ? (
+                    'Re-analyze Image'
                   ) : (
                     'Run Audit'
                   )}
@@ -753,11 +775,13 @@ const Session = () => {
                   <Button 
                     onClick={handleBatchFix} 
                     disabled={isBatchFixing}
-                    variant="outline"
+                    variant={isStudioOrigin ? 'default' : 'outline'}
                     className="w-full"
                   >
                     {isBatchFixing ? (
                       <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fixing…</>
+                    ) : isStudioOrigin ? (
+                      <><Wand2 className="w-4 h-4 mr-2" />Fix Compliance Issues</>
                     ) : (
                       `Fix All Failed (${failedCount})`
                     )}
