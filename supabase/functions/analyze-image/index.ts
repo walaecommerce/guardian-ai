@@ -457,6 +457,7 @@ serve(async (req) => {
     const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}`;
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [
         { role: "system", content: systemPrompt },
@@ -478,10 +479,10 @@ serve(async (req) => {
       });
     }
     if (response.status === 402) {
-      console.warn("[analyze-image] AI balance exhausted");
+      console.warn("[analyze-image] Gemini quota exhausted");
       return new Response(JSON.stringify({
-        error: "AI credits exhausted. Add credits in Settings → Cloud & AI balance.",
-        errorType: "payment_required",
+        error: "Gemini API quota exceeded. Check your API key quota at console.cloud.google.com",
+        errorType: "provider_quota",
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
