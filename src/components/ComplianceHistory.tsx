@@ -212,7 +212,7 @@ export function ComplianceHistory({ onLoadAudit }: ComplianceHistoryProps) {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" className="h-6 text-xs gap-1">
-                      <RotateCcw className="w-3 h-3" /> Load
+                      <RotateCcw className="w-3 h-3" /> Review
                     </Button>
                   </TableCell>
                 </TableRow>
