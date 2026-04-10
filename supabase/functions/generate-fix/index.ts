@@ -778,7 +778,12 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.status === 401 || error?.status === 403) {
+      return new Response(JSON.stringify({ error: error?.message || "Unauthorized", errorType: error?.errorType || "auth_error" }), {
+        status: error.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("[generate-fix] Error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Fix generation failed",
