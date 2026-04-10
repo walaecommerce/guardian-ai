@@ -604,8 +604,12 @@ const Studio = () => {
                   <div className="space-y-1.5">
                     {history.slice(0, 10).map((h, i) => (
                       <div key={i} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 cursor-default">
-                        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                          <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {h.image ? (
+                            <img src={h.image} alt={h.productName} className="w-full h-full object-cover" />
+                          ) : (
+                            <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-medium text-foreground truncate">{h.productName}</div>

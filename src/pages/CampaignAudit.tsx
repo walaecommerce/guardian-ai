@@ -21,6 +21,7 @@ import { classifyImage } from '@/services/imageClassifier';
 import { supabase } from '@/integrations/supabase/client';
 import { ImageAsset, AnalysisResult, ImageCategory } from '@/types';
 import { RATE_LIMITS } from '@/config/models';
+import { logEvent } from '@/services/eventLog';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -110,6 +111,7 @@ const CampaignAudit = () => {
   const [savedCampaigns, setSavedCampaigns] = useState<SavedCampaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const abortRef = useRef(false);
+  const submittingRef = useRef(false);
   const { toast } = useToast();
 
   // Load saved campaigns from Supabase
