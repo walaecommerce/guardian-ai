@@ -591,15 +591,26 @@ const Studio = () => {
                         onClick={async () => {
                           if (!user) return;
                           try {
-                            toast({ title: 'Creating audit session…', description: 'Setting up your image for the fixer.' });
-                            // 1. Create enhancement_session
+                            toast({ title: 'Preparing fixer…', description: 'Creating a session for this image.' });
+                            const tmplLabel = TEMPLATES.find(t => t.id === img.template)?.name || img.template;
+                            // 1. Create enhancement_session with studio origin metadata
                             const { data: sess, error: sessErr } = await supabase
                               .from('enhancement_sessions')
                               .insert([{
                                 user_id: user.id,
-                                listing_title: img.productName,
+                                listing_title: `${img.productName} — ${tmplLabel}`,
                                 total_images: 1,
+                                failed_count: 1,
+                                average_score: img.score,
                                 status: 'in_progress',
+                                product_identity: {
+                                  origin: 'studio',
+                                  template: img.template,
+                                  templateName: tmplLabel,
+                                  category,
+                                  productName: img.productName,
+                                  score: img.score,
+                                },
                               }])
                               .select()
                               .single();
@@ -612,7 +623,7 @@ const Studio = () => {
                             // 3. Create session_image record
                             await supabase.from('session_images').insert([{
                               session_id: sess.id,
-                              image_name: `${img.template}_studio.png`,
+                              image_name: `${tmplLabel} — ${img.productName}`,
                               image_type: img.template === 'hero' ? 'MAIN' : 'SECONDARY',
                               original_image_url: imageUrl,
                               status: 'failed',
@@ -626,7 +637,7 @@ const Studio = () => {
                           }
                         }}
                       >
-                        <Wand2 className="w-3 h-3" /> Open in Fixer <ArrowRight className="w-3 h-3" />
+                        <Wand2 className="w-3 h-3" /> Fix Compliance Issues <ArrowRight className="w-3 h-3" />
                       </Button>
                     )}
                     {img.status === 'analyzed' && img.score !== null && img.score >= 85 && (
