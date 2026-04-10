@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
 import { MODELS } from "../_shared/models.ts";
+import { requireAuth, isAuthError } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +14,10 @@ serve(async (req) => {
   }
 
   try {
+    // Auth guard
+    const authResult = await requireAuth(req, corsHeaders);
+    if (isAuthError(authResult)) return authResult;
+
     const { yourAnalysis, competitorAnalysis, yourTitle, competitorTitle } = await req.json();
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");

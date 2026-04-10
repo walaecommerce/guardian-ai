@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 } from '@/components/ui/dialog';
-import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff, Cpu, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -37,6 +37,121 @@ interface UsageRow {
   credit_type: string;
   edge_function: string | null;
   consumed_at: string;
+}
+
+function AIProviderStatusPanel() {
+  const [status, setStatus] = useState<{
+    provider: string; configured: boolean; healthy: boolean;
+    lastCheckAt: string; lastCheckError: string | null;
+    models: Record<string, string>;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStatus = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('ai-provider-status');
+      if (fnError) throw fnError;
+      setStatus(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to fetch status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchStatus(); }, []);
+
+  if (loading) {
+    return (
+      <Card><CardContent className="flex justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </CardContent></Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card><CardContent className="py-8 text-center">
+        <p className="text-sm text-destructive mb-3">{error}</p>
+        <Button variant="outline" size="sm" onClick={fetchStatus}>
+          <RefreshCw className="w-4 h-4 mr-2" /> Retry
+        </Button>
+      </CardContent></Card>
+    );
+  }
+
+  if (!status) return null;
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-muted-foreground" />
+            AI Provider Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl border border-border/50 space-y-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Provider</p>
+              <p className="text-sm font-semibold text-foreground">{status.provider}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-border/50 space-y-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Configured</p>
+              <div className="flex items-center gap-2">
+                {status.configured ? (
+                  <><CheckCircle2 className="w-4 h-4 text-success" /><span className="text-sm font-semibold text-success">Yes</span></>
+                ) : (
+                  <><XCircle className="w-4 h-4 text-destructive" /><span className="text-sm font-semibold text-destructive">No</span></>
+                )}
+              </div>
+            </div>
+            <div className="p-4 rounded-xl border border-border/50 space-y-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Health</p>
+              <div className="flex items-center gap-2">
+                {status.healthy ? (
+                  <><CheckCircle2 className="w-4 h-4 text-success" /><span className="text-sm font-semibold text-success">Healthy</span></>
+                ) : (
+                  <><XCircle className="w-4 h-4 text-destructive" /><span className="text-sm font-semibold text-destructive">Unhealthy</span></>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {status.lastCheckError && (
+            <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20 text-sm text-destructive">
+              <strong>Last error:</strong> {status.lastCheckError}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Active Models</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {Object.entries(status.models).map(([key, model]) => (
+                <div key={key} className="flex items-center justify-between p-2.5 rounded-lg border border-border/50">
+                  <span className="text-xs text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                  <Badge variant="outline" className="text-xs font-mono">{model}</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-border/50">
+            <p className="text-xs text-muted-foreground">
+              Last checked: {new Date(status.lastCheckAt).toLocaleString()}
+            </p>
+            <Button variant="outline" size="sm" onClick={fetchStatus}>
+              <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 export default function Admin() {
@@ -218,6 +333,9 @@ export default function Admin() {
           </TabsTrigger>
           <TabsTrigger value="stats" className="gap-2">
             <BarChart3 className="w-4 h-4" /> System Stats
+          </TabsTrigger>
+          <TabsTrigger value="ai-status" className="gap-2">
+            <Cpu className="w-4 h-4" /> AI Status
           </TabsTrigger>
         </TabsList>
 
@@ -460,6 +578,11 @@ export default function Admin() {
               </Tooltip>
             </TooltipProvider>
           </div>
+        </TabsContent>
+
+        {/* AI Status Tab */}
+        <TabsContent value="ai-status">
+          <AIProviderStatusPanel />
         </TabsContent>
       </Tabs>
 
