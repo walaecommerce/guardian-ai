@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AnalysisResult } from '@/types';
+import { uploadImage, getImageUrl } from '@/services/imageStorage';
+import { logEvent } from '@/services/eventLog';
 
 // ── Template definitions ────────────────────────────────────
 
