@@ -347,7 +347,7 @@ const Studio = () => {
                 <Separator />
 
                 {/* Settings row */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Image Type</Label>
                     <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
@@ -359,6 +359,24 @@ const Studio = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Product Category</Label>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="GENERAL">General</SelectItem>
+                        <SelectItem value="FOOD_BEVERAGE">Food & Beverage</SelectItem>
+                        <SelectItem value="SUPPLEMENTS">Supplements</SelectItem>
+                        <SelectItem value="APPAREL">Apparel</SelectItem>
+                        <SelectItem value="ELECTRONICS">Electronics</SelectItem>
+                        <SelectItem value="BEAUTY">Beauty</SelectItem>
+                        <SelectItem value="PET_SUPPLIES">Pet Supplies</SelectItem>
+                        <SelectItem value="HOME_GARDEN">Home & Garden</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Aspect Ratio</Label>
                     <Select value={aspectRatio} onValueChange={setAspectRatio}>
@@ -380,6 +398,7 @@ const Studio = () => {
                         <SelectItem value="4K">4K</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
                   </div>
                 </div>
 
