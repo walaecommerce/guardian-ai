@@ -28,7 +28,8 @@ import {
   XCircle,
   Wrench,
   Loader2,
-  Sparkles
+  Sparkles,
+  Wand2
 } from 'lucide-react';
 import { uploadImage } from '@/services/imageStorage';
 import { extractAsin } from '@/services/amazonScraper';
