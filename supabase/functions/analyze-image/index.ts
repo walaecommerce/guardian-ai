@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
 import { useCredit, getUserIdFromAuth, createAdminClient } from "../_shared/credits.ts";
+import { parseJsonBody, requireFields, errorResponse } from "../_shared/validation.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -467,7 +468,11 @@ serve(async (req) => {
       console.warn('[analyze-image] Credit check failed, proceeding:', creditErr);
     }
 
-    const { imageBase64, imageType, listingTitle, forcedCategory } = await req.json();
+    const bodyOrError = await parseJsonBody(req);
+    if (bodyOrError instanceof Response) return bodyOrError;
+    const { imageBase64, imageType, listingTitle, forcedCategory } = bodyOrError as Record<string, any>;
+
+    if (!imageBase64) return errorResponse(400, 'Missing required field: imageBase64', {}, corsHeaders);
 
     const isMain = imageType === 'MAIN';
     const titleRef = listingTitle || 'No listing title provided — skip content consistency check.';
