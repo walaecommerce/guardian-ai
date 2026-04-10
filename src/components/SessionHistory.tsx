@@ -51,6 +51,7 @@ interface EnhancementSession {
   status: string;
   created_at: string;
   updated_at: string;
+  product_identity?: { origin?: string; [key: string]: any } | null;
 }
 
 interface SessionHistoryProps {
