@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Download, ClipboardCheck, ShieldCheck, Zap, BarChart3,
-  FileJson, Bell, Gauge, CheckCircle2, XCircle, ArrowLeft,
+  FileJson, Gauge, CheckCircle2, XCircle, ArrowLeft,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
