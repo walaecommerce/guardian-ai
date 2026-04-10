@@ -399,7 +399,6 @@ const Studio = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  </div>
                 </div>
 
                 {/* Advanced */}
