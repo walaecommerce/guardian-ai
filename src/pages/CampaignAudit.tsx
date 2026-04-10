@@ -294,6 +294,28 @@ const CampaignAudit = () => {
     }));
     setProducts(initialProducts);
 
+    // Persist in-progress campaign to DB immediately
+    let campaignDbId = activeCampaignId;
+    if (user && !campaignDbId) {
+      const { data: inserted } = await supabase
+        .from('campaign_audits')
+        .insert([{
+          user_id: user.id,
+          name: campaignName || 'Unnamed Campaign',
+          client: clientName,
+          score: 0,
+          products_count: urlList.length,
+          status: 'in_progress',
+          summary: JSON.parse(JSON.stringify({ products: initialProducts.map(p => ({ url: p.url, asin: p.asin, title: '', status: 'pending', score: null, passed: 0, failed: 0, violations: 0, imagesFound: 0, imagesAnalyzed: 0, assets: [] })) })),
+        }])
+        .select()
+        .single();
+      if (inserted) {
+        campaignDbId = inserted.id;
+        setActiveCampaignId(inserted.id);
+      }
+    }
+
     const completedProducts: ProductAudit[] = [];
 
     for (let i = 0; i < urlList.length; i++) {
@@ -302,6 +324,26 @@ const CampaignAudit = () => {
 
       const result = await processProduct(urlList[i], i);
       completedProducts.push(result);
+
+      // Save progress to DB after each product
+      if (user && campaignDbId) {
+        const allProducts = initialProducts.map((p, idx) => {
+          const done = completedProducts.find(c => c.url === p.url);
+          return done || p;
+        });
+        const strippedProgress = allProducts.map(p => ({
+          url: p.url, asin: p.asin, title: p.title, status: p.status, score: p.score,
+          passed: p.passed, failed: p.failed, violations: p.violations,
+          imagesFound: p.imagesFound, imagesAnalyzed: p.imagesAnalyzed, assets: [],
+        }));
+        await supabase.from('campaign_audits').update({
+          summary: JSON.parse(JSON.stringify({ ...buildSummaryFromProducts(completedProducts, campaignName, clientName), products: strippedProgress })),
+          score: completedProducts.filter(p => p.score !== null).length > 0
+            ? Math.round(completedProducts.filter(p => p.score !== null).reduce((s, p) => s + p.score!, 0) / completedProducts.filter(p => p.score !== null).length)
+            : 0,
+          products_count: urlList.length,
+        }).eq('id', campaignDbId);
+      }
 
       // Cooldown between products
       if (i < urlList.length - 1 && !abortRef.current) {
@@ -314,79 +356,44 @@ const CampaignAudit = () => {
     }
 
     // Build summary
-    const completed = completedProducts.filter(p => p.status === 'complete' && p.score !== null);
-    const allScores = completed.map(p => p.score!);
-    const avgScore = allScores.length ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
-    const fullyCompliant = completed.filter(p => p.failed === 0).length;
-    const criticalViolations = completedProducts.reduce((sum, p) =>
-      sum + p.assets.reduce((vs, a) =>
-        vs + (a.analysisResult?.violations?.filter(v => v.severity === 'critical').length || 0), 0), 0);
-
-    const worst = completed.length ? completed.reduce((a, b) => (a.score! < b.score! ? a : b)) : null;
-    const best = completed.length ? completed.reduce((a, b) => (a.score! > b.score! ? a : b)) : null;
-
-    const campaignSummary: CampaignSummary = {
-      campaign_name: campaignName || 'Unnamed Campaign',
-      client_name: clientName,
-      total_products: completedProducts.length,
-      fully_compliant: fullyCompliant,
-      needs_fixes: completed.length - fullyCompliant,
-      critical_violations_found: criticalViolations,
-      average_compliance_score: avgScore,
-      worst_performing_product: worst?.title || 'N/A',
-      best_performing_product: best?.title || 'N/A',
-      total_images_audited: completedProducts.reduce((s, p) => s + p.imagesAnalyzed, 0),
-      total_violations_found: completedProducts.reduce((s, p) => s + p.violations, 0),
-      date: new Date().toISOString(),
-      products: completedProducts,
-    };
+    const campaignSummary = buildSummaryFromProducts(completedProducts, campaignName, clientName);
+    campaignSummary.products = completedProducts;
 
     setSummary(campaignSummary);
     setIsRunning(false);
     setCurrentIndex(-1);
-    logEvent('audit_completed', { campaign: campaignSummary.campaign_name, products: completedProducts.length, avgScore });
+    logEvent('audit_completed', { campaign: campaignSummary.campaign_name, products: completedProducts.length, avgScore: campaignSummary.average_compliance_score });
 
-    // Save to Supabase (with idempotency guard)
-    if (user && !submittingRef.current) {
-      submittingRef.current = true;
-      // Strip large base64 image data before storing
+    // Finalize in DB
+    if (user && campaignDbId) {
       const strippedProducts = completedProducts.map(p => ({
-        ...p,
-        assets: p.assets.map(a => ({
-          id: a.id, name: a.name, type: a.type,
-          analysisResult: a.analysisResult,
-        })),
+        ...p, assets: p.assets.map(a => ({ id: a.id, name: a.name, type: a.type, analysisResult: a.analysisResult })),
       }));
       const strippedSummary = { ...campaignSummary, products: strippedProducts };
+      await supabase.from('campaign_audits').update({
+        status: 'completed',
+        score: campaignSummary.average_compliance_score,
+        products_count: completedProducts.length,
+        summary: JSON.parse(JSON.stringify(strippedSummary)),
+      }).eq('id', campaignDbId);
 
-      const { data: inserted } = await supabase
-        .from('campaign_audits')
-        .insert([{
-          user_id: user.id,
+      setSavedCampaigns(prev => {
+        const filtered = prev.filter(c => c.id !== campaignDbId);
+        return [{
+          id: campaignDbId!,
           name: campaignSummary.campaign_name,
           client: clientName,
-          score: avgScore,
-          products_count: completedProducts.length,
-          summary: JSON.parse(JSON.stringify(strippedSummary)),
-        }])
-        .select()
-        .single();
-
-      if (inserted) {
-        setSavedCampaigns(prev => [{
-          id: inserted.id,
-          name: inserted.name,
-          client: inserted.client,
-          date: inserted.created_at,
-          score: inserted.score,
-          products: inserted.products_count,
+          date: new Date().toISOString(),
+          score: campaignSummary.average_compliance_score,
+          products: completedProducts.length,
+          status: 'completed',
           summary: strippedSummary as any,
-        }, ...prev].slice(0, 20));
-      }
-      submittingRef.current = false;
+        }, ...filtered].slice(0, 20);
+      });
+      setActiveCampaignId(null);
     }
 
-    toast({ title: 'Campaign Complete', description: `Audited ${completedProducts.length} products with ${avgScore}% average score` });
+    toast({ title: 'Campaign Complete', description: `Audited ${completedProducts.length} products with ${campaignSummary.average_compliance_score}% average score` });
   };
 
   const stopCampaign = () => { abortRef.current = true; };
@@ -416,6 +423,25 @@ const CampaignAudit = () => {
       const result = await processProduct(product.url, index);
       completedProducts.push(result);
 
+      // Save progress to DB after each product
+      if (user && activeCampaignId) {
+        const allProducts = products.map(p => {
+          const done = completedProducts.find(c => c.url === p.url);
+          return done || p;
+        });
+        const strippedProgress = allProducts.map(p => ({
+          url: p.url, asin: p.asin, title: p.title, status: p.status, score: p.score,
+          passed: p.passed, failed: p.failed, violations: p.violations,
+          imagesFound: p.imagesFound, imagesAnalyzed: p.imagesAnalyzed, assets: [],
+        }));
+        await supabase.from('campaign_audits').update({
+          summary: JSON.parse(JSON.stringify({ ...buildSummaryFromProducts(completedProducts, campaignName, clientName), products: strippedProgress })),
+          score: completedProducts.filter(p => p.score !== null).length > 0
+            ? Math.round(completedProducts.filter(p => p.score !== null).reduce((s, p) => s + p.score!, 0) / completedProducts.filter(p => p.score !== null).length)
+            : 0,
+        }).eq('id', activeCampaignId);
+      }
+
       // Cooldown between products
       if (i < pendingProducts.length - 1 && !abortRef.current) {
         for (let s = Math.ceil(PRODUCT_COOLDOWN / 1000); s > 0; s--) {
@@ -426,41 +452,31 @@ const CampaignAudit = () => {
       }
     }
 
-    // Build summary from all processed products (including previously completed)
+    // Build summary from all processed products
     const allProducts = products.map(p => p.status !== 'pending' ? p : completedProducts.find(c => c.url === p.url) || p);
-    const completed = allProducts.filter(p => p.status === 'complete' && p.score !== null);
-    const allScores = completed.map(p => p.score!);
-    const avgScore = allScores.length ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
-    const fullyCompliant = completed.filter(p => p.failed === 0).length;
-    const criticalViolations = allProducts.reduce((sum, p) =>
-      sum + p.assets.reduce((vs, a) =>
-        vs + (a.analysisResult?.violations?.filter(v => v.severity === 'critical').length || 0), 0), 0);
-
-    const worst = completed.length ? completed.reduce((a, b) => (a.score! < b.score! ? a : b)) : null;
-    const best = completed.length ? completed.reduce((a, b) => (a.score! > b.score! ? a : b)) : null;
-
-    const campaignSummary: CampaignSummary = {
-      campaign_name: campaignName || 'Unnamed Campaign',
-      client_name: clientName,
-      total_products: allProducts.length,
-      fully_compliant: fullyCompliant,
-      needs_fixes: completed.length - fullyCompliant,
-      critical_violations_found: criticalViolations,
-      average_compliance_score: avgScore,
-      worst_performing_product: worst?.title || 'N/A',
-      best_performing_product: best?.title || 'N/A',
-      total_images_audited: allProducts.reduce((s, p) => s + p.imagesAnalyzed, 0),
-      total_violations_found: allProducts.reduce((s, p) => s + p.violations, 0),
-      date: new Date().toISOString(),
-      products: allProducts,
-    };
+    const campaignSummary = buildSummaryFromProducts(allProducts, campaignName, clientName);
+    campaignSummary.products = allProducts;
 
     setSummary(campaignSummary);
     setProducts(allProducts);
     setIsRunning(false);
     setCurrentIndex(-1);
 
-    toast({ title: 'Campaign Resumed & Complete', description: `Finished ${pendingProducts.length} remaining products` });
+    // Finalize in DB
+    if (user && activeCampaignId) {
+      const strippedProducts = allProducts.map(p => ({
+        ...p, assets: (p.assets || []).map((a: any) => ({ id: a.id, name: a.name, type: a.type, analysisResult: a.analysisResult })),
+      }));
+      await supabase.from('campaign_audits').update({
+        status: 'completed',
+        score: campaignSummary.average_compliance_score,
+        products_count: allProducts.length,
+        summary: JSON.parse(JSON.stringify({ ...campaignSummary, products: strippedProducts })),
+      }).eq('id', activeCampaignId);
+      setActiveCampaignId(null);
+    }
+
+    toast({ title: 'Campaign Complete', description: `Finished ${pendingProducts.length} remaining products` });
   };
 
   // ── Load saved campaign ────────────────────────────────────
