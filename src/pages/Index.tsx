@@ -213,7 +213,8 @@ const Index = () => {
             productAsin={session.productAsin || undefined}
             competitorData={session.competitorData}
             getMatchingPolicyUpdate={() => null}
-            onGoToFix={() => session.setCurrentStep('fix')}
+            onGoToFix={() => session.setCurrentStep(failedCount > 0 ? 'fix' : 'review')}
+            onGoToImport={() => session.setCurrentStep('import')}
             onRunAudit={session.handleRunAudit}
             onSelectAsset={handleSelectAsset}
             onRetryFailedAnalysis={session.handleRetryFailedAnalysis}
