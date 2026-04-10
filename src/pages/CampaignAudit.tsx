@@ -493,7 +493,7 @@ ${productPages}
               </SelectTrigger>
               <SelectContent>
                 {savedCampaigns.map(c => (
-                  <SelectItem key={c.date} value={c.date}>
+                  <SelectItem key={c.id} value={c.id}>
                     <div className="flex flex-col">
                       <span className="text-sm font-medium">{c.name}</span>
                       <span className="text-xs text-muted-foreground">
