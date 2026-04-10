@@ -40,9 +40,6 @@ const DEFAULT_PREFS: NotificationPrefs = {
   minSeverity: 'any',
 };
 
-// Delivery log stays in localStorage — it's ephemeral, per-device
-const LOG_KEY = 'guardian-notification-log';
-
 /**
  * Load notification preferences from the server for the authenticated user.
  */
@@ -94,22 +91,52 @@ export async function saveNotificationPrefs(prefs: NotificationPrefs): Promise<b
   }
 }
 
-export function getNotificationLog(): NotificationLogEntry[] {
+/**
+ * Fetch notification log from Supabase.
+ */
+async function getNotificationLog(): Promise<NotificationLogEntry[]> {
   try {
-    const stored = localStorage.getItem(LOG_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return [];
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data } = await supabase
+      .from('notification_log')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    return (data || []).map(row => ({
+      id: row.id,
+      timestamp: row.created_at,
+      type: row.type,
+      message: row.message,
+      status: row.status as 'sent' | 'failed' | 'pending',
+      error: row.error || undefined,
+    }));
+  } catch {
+    return [];
+  }
 }
 
-export function addNotificationLog(entry: Omit<NotificationLogEntry, 'id' | 'timestamp'>) {
-  const log = getNotificationLog();
-  log.unshift({
-    ...entry,
-    id: Math.random().toString(36).substring(2, 9),
-    timestamp: new Date().toISOString(),
-  });
-  localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(0, 10)));
+/**
+ * Add a notification log entry to Supabase.
+ */
+export async function addNotificationLog(entry: Omit<NotificationLogEntry, 'id' | 'timestamp'>) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from('notification_log').insert({
+      user_id: user.id,
+      type: entry.type,
+      message: entry.message,
+      status: entry.status,
+      error: entry.error || null,
+    });
+  } catch {
+    // silent
+  }
 }
 
 /**
@@ -128,7 +155,6 @@ export async function sendSlackNotification(payload: {
   oldScore?: number;
   newScore?: number;
 }) {
-  // Check local prefs for type-gating (the server also enforces webhook lookup)
   const prefs = await getNotificationPrefs();
 
   const typeMap: Record<string, keyof NotificationPrefs['notifyOn']> = {
@@ -141,19 +167,19 @@ export async function sendSlackNotification(payload: {
 
   try {
     const { data, error } = await supabase.functions.invoke('send-slack-notification', {
-      body: payload, // No webhookUrl — server reads from DB
+      body: payload,
     });
 
     if (error) throw error;
 
-    addNotificationLog({
+    await addNotificationLog({
       type: payload.type,
       message: `${payload.type.replace(/_/g, ' ')} — ${payload.title || 'Unknown'}`,
       status: 'sent',
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    addNotificationLog({
+    await addNotificationLog({
       type: payload.type,
       message: `${payload.type.replace(/_/g, ' ')} — ${payload.title || 'Unknown'}`,
       status: 'failed',
@@ -165,7 +191,7 @@ export async function sendSlackNotification(payload: {
 export function NotificationSettings() {
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
-  const [log, setLog] = useState<NotificationLogEntry[]>(getNotificationLog);
+  const [log, setLog] = useState<NotificationLogEntry[]>([]);
   const [testing, setTesting] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -173,11 +199,14 @@ export function NotificationSettings() {
   useEffect(() => {
     if (open) {
       setLoading(true);
-      getNotificationPrefs().then(p => {
+      Promise.all([
+        getNotificationPrefs(),
+        getNotificationLog(),
+      ]).then(([p, l]) => {
         setPrefs(p);
+        setLog(l);
         setLoading(false);
       });
-      setLog(getNotificationLog());
     }
   }, [open]);
 
@@ -191,7 +220,6 @@ export function NotificationSettings() {
       toast({ title: 'No Webhook URL', description: 'Enter a Slack webhook URL first', variant: 'destructive' });
       return;
     }
-    // Save first to ensure server has the webhook
     await saveNotificationPrefs(prefs);
     setTesting(true);
     try {
@@ -208,13 +236,15 @@ export function NotificationSettings() {
         },
       });
       if (error) throw error;
-      addNotificationLog({ type: 'test', message: 'Test notification sent', status: 'sent' });
-      setLog(getNotificationLog());
+      await addNotificationLog({ type: 'test', message: 'Test notification sent', status: 'sent' });
+      const updatedLog = await getNotificationLog();
+      setLog(updatedLog);
       toast({ title: 'Test Sent', description: 'Check your Slack channel' });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed';
-      addNotificationLog({ type: 'test', message: 'Test notification', status: 'failed', error: msg });
-      setLog(getNotificationLog());
+      await addNotificationLog({ type: 'test', message: 'Test notification', status: 'failed', error: msg });
+      const updatedLog = await getNotificationLog();
+      setLog(updatedLog);
       toast({ title: 'Test Failed', description: msg, variant: 'destructive' });
     } finally {
       setTesting(false);
