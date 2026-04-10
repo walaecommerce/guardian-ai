@@ -192,7 +192,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
-          <CardDescription>Browse and continue past enhancement sessions</CardDescription>
+          <CardDescription>Continue previous work, review results, or export reports</CardDescription>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[300px] pr-4">
@@ -202,7 +202,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                   <Package className="w-8 h-8 text-primary/30" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Sessions Yet</h3>
-                <p className="text-sm max-w-xs mx-auto">Import from Amazon to start your first audit session.</p>
+                <p className="text-sm max-w-xs mx-auto">Start a new audit from the Dashboard or paste an Amazon URL on the Audit page.</p>
               </div>
             ) : (
               <div className="space-y-2">
