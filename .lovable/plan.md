@@ -1,37 +1,30 @@
 
 
-## Final Launch-Readiness Polish
+## Remove Remaining Slack References
 
-### Assessment
-The codebase has been through extensive polishing. The remaining gaps are minor copy/label inconsistencies and a few missing "what next?" nudges.
+### Current state
+The edge function and all Slack UI/logic were removed in the previous pass. Three references remain:
+- `notification_preferences.slack_webhook_url` column in the database
+- `slack_webhook_url: null` in the upsert call in `NotificationSettings.tsx` (needed because the column exists)
+- Auto-generated `types.ts` references (will update automatically after migration)
 
-### Changes (6 files, all copy/label-level)
+### Changes
 
-**1. `src/components/audit/AuditStep.tsx` — Audit completion confidence**
-- Line 249: When all passed, change CTA from "All Passed — Review & Export" to "All Passed — Save & Export" (matches FixStep language)
-- Line 71: Change "Click below to run AI compliance checks on all imported images" to "Run AI compliance checks on all your images" (shorter, more confident)
+**1. Database migration — drop `slack_webhook_url` column**
+```sql
+ALTER TABLE public.notification_preferences DROP COLUMN IF EXISTS slack_webhook_url;
+```
 
-**2. `src/components/audit/FixStep.tsx` — Fix completion nudge**
-- Line 79-81: When `allFixed`, change description to "All issues corrected. Review the before/after results, then save your report." (adds clear next action)
-- Line 137: Shorten progress description from "Each image goes through AI generation → verification → retry if needed. This may take a moment." to "AI is generating, verifying, and retrying if needed."
+**2. `src/components/NotificationSettings.tsx` — remove `slack_webhook_url: null` from upsert**
+Remove line 79 (`slack_webhook_url: null,`) from the `saveNotificationPrefs` function.
 
-**3. `src/components/audit/ReviewStep.tsx` — Review confidence**
-- Line 145: Change "All Clear — Ready to Export" to "All Clear — Export or Save Your Report" (more specific)
+### Files changed
+1. `src/components/NotificationSettings.tsx` — remove dead column reference
+2. New migration — drop `slack_webhook_url` column
 
-**4. `src/pages/Session.tsx` — Session empty & completion states**
-- Line 855: Change "No images in this session" to "This session has no images yet" (warmer)
-- Line 813: Change "No images found. The import may have failed." to "No images loaded. Try importing again from the audit page." (clearer cause)
+### Verification
+After changes, all four grep checks will return zero matches in application code (only the historical migration file will mention the column creation, which is expected and safe).
 
-**5. `src/components/SessionHistory.tsx` — History confidence**
-- Line 195: Change CardDescription to "View past sessions, continue unfinished work, or export results" (more actionable)
-- Line 324: Change "No images in this session" to "No images recorded for this session"
-
-**6. `src/components/ComplianceHistory.tsx` — History empty state**
-- Line 163: Change "No Saved Reports" to "No Reports Yet" (less stark)
-- Line 164-165: Simplify description to "Run an audit and save it here to track your compliance improvements over time."
-
-### Technical details
-- All changes are string/copy only — no logic, hooks, types, or DB changes.
-- Zero risk of breaking tests or workflows.
-- No new components or dependencies.
+### Residual risks
+- None. The column is unused; dropping it is safe. Historical migration files are read-only artifacts.
 
