@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
+import { resolveAuth } from "../_shared/auth.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -177,10 +178,6 @@ serve(async (req) => {
       preserveElements,
       customPrompt
     } = await req.json();
-
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     console.log(`[generate-enhancement] using model: ${MODELS.imageGen} via Gemini API`);

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
+import { resolveAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,9 +22,6 @@ serve(async (req) => {
         error: "At least 2 images are required for style consistency analysis",
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     console.log(`[style-consistency] Analyzing ${images.length} images for listing: ${listingTitle?.slice(0, 50)}`);
 

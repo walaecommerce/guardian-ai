@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
+import { resolveAuth } from "../_shared/auth.ts";
 import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
@@ -14,10 +15,6 @@ serve(async (req) => {
 
   try {
     const { yourAnalysis, competitorAnalysis, yourTitle, competitorTitle } = await req.json();
-
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     const systemPrompt = `You are an Amazon competitive intelligence analyst. Compare two product listings and identify competitive advantages and gaps. Return ONLY valid JSON matching the exact schema requested.`;

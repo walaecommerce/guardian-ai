@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
+import { resolveAuth } from "../_shared/auth.ts";
 import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
@@ -12,8 +13,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     const response = await fetchGemini({
       model: MODELS.analysis,
