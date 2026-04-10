@@ -70,7 +70,7 @@ export function AuditStep({
           <Search className="w-10 h-10 text-primary mx-auto" />
           <p className="text-lg font-semibold">{assets.length} images ready for audit</p>
           <p className="text-sm text-muted-foreground">
-            Click below to run AI compliance checks on all imported images
+            Run AI compliance checks on all your images
           </p>
           <Button onClick={onRunAudit} size="lg" className="mt-2">
             <Search className="w-4 h-4 mr-2" />
@@ -246,7 +246,7 @@ export function AuditStep({
           ) : (
             <Button onClick={() => onGoToFix()} size="lg" variant="outline">
               <CheckCircle2 className="w-4 h-4 mr-2" />
-              All Passed — Review & Export
+              All Passed — Save & Export
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           )}

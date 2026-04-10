@@ -77,7 +77,7 @@ export function FixStep({
           </h3>
           <p className="text-sm text-muted-foreground">
             {allFixed 
-              ? `${fixedAssets.length} image${fixedAssets.length !== 1 ? 's' : ''} corrected. Review before/after comparisons below.`
+              ? 'All issues corrected. Review the before/after results, then save your report.'
               : 'Click "Fix" on individual images or fix all at once.'
             }
           </p>
@@ -134,7 +134,7 @@ export function FixStep({
             Fixing image {batchFixProgress.current} of {batchFixProgress.total}…
           </div>
           <Progress value={(batchFixProgress.current / batchFixProgress.total) * 100} className="h-2" />
-          <p className="text-xs text-muted-foreground">Each image goes through AI generation → verification → retry if needed. This may take a moment.</p>
+          <p className="text-xs text-muted-foreground">AI is generating, verifying, and retrying if needed.</p>
         </div>
       )}
 

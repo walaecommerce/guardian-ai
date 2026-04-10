@@ -142,7 +142,7 @@ export function ReviewStep({
             )}
             <div className="flex-1">
               <p className="text-sm font-semibold">
-                {allClean ? 'All Clear — Ready to Export' : `${failedCount - fixedCount} issue${failedCount - fixedCount !== 1 ? 's' : ''} still need fixing`}
+                {allClean ? 'All Clear — Export or Save Your Report' : `${failedCount - fixedCount} issue${failedCount - fixedCount !== 1 ? 's' : ''} still need fixing`}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {analyzedAssets.length} images · {avgScore}% avg score
