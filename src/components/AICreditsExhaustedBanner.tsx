@@ -63,14 +63,14 @@ export function AICreditsExhaustedBanner({ visible, analyzedCount, totalCount, o
       </AlertTitle>
       <AlertDescription className="text-muted-foreground">
         {creditsRestored ? (
-          <>Your AI balance has been topped up. Click <strong>Resume Audit</strong> to continue analyzing the remaining images.</>
+          <>Your credits have been restored. Click <strong>Resume Audit</strong> to continue analyzing the remaining images.</>
         ) : (
           <>
-            Your workspace AI balance ran out.
+            Your analysis credits have been used up.
             {remaining != null && remaining > 0 && (
               <> <strong>{analyzedCount}</strong> of <strong>{totalCount}</strong> images were analyzed — <strong>{remaining}</strong> remaining.</>
             )}
-            {' '}Top up in <strong>Settings → Cloud &amp; AI balance</strong>, then resume.
+            {' '}Upgrade your plan or wait for your next billing cycle to continue.
           </>
         )}
       </AlertDescription>
