@@ -1,8 +1,5 @@
 project_id = "fvzjfvxdmoylrcynnwsv"
 
-[functions.verify-image]
-verify_jwt = false
-
 [api]
 enabled = true
 port = 54321
@@ -34,54 +31,3 @@ enable_anonymous_sign_ins = false
 enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
-
-[functions.analyze-image]
-verify_jwt = false
-
-[functions.generate-fix]
-verify_jwt = false
-
-[functions.scrape-amazon]
-verify_jwt = false
-
-[functions.classify-image]
-verify_jwt = false
-
-[functions.verify-product-claims]
-verify_jwt = false
-
-[functions.cleanup-cache]
-verify_jwt = false
-
-[functions.enhance-analyze-image]
-verify_jwt = false
-
-[functions.generate-enhancement]
-verify_jwt = false
-
-[functions.listing-scorecard]
-verify_jwt = false
-
-[functions.proxy-image]
-verify_jwt = false
-
-[functions.listing-suggestions]
-verify_jwt = false
-
-[functions.generate-suggested-image]
-verify_jwt = false
-
-[functions.check-policy-updates]
-verify_jwt = false
-
-[functions.compare-listings]
-verify_jwt = false
-
-[functions.generate-suggestions]
-verify_jwt = false
-
-[functions.generate-studio-image]
-verify_jwt = false
-
-[functions.send-slack-notification]
-verify_jwt = false
