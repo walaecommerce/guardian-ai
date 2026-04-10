@@ -785,7 +785,7 @@ ${productPages}
                   <FileText className="w-4 h-4 mr-1" /> Export PDF
                 </Button>
                 <Button size="sm" onClick={() => { setSummary(null); setProducts([]); setUrls(''); setCampaignName(''); setClientName(''); setSelectedCampaign(''); }}>
-                  Start New Campaign
+                  New Campaign
                 </Button>
               </div>
             </div>

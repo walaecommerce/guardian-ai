@@ -787,6 +787,16 @@ const Session = () => {
                     )}
                   </Button>
                 )}
+                {assets.some(a => a.analysisResult) && failedCount === 0 && (
+                  <p className="text-xs text-center text-green-600 font-medium py-1">
+                    ✓ All images passed — save or export your report.
+                  </p>
+                )}
+                {failedCount > 0 && fixedCount >= failedCount && (
+                  <p className="text-xs text-center text-primary font-medium py-1">
+                    ✓ All issues fixed — save your results.
+                  </p>
+                )}
                 {assets.some(a => a.analysisResult) && (
                   <Button 
                     onClick={handleSaveReport} 
@@ -798,9 +808,16 @@ const Session = () => {
                   </Button>
                 )}
                 {assets.length === 0 && !isStudioOrigin && (
-                  <p className="text-xs text-muted-foreground text-center py-2">
-                    No images found. The import may have failed — try again from the home page.
-                  </p>
+                  <div className="text-center py-2 space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      No images found. The import may have failed.
+                    </p>
+                    <Link to="/audit">
+                      <Button variant="outline" size="sm" className="text-xs">
+                        <ArrowLeft className="h-3 w-3 mr-1" /> Try Again from Audit
+                      </Button>
+                    </Link>
+                  </div>
                 )}
                 {assets.length === 0 && isStudioOrigin && (
                   <p className="text-xs text-muted-foreground text-center py-2">
@@ -835,7 +852,13 @@ const Session = () => {
                   <Card className="py-12">
                     <CardContent className="text-center">
                       <Package className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
-                      <p className="text-sm text-muted-foreground">No images in this session</p>
+                      <p className="text-sm text-muted-foreground mb-3">No images in this session</p>
+                      <Link to="/audit">
+                        <Button variant="outline" size="sm">
+                          <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+                          Start a New Audit
+                        </Button>
+                      </Link>
                     </CardContent>
                   </Card>
                 ) : (
