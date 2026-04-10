@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
 import { requireAuth, isAuthError } from "../_shared/auth.ts";
+import { parseJsonBody, requireFields, errorResponse, successResponse } from "../_shared/validation.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -137,10 +138,14 @@ serve(async (req) => {
     const authResult = await requireAuth(req, corsHeaders);
     if (isAuthError(authResult)) return authResult;
 
-    const body: PromptParams = await req.json();
-    const { productName, description, claims = [], colors = [], template, aspectRatio = '1:1', resolution = '2K', customPrompt, category } = body;
+    const bodyOrError = await parseJsonBody(req);
+    if (bodyOrError instanceof Response) return bodyOrError;
+    const body = bodyOrError as Record<string, any>;
 
-    if (!productName) throw new Error('Product name is required');
+    const fieldCheck = requireFields(body, ['productName']);
+    if (fieldCheck) return fieldCheck;
+
+    const { productName, description, claims = [], colors = [], template, aspectRatio = '1:1', resolution = '2K', customPrompt, category } = body;
 
     // Build structured prompt
     const prompt = customPrompt || buildStructuredPrompt({

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
 import { MODELS } from "../_shared/models.ts";
 import { requireAuth, isAuthError } from "../_shared/auth.ts";
+import { parseJsonBody, requireFields, errorResponse, successResponse } from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,14 +76,19 @@ serve(async (req) => {
     if (isAuthError(authResult)) return authResult;
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+    if (!GEMINI_API_KEY) return errorResponse(500, "GEMINI_API_KEY not configured", {}, corsHeaders);
 
-    const { images, listingTitle, category } = await req.json();
+    const bodyOrError = await parseJsonBody(req);
+    if (bodyOrError instanceof Response) return bodyOrError;
+    const body = bodyOrError as Record<string, any>;
 
-    if (!images || images.length === 0) {
-      return new Response(JSON.stringify({ error: "No images provided" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const fieldCheck = requireFields(body, ['images']);
+    if (fieldCheck) return fieldCheck;
+
+    const { images, listingTitle, category } = body;
+
+    if (!Array.isArray(images) || images.length === 0) {
+      return errorResponse(400, "No images provided", {}, corsHeaders);
     }
 
     const imageCount = images.length;
