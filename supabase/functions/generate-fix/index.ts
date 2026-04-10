@@ -645,7 +645,7 @@ serve(async (req) => {
 
     console.log(`[generate-fix] Sending request: contentParts=${contentParts.length}, isMain=${isMain}, bgSeg=${usedBackgroundSegmentation}, model=${model}`);
 
-    let response = await callGateway(GEMINI_API_KEY, contentParts, model);
+    let response = await callGateway(geminiApiKey, contentParts, model);
 
     // If background segmentation attempt failed, fall back to full regeneration
     if (usedBackgroundSegmentation && (!response.ok || response.status >= 500)) {
@@ -656,7 +656,7 @@ serve(async (req) => {
       if (imageBase64) {
         fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
       }
-      response = await callGateway(GEMINI_API_KEY, fallbackParts);
+      response = await callGateway(geminiApiKey, fallbackParts);
       usedBackgroundSegmentation = false;
       console.log(`[generate-fix] Fallback to Pattern A2 full regeneration`);
     }
@@ -675,8 +675,8 @@ serve(async (req) => {
       const body = await response.text();
       console.error("[generate-fix] Payment required:", body);
       return new Response(JSON.stringify({
-        error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.",
-        errorType: "payment_required",
+        error: "Gemini API quota exceeded. Check your API key quota at console.cloud.google.com",
+        errorType: "provider_quota",
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -702,7 +702,7 @@ serve(async (req) => {
         if (imageBase64) {
           fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
         }
-        const fallbackResp = await callGateway(GEMINI_API_KEY, fallbackParts);
+        const fallbackResp = await callGateway(geminiApiKey, fallbackParts);
         if (fallbackResp.ok) {
           const fbText = await fallbackResp.text();
           try {
@@ -746,7 +746,7 @@ serve(async (req) => {
         if (imageBase64) {
           fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
         }
-        const fallbackResp = await callGateway(GEMINI_API_KEY, fallbackParts);
+        const fallbackResp = await callGateway(geminiApiKey, fallbackParts);
         if (fallbackResp.ok) {
           const fbText = await fallbackResp.text();
           try {
