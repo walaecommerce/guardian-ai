@@ -217,6 +217,11 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                          <Badge variant="outline" className={getStatusColor(session.status)}>
                             {session.status === 'in_progress' ? 'In Progress' : session.status === 'completed' ? 'Completed' : session.status.replace('_', ' ')}
                           </Badge>
+                          {!session.amazon_url && (session as any).product_identity?.origin === 'studio' && (
+                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px]">
+                              Studio
+                            </Badge>
+                          )}
                           {session.product_asin && (
                             <span className="text-xs font-mono text-muted-foreground">
                               {session.product_asin}
@@ -404,20 +409,14 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                   className="flex-1"
                 >
                   <ArrowRight className="h-4 w-4 mr-2" />
-                  {selectedSession.status === 'in_progress' ? 'Continue Working' : 'Open Session'}
+                  {selectedSession.status === 'in_progress' 
+                    ? (selectedSession.failed_count > 0 && selectedSession.fixed_count < selectedSession.failed_count
+                        ? 'Continue Fixing'
+                        : 'Continue Working')
+                    : selectedSession.failed_count > 0 && selectedSession.fixed_count < selectedSession.failed_count
+                      ? 'Review & Fix Issues'
+                      : 'Review Session'}
                 </Button>
-                {selectedSession.failed_count > 0 && selectedSession.fixed_count < selectedSession.failed_count && (
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      setShowDetailDialog(false);
-                      navigate(`/session/${selectedSession.id}`);
-                    }}
-                  >
-                    <Wrench className="h-4 w-4 mr-2" />
-                    Fix Issues
-                  </Button>
-                )}
                 <Button 
                   variant="outline" 
                   onClick={() => setShowDetailDialog(false)}
