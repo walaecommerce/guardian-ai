@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { requireAuth, isAuthError } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -12,14 +13,48 @@ serve(async (req) => {
   }
 
   try {
-    // Auth guard
+    // Auth guard — returns the authenticated user's claims
     const authResult = await requireAuth(req, corsHeaders);
     if (isAuthError(authResult)) return authResult;
 
-    const { webhookUrl, type, title, status, score, violations, images, criticalCount, topViolation, oldScore, newScore } = await req.json();
+    // Extract user ID from auth
+    const authHeader = req.headers.get('Authorization') || '';
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: claimsData } = await supabaseAuth.auth.getClaims(authHeader.replace('Bearer ', ''));
+    const userId = claimsData?.claims?.sub as string;
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
+    const body = await req.json();
+    const { type, title, status, score, violations, images, criticalCount, topViolation, oldScore, newScore } = body;
+
+    // Look up the user's stored webhook URL server-side
+    const adminClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    const { data: prefs, error: prefsError } = await adminClient
+      .from('notification_preferences')
+      .select('slack_webhook_url')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (prefsError) {
+      console.error('Failed to load notification preferences:', prefsError);
+    }
+
+    const webhookUrl = prefs?.slack_webhook_url;
     if (!webhookUrl) {
-      return new Response(JSON.stringify({ error: 'Missing webhookUrl' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'No Slack webhook URL configured. Add one in Settings → Notifications.' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     let blocks: unknown[];

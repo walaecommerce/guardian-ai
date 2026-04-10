@@ -1,7 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Service for uploading and managing images in Supabase Storage
+ * Service for uploading and managing images in Supabase Storage.
+ * The session-images bucket is private; all access uses signed URLs.
  */
 
 export interface UploadedImage {
@@ -9,11 +10,10 @@ export interface UploadedImage {
   path: string;
 }
 
+const SIGNED_URL_EXPIRY = 3600; // 1 hour
+
 /**
- * Upload an image to Supabase Storage
- * @param file - The file to upload or a base64 data URL
- * @param sessionId - The session ID to organize uploads
- * @param prefix - Prefix for the filename (e.g., 'original', 'fixed')
+ * Upload an image to Supabase Storage and return a signed URL.
  */
 export async function uploadImage(
   fileOrBase64: File | string,
@@ -24,7 +24,6 @@ export async function uploadImage(
     let file: File;
     
     if (typeof fileOrBase64 === 'string') {
-      // Convert base64 to File
       const response = await fetch(fileOrBase64);
       const blob = await response.blob();
       const ext = fileOrBase64.includes('image/png') ? 'png' : 'jpg';
@@ -50,13 +49,18 @@ export async function uploadImage(
       return null;
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
+    // Get signed URL (bucket is private)
+    const { data: urlData, error: urlError } = await supabase.storage
       .from('session-images')
-      .getPublicUrl(data.path);
+      .createSignedUrl(data.path, SIGNED_URL_EXPIRY);
+
+    if (urlError || !urlData?.signedUrl) {
+      console.error('Signed URL error:', urlError);
+      return null;
+    }
 
     return {
-      url: urlData.publicUrl,
+      url: urlData.signedUrl,
       path: data.path
     };
   } catch (error) {
@@ -118,11 +122,32 @@ export async function deleteSessionImages(sessionId: string): Promise<boolean> {
 }
 
 /**
- * Get the public URL for an image path
+ * Get a signed URL for an image path (private bucket).
  */
-export function getImageUrl(path: string): string {
-  const { data } = supabase.storage
+export async function getImageUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
     .from('session-images')
-    .getPublicUrl(path);
-  return data.publicUrl;
+    .createSignedUrl(path, SIGNED_URL_EXPIRY);
+  if (error || !data?.signedUrl) {
+    console.error('getImageUrl signed URL error:', error);
+    return '';
+  }
+  return data.signedUrl;
+}
+
+/**
+ * Given a stored URL (which may be a stale public URL), extract the storage
+ * path and return a fresh signed URL. Falls back to the original URL if
+ * the path cannot be extracted.
+ */
+export async function refreshSignedUrl(storedUrl: string): Promise<string> {
+  if (!storedUrl) return '';
+  // Detect bucket path from Supabase storage URL pattern
+  const match = storedUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/session-images\/(.+?)(?:\?|$)/);
+  if (match) {
+    const path = decodeURIComponent(match[1]);
+    return getImageUrl(path);
+  }
+  // Not a storage URL — return as-is (e.g. external Amazon URL)
+  return storedUrl;
 }
