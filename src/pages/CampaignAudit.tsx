@@ -96,6 +96,35 @@ function scoreColor(score: number): string {
   return 'text-destructive';
 }
 
+// ── Build summary helper ─────────────────────────────────────
+function buildSummaryFromProducts(prods: ProductAudit[], name: string, client: string): CampaignSummary {
+  const completed = prods.filter(p => p.status === 'complete' && p.score !== null);
+  const allScores = completed.map(p => p.score!);
+  const avgScore = allScores.length ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
+  const fullyCompliant = completed.filter(p => p.failed === 0).length;
+  const criticalViolations = prods.reduce((sum, p) =>
+    sum + (p.assets || []).reduce((vs, a: any) =>
+      vs + (a.analysisResult?.violations?.filter((v: any) => v.severity === 'critical').length || 0), 0), 0);
+  const worst = completed.length ? completed.reduce((a, b) => (a.score! < b.score! ? a : b)) : null;
+  const best = completed.length ? completed.reduce((a, b) => (a.score! > b.score! ? a : b)) : null;
+
+  return {
+    campaign_name: name || 'Unnamed Campaign',
+    client_name: client,
+    total_products: prods.length,
+    fully_compliant: fullyCompliant,
+    needs_fixes: completed.length - fullyCompliant,
+    critical_violations_found: criticalViolations,
+    average_compliance_score: avgScore,
+    worst_performing_product: worst?.title || 'N/A',
+    best_performing_product: best?.title || 'N/A',
+    total_images_audited: prods.reduce((s, p) => s + p.imagesAnalyzed, 0),
+    total_violations_found: prods.reduce((s, p) => s + p.violations, 0),
+    date: new Date().toISOString(),
+    products: prods,
+  };
+}
+
 // ── Component ────────────────────────────────────────────────
 
 const CampaignAudit = () => {
