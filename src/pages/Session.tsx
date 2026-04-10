@@ -810,7 +810,7 @@ const Session = () => {
                 {assets.length === 0 && !isStudioOrigin && (
                   <div className="text-center py-2 space-y-2">
                     <p className="text-xs text-muted-foreground">
-                      No images found. The import may have failed.
+                      No images loaded. Try importing again from the audit page.
                     </p>
                     <Link to="/audit">
                       <Button variant="outline" size="sm" className="text-xs">
@@ -852,7 +852,7 @@ const Session = () => {
                   <Card className="py-12">
                     <CardContent className="text-center">
                       <Package className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
-                      <p className="text-sm text-muted-foreground mb-3">No images in this session</p>
+                      <p className="text-sm text-muted-foreground mb-3">This session has no images yet</p>
                       <Link to="/audit">
                         <Button variant="outline" size="sm">
                           <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />

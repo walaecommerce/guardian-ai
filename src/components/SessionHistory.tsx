@@ -192,7 +192,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
-          <CardDescription>Continue previous work, review results, or export reports</CardDescription>
+          <CardDescription>View past sessions, continue unfinished work, or export results</CardDescription>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[300px] pr-4">
@@ -321,7 +321,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
               {/* Images Grid */}
               <h4 className="font-medium mb-3">Images ({sessionImages.length})</h4>
               {sessionImages.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No images in this session</p>
+                <p className="text-muted-foreground text-sm">No images recorded for this session</p>
               ) : (
                 <Accordion type="single" collapsible className="space-y-2">
                   {sessionImages.map((img, index) => (
