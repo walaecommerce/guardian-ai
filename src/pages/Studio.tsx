@@ -588,18 +588,45 @@ const Studio = () => {
                         variant="default"
                         size="sm"
                         className="w-full text-xs h-7"
-                        onClick={() => {
-                          // Download the image so user can upload it to the audit fixer
-                          downloadImage(img);
-                          toast({
-                            title: 'Image saved — open Audit to fix it',
-                            description: 'Upload this image on the Audit page and run Fix All to auto-correct compliance issues.',
-                          });
-                          // Navigate to audit page after short delay
-                          setTimeout(() => { window.location.href = '/'; }, 1500);
+                        onClick={async () => {
+                          if (!user) return;
+                          try {
+                            toast({ title: 'Creating audit session…', description: 'Setting up your image for the fixer.' });
+                            // 1. Create enhancement_session
+                            const { data: sess, error: sessErr } = await supabase
+                              .from('enhancement_sessions')
+                              .insert([{
+                                user_id: user.id,
+                                listing_title: img.productName,
+                                total_images: 1,
+                                status: 'in_progress',
+                              }])
+                              .select()
+                              .single();
+                            if (sessErr || !sess) throw new Error(sessErr?.message || 'Session creation failed');
+
+                            // 2. Upload image to storage
+                            const uploaded = await uploadImage(img.image, sess.id, `original_studio`);
+                            const imageUrl = uploaded?.url || img.image;
+
+                            // 3. Create session_image record
+                            await supabase.from('session_images').insert([{
+                              session_id: sess.id,
+                              image_name: `${img.template}_studio.png`,
+                              image_type: img.template === 'hero' ? 'MAIN' : 'SECONDARY',
+                              original_image_url: imageUrl,
+                              status: 'failed',
+                              analysis_result: img.analysisResult ? JSON.parse(JSON.stringify(img.analysisResult)) : null,
+                            }]);
+
+                            // 4. Navigate to session workspace
+                            navigate(`/session/${sess.id}`);
+                          } catch (e) {
+                            toast({ title: 'Handoff failed', description: e instanceof Error ? e.message : 'Try downloading instead', variant: 'destructive' });
+                          }
                         }}
                       >
-                        <Wand2 className="w-3 h-3" /> Fix in Audit →
+                        <Wand2 className="w-3 h-3" /> Open in Fixer <ArrowRight className="w-3 h-3" />
                       </Button>
                     )}
                     {img.status === 'analyzed' && img.score !== null && img.score >= 85 && (
@@ -609,7 +636,7 @@ const Studio = () => {
                         className="w-full text-xs h-7"
                         onClick={() => downloadImage(img)}
                       >
-                        <Download className="w-3 h-3" /> Ready — Download
+                        <Download className="w-3 h-3" /> Compliant — Download
                       </Button>
                     )}
                   </CardContent>
