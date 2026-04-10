@@ -54,6 +54,28 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
       const titleCompliance = analyzeTitleCompliance(listingTitle);
       const titleRuleViolations = titleCompliance.findings.filter(f => !f.passed);
 
+      // Compute missing coverage types deterministically (same logic as listing-scorecard)
+      const COVERAGE_ALIASES: Record<string, string[]> = {
+        'Hero / Main Image': ['PRODUCT_SHOT', 'MAIN', 'HERO'],
+        'Lifestyle / In-Use Image': ['LIFESTYLE', 'PRODUCT_IN_USE', 'IN_USE'],
+        'Infographic / Feature Callout': ['INFOGRAPHIC', 'CALLOUT', 'FEATURES'],
+        'Detail / Supporting Image': ['DETAIL', 'PACKAGING', 'SIZE_CHART', 'COMPARISON', 'INGREDIENTS', 'CLOSEUP'],
+      };
+
+      const imageCategories = new Set(
+        assets.map(a => {
+          const result = a.analysisResult as any;
+          return (result?.imageCategory || a.name.replace(/\.[^.]+$/, '').toUpperCase() || 'UNKNOWN');
+        })
+      );
+
+      const missingCoverageTypes: string[] = [];
+      for (const [label, aliases] of Object.entries(COVERAGE_ALIASES)) {
+        if (!aliases.some(alias => imageCategories.has(alias))) {
+          missingCoverageTypes.push(label);
+        }
+      }
+
       const { data: result, error: fnError } = await supabase.functions.invoke('generate-suggestions', {
         body: {
           listingTitle,
@@ -61,6 +83,7 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
           scoreCardData: null,
           imageCount: assets.length,
           titleRuleViolations,
+          missingCoverageTypes,
         },
       });
 
@@ -174,7 +197,7 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
             </TabsList>
 
             <TabsContent value="missing" className="mt-3">
-              <MissingImagesTab items={data.missing_image_types || []} onImageGenerated={onImageGenerated} />
+              <MissingImagesTab items={data.missing_image_types || []} onImageGenerated={onImageGenerated} listingTitle={listingTitle} />
             </TabsContent>
             <TabsContent value="quickwins" className="mt-3">
               <QuickWinsTab items={data.quick_wins || []} />
