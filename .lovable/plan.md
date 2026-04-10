@@ -1,30 +1,23 @@
 
 
-## Remove Remaining Slack References
+## No Changes Needed
 
-### Current state
-The edge function and all Slack UI/logic were removed in the previous pass. Three references remain:
-- `notification_preferences.slack_webhook_url` column in the database
-- `slack_webhook_url: null` in the upsert call in `NotificationSettings.tsx` (needed because the column exists)
-- Auto-generated `types.ts` references (will update automatically after migration)
+The Slack Integration test scenario was already removed from `src/pages/TestChecklist.tsx` in a previous pass. The file currently contains only 5 test cases with no Slack references:
 
-### Changes
+1. Batch Audit & Rate Limiting
+2. Fix with AI
+3. Competitor Comparison
+4. 6-Dimension Score Card
+5. Export Report (JSON)
 
-**1. Database migration — drop `slack_webhook_url` column**
-```sql
-ALTER TABLE public.notification_preferences DROP COLUMN IF EXISTS slack_webhook_url;
-```
-
-**2. `src/components/NotificationSettings.tsx` — remove `slack_webhook_url: null` from upsert**
-Remove line 79 (`slack_webhook_url: null,`) from the `saveNotificationPrefs` function.
+**One minor cleanup:** The `Bell` icon import (line 11) is unused since the Slack test case was removed. I'll remove it.
 
 ### Files changed
-1. `src/components/NotificationSettings.tsx` — remove dead column reference
-2. New migration — drop `slack_webhook_url` column
+1. `src/pages/TestChecklist.tsx` — remove unused `Bell` import
 
-### Verification
-After changes, all four grep checks will return zero matches in application code (only the historical migration file will mention the column creation, which is expected and safe).
+### Migrations
+None.
 
 ### Residual risks
-- None. The column is unused; dropping it is safe. Historical migration files are read-only artifacts.
+None.
 
