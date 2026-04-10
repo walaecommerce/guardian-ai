@@ -138,18 +138,19 @@ Check each identity attribute individually. If ANY label text is missing/changed
     }
 
     // Build spatial context for verification
+    // Spatial fields are now canonical camelCase from analyze-image
     let spatialContext = '';
     if (spatialAnalysis) {
-      const overlays = (spatialAnalysis.overlayElements || spatialAnalysis.overlay_elements || [])
-        .filter((el: any) => el.action === 'remove' && !el.isPartOfPackaging && !el.is_part_of_packaging);
+      const overlays = (spatialAnalysis.overlayElements || [])
+        .filter((el: any) => el.action === 'remove' && !el.isPartOfPackaging);
       if (overlays.length > 0) {
         spatialContext = `\n\nOVERLAY ELEMENTS THAT SHOULD HAVE BEEN REMOVED:\n${overlays.map((el: any) => `- ${el.type} at ${el.location} [${el.id}]`).join('\n')}\nVerify these are no longer present in the generated image.`;
       }
-      const protectedAreas = spatialAnalysis.protectedAreas || spatialAnalysis.protected_areas || [];
+      const protectedAreas = spatialAnalysis.protectedAreas || [];
       if (protectedAreas.length > 0) {
         spatialContext += `\n\nPROTECTED AREAS (must be UNCHANGED):\n${protectedAreas.map((a: any) => `- ${a.description} [${a.id}]`).join('\n')}`;
       }
-      const textZones = spatialAnalysis.textZones || spatialAnalysis.text_zones || [];
+      const textZones = spatialAnalysis.textZones || [];
       const criticalText = textZones.filter((z: any) => z.protection === 'CRITICAL' || z.protection === 'HIGH');
       if (criticalText.length > 0) {
         spatialContext += `\n\nCRITICAL TEXT THAT MUST BE PRESERVED:\n${criticalText.map((z: any) => `- "${z.content}" at ${z.location} [${z.id}]`).join('\n')}`;

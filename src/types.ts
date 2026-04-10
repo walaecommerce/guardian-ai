@@ -14,7 +14,7 @@ export interface ProductIdentityCard {
 }
 
 // Fix method used to generate the fixed image
-export type FixMethod = 'bg-segmentation' | 'full-regeneration' | 'openai-inpainting' | 'surgical-edit' | 'enhancement';
+export type FixMethod = 'bg-segmentation' | 'full-regeneration' | 'surgical-edit' | 'enhancement';
 
 export interface ImageAsset {
   id: string;

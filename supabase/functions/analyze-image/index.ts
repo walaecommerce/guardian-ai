@@ -577,6 +577,28 @@ serve(async (req) => {
     else if (score >= 50) { derivedStatus = 'WARNING'; derivedSeverity = 'MEDIUM'; }
     else { derivedStatus = 'FAIL'; derivedSeverity = score < 25 ? 'CRITICAL' : 'HIGH'; }
 
+    // Normalize severity to lowercase (AI may return CRITICAL/WARNING/INFO)
+    const normalizeSeverity = (s: string): string => (s || 'info').toLowerCase();
+
+    // Normalize spatial analysis inner fields to camelCase
+    const normalizeSpatialAnalysis = (sa: any) => {
+      if (!sa) return undefined;
+      return {
+        textZones: sa.textZones || sa.text_zones || [],
+        productZones: sa.productZones || sa.product_zones || [],
+        overlayElements: (sa.overlayElements || sa.overlay_elements || []).map((el: any) => ({
+          id: el.id,
+          type: el.type,
+          location: el.location,
+          bounds: el.bounds,
+          isPartOfPackaging: el.isPartOfPackaging ?? el.is_part_of_packaging ?? false,
+          action: el.action,
+        })),
+        protectedAreas: sa.protectedAreas || sa.protected_areas || [],
+        imageDimensions: sa.imageDimensions || sa.image_dimensions || undefined,
+      };
+    };
+
     const mappedResult = {
       overallScore: score,
       status: derivedStatus,
@@ -584,7 +606,7 @@ serve(async (req) => {
       scoringRationale: rawResult.scoring_rationale || rawResult.scoringRationale || null,
       productCategory: detectedCategory,
       violations: (rawResult.violations || []).map((v: any) => ({
-        severity: v.severity || 'info',
+        severity: normalizeSeverity(v.severity),
         category: v.rule || 'general',
         message: v.description || v.message || '',
         recommendation: v.recommendation || '',
@@ -604,7 +626,7 @@ serve(async (req) => {
         supplementTypeDetected: categoryChecks.supplement_type_detected || null,
         countryOfOriginDetected: categoryChecks.country_of_origin_detected || null,
         categoryViolations: (categoryChecks.category_violations || []).map((v: any) => ({
-          severity: v.severity || 'info',
+          severity: normalizeSeverity(v.severity),
           category: v.rule || 'category-specific',
           message: v.description || v.message || '',
           recommendation: v.recommendation || '',
@@ -612,7 +634,7 @@ serve(async (req) => {
       },
       fixRecommendations: rawResult.fix_recommendations || rawResult.fixRecommendations || [],
       generativePrompt: rawResult.generative_prompt || rawResult.generativePrompt || '',
-      spatialAnalysis: rawResult.spatialAnalysis || rawResult.spatial_analysis || undefined,
+      spatialAnalysis: normalizeSpatialAnalysis(rawResult.spatialAnalysis || rawResult.spatial_analysis),
       textReadabilityScore: rawResult.text_readability_score ?? rawResult.textReadabilityScore ?? null,
       emotionalAppealScore: rawResult.emotional_appeal_score ?? rawResult.emotionalAppealScore ?? null,
     };

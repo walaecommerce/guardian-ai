@@ -129,7 +129,7 @@ export default function Dashboard() {
                             {Math.round(s.average_score)}%
                           </span>
                         )}
-                        <Badge variant={s.status === 'complete' ? 'success' : 'secondary'} className="text-[10px]">
+                        <Badge variant={s.status === 'completed' ? 'success' : 'secondary'} className="text-[10px]">
                           {s.status}
                         </Badge>
                         <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />

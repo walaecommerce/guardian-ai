@@ -154,9 +154,17 @@ Return JSON:
         case 'completeness':
           priorityActions.push(`Your Completeness score is ${dim.score}/100 — you are only using ${imageCount} of 9 image slots. Add ${9 - Math.min(imageCount, 9)} more images to significantly improve your listing.`);
           break;
-        case 'diversity':
-          priorityActions.push(`Your Diversity score is ${dim.score}/100 — add missing image types like ${['lifestyle', 'infographic', 'size chart'].filter(() => Math.random() > 0.4).join(', ') || 'lifestyle images'} to showcase your product better.`);
+        case 'diversity': {
+          // Deterministic: suggest types that are actually missing
+          const missingTypes: string[] = [];
+          if (!categories.has('LIFESTYLE') && !categories.has('PRODUCT_IN_USE')) missingTypes.push('lifestyle');
+          if (!categories.has('INFOGRAPHIC')) missingTypes.push('infographic');
+          if (!categories.has('SIZE_CHART') && !categories.has('COMPARISON')) missingTypes.push('size chart');
+          if (!categories.has('DETAIL') && !categories.has('PACKAGING')) missingTypes.push('detail/packaging');
+          const suggestion = missingTypes.length > 0 ? missingTypes.join(', ') : 'lifestyle images';
+          priorityActions.push(`Your Diversity score is ${dim.score}/100 — add missing image types like ${suggestion} to showcase your product better.`);
           break;
+        }
         case 'readability':
           priorityActions.push(`Your Readability score is ${dim.score}/100 — increase font sizes and contrast on infographic images. Most shoppers view on mobile.`);
           break;
