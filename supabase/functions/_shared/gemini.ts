@@ -126,6 +126,8 @@ export interface FetchGeminiOptions {
   temperature?: number;
   /** Set to ["image","text"] for image generation models */
   modalities?: string[];
+  /** BYOK Gemini API key — required */
+  apiKey: string;
 }
 
 /**
