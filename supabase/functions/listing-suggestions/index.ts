@@ -13,6 +13,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const { geminiApiKey } = await resolveAuth(req);
+
 
     const { auditData, listingTitle, imageCount, categories } = await req.json();
 
@@ -66,6 +68,7 @@ ${JSON.stringify(auditData, null, 2)}
 Analyze this audit and generate optimization recommendations.`;
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [
         { role: "system", content: systemPrompt },
@@ -83,7 +86,7 @@ Analyze this audit and generate optimization recommendations.`;
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits in Settings → Workspace → Usage." }), {
+        return new Response(JSON.stringify({ error: "Gemini API quota exceeded. Check your API key quota." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -99,6 +102,12 @@ Analyze this audit and generate optimization recommendations.`;
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
+    // Handle auth/BYOK errors from resolveAuth
+    if ((e as any)?.status === 401 || (e as any)?.status === 403) {
+      return new Response(JSON.stringify({ error: (e as any)?.message || "Unauthorized", errorType: (e as any)?.errorType || "auth_error" }), {
+        status: (e as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("Suggestions error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -47,6 +47,8 @@ serve(async (req) => {
   }
 
   try {
+    const { geminiApiKey } = await resolveAuth(req);
+
     const { imageBase64, mainImageBase64, imageCategory, listingTitle, productAsin } = await req.json();
     }
 
@@ -155,6 +157,7 @@ Compare against the main product image provided and identify all opportunities t
     }
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [
         { role: "system", content: systemPrompt },
@@ -168,7 +171,7 @@ Compare against the main product image provided and identify all opportunities t
       });
     }
     if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
+      return new Response(JSON.stringify({ error: "Gemini API quota exceeded. Check your API key quota at console.cloud.google.com", errorType: "payment_required" }), {
         status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -199,6 +202,12 @@ Compare against the main product image provided and identify all opportunities t
     });
 
   } catch (error) {
+    // Handle auth/BYOK errors from resolveAuth
+    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
+      return new Response(JSON.stringify({ error: (error as any)?.message || "Unauthorized", errorType: (error as any)?.errorType || "auth_error" }), {
+        status: (error as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("[Enhancement] Analysis error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Analysis failed"

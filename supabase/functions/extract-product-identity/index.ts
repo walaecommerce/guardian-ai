@@ -65,6 +65,8 @@ serve(async (req) => {
   }
 
   try {
+    const { geminiApiKey } = await resolveAuth(req);
+
     const { imageBase64, productTitle } = await req.json();
 
     const imageUrl = await fetchImageAsDataUrl(imageBase64);
@@ -93,6 +95,7 @@ Return ONLY valid JSON with this exact structure:
 }`;
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [{
         role: "user",
@@ -109,7 +112,7 @@ Return ONLY valid JSON with this exact structure:
       });
     }
     if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "AI credits exhausted", errorType: "payment_required" }), {
+      return new Response(JSON.stringify({ error: "Gemini API quota exceeded", errorType: "payment_required" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -146,6 +149,12 @@ Return ONLY valid JSON with this exact structure:
     });
 
   } catch (error) {
+    // Handle auth/BYOK errors from resolveAuth
+    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
+      return new Response(JSON.stringify({ error: (error as any)?.message || "Unauthorized", errorType: (error as any)?.errorType || "auth_error" }), {
+        status: (error as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("[extract-product-identity] Error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Identity extraction failed",

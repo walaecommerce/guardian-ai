@@ -46,6 +46,8 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    const { geminiApiKey } = await resolveAuth(req);
+
     const body: PromptParams = await req.json();
     const { productName, description, claims = [], colors = [], template, aspectRatio = '1:1', resolution = '2K', customPrompt } = body;
 
@@ -62,6 +64,7 @@ serve(async (req) => {
       console.log(`[generate-studio-image] using model: ${MODELS.imageGen}`);
       try {
         const response = await fetchGemini({
+          apiKey: geminiApiKey,
           model: MODELS.imageGen,
           messages: [{ role: "user", content: prompt }],
           modalities: ["image", "text"],
@@ -101,6 +104,12 @@ serve(async (req) => {
         });
 
       } catch (e) {
+    // Handle auth/BYOK errors from resolveAuth
+    if ((e as any)?.status === 401 || (e as any)?.status === 403) {
+      return new Response(JSON.stringify({ error: (e as any)?.message || "Unauthorized", errorType: (e as any)?.errorType || "auth_error" }), {
+        status: (e as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
         lastError = e instanceof Error ? e.message : 'Unknown';
         console.error(`[Studio] Attempt ${attempt + 1} error:`, lastError);
         await sleep(5000 * (attempt + 1));

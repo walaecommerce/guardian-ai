@@ -157,6 +157,8 @@ serve(async (req) => {
   }
   
   try {
+    const { geminiApiKey } = await resolveAuth(req);
+
     // Auth validation
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -202,6 +204,7 @@ serve(async (req) => {
     }
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.imageGen,
       messages: [{ role: "user", content: contentParts }],
       modalities: ["image", "text"],
@@ -213,7 +216,7 @@ serve(async (req) => {
       });
     }
     if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
+      return new Response(JSON.stringify({ error: "Gemini API quota exceeded. Check your API key quota at console.cloud.google.com", errorType: "payment_required" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -266,6 +269,12 @@ serve(async (req) => {
     });
 
   } catch (error) {
+    // Handle auth/BYOK errors from resolveAuth
+    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
+      return new Response(JSON.stringify({ error: (error as any)?.message || "Unauthorized", errorType: (error as any)?.errorType || "auth_error" }), {
+        status: (error as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("[Enhancement Gen] Error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Enhancement generation failed"

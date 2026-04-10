@@ -13,6 +13,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const { geminiApiKey } = await resolveAuth(req);
+
 
     const { prompt, imageType } = await req.json();
 
@@ -33,6 +35,7 @@ Requirements:
 Specific instructions: ${prompt}`;
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.imageGen,
       messages: [
         { role: "user", content: enhancedPrompt },
@@ -49,7 +52,7 @@ Specific instructions: ${prompt}`;
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
+        return new Response(JSON.stringify({ error: "Gemini API quota exceeded." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -73,6 +76,12 @@ Specific instructions: ${prompt}`;
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
+    // Handle auth/BYOK errors from resolveAuth
+    if ((e as any)?.status === 401 || (e as any)?.status === 403) {
+      return new Response(JSON.stringify({ error: (e as any)?.message || "Unauthorized", errorType: (e as any)?.errorType || "auth_error" }), {
+        status: (e as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("Generate image error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

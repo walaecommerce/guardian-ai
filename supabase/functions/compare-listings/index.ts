@@ -14,6 +14,8 @@ serve(async (req) => {
   }
 
   try {
+    const { geminiApiKey } = await resolveAuth(req);
+
     const { yourAnalysis, competitorAnalysis, yourTitle, competitorTitle } = await req.json();
     }
 
@@ -54,6 +56,7 @@ Return ONLY this JSON structure:
     console.log("[compare-listings] Calling AI gateway...");
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [
         { role: "system", content: systemPrompt },
@@ -151,7 +154,7 @@ Return ONLY this JSON structure:
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits required. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
+        return new Response(JSON.stringify({ error: "Gemini API quota exceeded.", errorType: "payment_required" }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -188,6 +191,12 @@ Return ONLY this JSON structure:
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    // Handle auth/BYOK errors from resolveAuth
+    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
+      return new Response(JSON.stringify({ error: (error as any)?.message || "Unauthorized", errorType: (error as any)?.errorType || "auth_error" }), {
+        status: (error as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("[compare-listings] Error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Comparison failed",

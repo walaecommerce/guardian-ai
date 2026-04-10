@@ -13,8 +13,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const { geminiApiKey } = await resolveAuth(req);
+
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [
         {
@@ -84,7 +87,7 @@ serve(async (req) => {
 
       if (response.status === 429 || response.status === 402) {
         return new Response(JSON.stringify({
-          error: response.status === 402 ? "AI credits exhausted" : "Rate limit exceeded",
+          error: response.status === 402 ? "Gemini API quota exceeded" : "Rate limit exceeded",
           updates: [],
           last_checked: new Date().toISOString(),
           current_rules_summary: {
@@ -120,6 +123,12 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
+    // Handle auth/BYOK errors from resolveAuth
+    if ((e as any)?.status === 401 || (e as any)?.status === 403) {
+      return new Response(JSON.stringify({ error: (e as any)?.message || "Unauthorized", errorType: (e as any)?.errorType || "auth_error" }), {
+        status: (e as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("Policy check error:", e);
     return new Response(JSON.stringify({
       error: e instanceof Error ? e.message : "Unknown error",
