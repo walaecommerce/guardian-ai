@@ -196,6 +196,8 @@ const Studio = () => {
   };
 
   // ── Auto-compliance check ─────────────────────────────────
+  const insertLockRef = useRef<Set<string>>(new Set());
+
   const analyzeGenerated = async (img: GeneratedImage) => {
     setResults(prev => prev.map(r => r.id === img.id ? { ...r, status: 'analyzing' as const } : r));
 
@@ -223,8 +225,17 @@ const Studio = () => {
         analysisResult: analysis,
       } : r));
 
-      // Save to DB history
-      if (user) {
+      // Idempotency guard: only insert once per generation ID
+      if (user && !insertLockRef.current.has(img.id)) {
+        insertLockRef.current.add(img.id);
+
+        // Upload image to durable storage
+        let storagePath: string | null = null;
+        try {
+          const uploaded = await uploadImage(img.image, `studio/${user.id}`, `${img.template}_${Date.now()}`);
+          if (uploaded) storagePath = uploaded.path;
+        } catch { /* storage upload failure is non-fatal */ }
+
         await supabase.from('studio_generations').insert([{
           user_id: user.id,
           template: img.template,
@@ -232,12 +243,25 @@ const Studio = () => {
           prompt: img.prompt,
           score: analysis.overallScore,
           status: 'analyzed',
-          image_url: null,
+          image_url: storagePath,
         }]);
-        // Update local history
+
+        logEvent('studio_generation_completed', {
+          template: img.template,
+          productName: img.productName,
+          score: analysis.overallScore,
+          storagePath,
+        });
+
+        // Resolve signed URL for history thumbnail
+        let historyImage = '';
+        if (storagePath) {
+          try { historyImage = await getImageUrl(storagePath); } catch { /* fallback */ }
+        }
+
         setHistory(prev => [{
           id: crypto.randomUUID(),
-          image: '',
+          image: historyImage,
           prompt: img.prompt,
           template: img.template,
           productName: img.productName,
