@@ -146,6 +146,7 @@ export function ComplianceHistory({ onLoadAudit }: ComplianceHistoryProps) {
       <Card className="glass-card min-h-[400px] flex items-center justify-center">
         <CardContent className="text-center py-16">
           <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading report history…</p>
         </CardContent>
       </Card>
     );
@@ -158,9 +159,9 @@ export function ComplianceHistory({ onLoadAudit }: ComplianceHistoryProps) {
           <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
             <History className="w-8 h-8 text-primary/30" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Reports Yet</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Saved Reports</h3>
           <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
-            Completed audits will be saved here for future reference.
+            When you save an audit report, it will appear here so you can compare results over time.
           </p>
         </CardContent>
       </Card>
@@ -210,7 +211,9 @@ export function ComplianceHistory({ onLoadAudit }: ComplianceHistoryProps) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <RotateCcw className="w-3 h-3 text-muted-foreground" />
+                    <Button variant="ghost" size="sm" className="h-6 text-xs gap-1">
+                      <RotateCcw className="w-3 h-3" /> Load
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
