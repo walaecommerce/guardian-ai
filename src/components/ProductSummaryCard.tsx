@@ -26,6 +26,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { CATEGORY_RULES } from '@/config/categoryRules';
+import { extractImageCategory } from '@/utils/imageCategory';
 
 interface ProductSummaryCardProps {
   assets: ImageAsset[];
@@ -264,8 +265,7 @@ function SortableImageThumbnail({
 
   const isMain = index === 0;
   const categoryLabel = asset.analysisResult?.productCategory
-    || asset.name.split('_')[0]
-    || 'UNKNOWN';
+    || extractImageCategory(asset);
 
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
 
