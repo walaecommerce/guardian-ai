@@ -475,7 +475,7 @@ const Tracker = () => {
                 {chartData.length < 2 ? (
                   <div className="text-center py-12 space-y-2">
                     <p className="text-sm text-muted-foreground">
-                      {detail.audits.length === 0 ? 'No audits yet.' : 'One audit recorded — run another to see trends.'}
+                      {detail.audits.length === 0 ? 'No audits yet — run one to see how this listing scores.' : 'One audit recorded — run another to see trends.'}
                     </p>
                     <Button size="sm" variant="outline" onClick={() => runAudit(detail)} disabled={auditingAsin === detail.asin}>
                       {auditingAsin === detail.asin ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCw className="w-3 h-3 mr-1" />}
@@ -569,7 +569,7 @@ const Tracker = () => {
                   </div>
                   <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Products Tracked Yet</h3>
                   <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                    Paste an Amazon product URL above to start monitoring its listing health over time.
+                    Paste an Amazon product URL above to start monitoring. You'll see compliance scores, trend charts, and alerts when scores drop.
                   </p>
                 </div>
               ) : (

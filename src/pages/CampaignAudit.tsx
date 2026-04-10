@@ -718,7 +718,7 @@ ${productPages}
                       }
                       setProducts([]); setSummary(null); setActiveCampaignId(null); setUrls(''); setCampaignName(''); setClientName('');
                     }}>
-                      Clear & Start Over
+                      Discard & Start Over
                     </Button>
                   )}
                 </div>
@@ -785,7 +785,7 @@ ${productPages}
                   <FileText className="w-4 h-4 mr-1" /> Export PDF
                 </Button>
                 <Button size="sm" onClick={() => { setSummary(null); setProducts([]); setUrls(''); setCampaignName(''); setClientName(''); setSelectedCampaign(''); }}>
-                  Start New Campaign
+                  New Campaign
                 </Button>
               </div>
             </div>
@@ -796,7 +796,7 @@ ${productPages}
                 <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
                 <p className="text-sm flex-1">
                   <strong>{summary.needs_fixes} product{summary.needs_fixes > 1 ? 's' : ''}</strong> need compliance fixes.
-                  Open each product in the <strong>Single Audit</strong> tool to apply AI-powered corrections.
+                  Open each product URL in a <strong>New Audit</strong> to apply AI-powered fixes.
                 </p>
               </div>
             )}

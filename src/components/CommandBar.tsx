@@ -51,7 +51,7 @@ export function CommandBar({
       actions.push(
         <Button key="audit" size="sm" onClick={onRunAudit} disabled={isBusy} className="h-8 text-xs">
           {isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Play className="w-3.5 h-3.5 mr-1.5" />}
-          {isAnalyzing ? 'Auditing…' : 'Run Audit'}
+          {isAnalyzing ? 'Auditing…' : analyzedCount > 0 ? 'Re-run Audit' : 'Run Audit'}
         </Button>
       );
     }
