@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireAuth, isAuthError } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +12,10 @@ serve(async (req) => {
   }
 
   try {
+    // Auth guard
+    const authResult = await requireAuth(req, corsHeaders);
+    if (isAuthError(authResult)) return authResult;
+
     const { url } = await req.json();
     if (!url) {
       return new Response(JSON.stringify({ error: 'URL required' }), {
