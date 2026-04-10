@@ -621,10 +621,22 @@ IMPORTANT: If a deterministic check FAILED with severity "critical", your overal
       };
     };
 
+    // Compute policy_status from deterministic findings if available
+    let policyStatus: 'pass' | 'warning' | 'fail' = derivedStatus === 'FAIL' ? 'fail' : derivedStatus === 'WARNING' ? 'warning' : 'pass';
+    if (deterministicFindings && Array.isArray(deterministicFindings)) {
+      const hasCriticalFail = deterministicFindings.some((f: any) => !f.passed && f.severity === 'critical');
+      if (hasCriticalFail) policyStatus = 'fail';
+      else if (deterministicFindings.some((f: any) => !f.passed && f.severity === 'warning') && policyStatus === 'pass') {
+        policyStatus = 'warning';
+      }
+    }
+
     const mappedResult = {
       overallScore: score,
       status: derivedStatus,
       severity: normalizeSeverity(derivedSeverity),
+      policyStatus,
+      qualityScore: score,
       scoringRationale: rawResult.scoring_rationale || rawResult.scoringRationale || null,
       productCategory: detectedCategory,
       violations: (rawResult.violations || []).map((v: any) => ({
@@ -632,6 +644,8 @@ IMPORTANT: If a deterministic check FAILED with severity "critical", your overal
         category: v.rule || 'general',
         message: v.description || v.message || '',
         recommendation: v.recommendation || '',
+        rule_id: v.rule_id || undefined,
+        evidence: v.evidence || undefined,
       })),
       contentConsistency: rawResult.content_consistency ? {
         packagingTextDetected: rawResult.content_consistency.packaging_text_detected || '',
@@ -659,6 +673,7 @@ IMPORTANT: If a deterministic check FAILED with severity "critical", your overal
       spatialAnalysis: normalizeSpatialAnalysis(rawResult.spatialAnalysis || rawResult.spatial_analysis),
       textReadabilityScore: rawResult.text_readability_score ?? rawResult.textReadabilityScore ?? null,
       emotionalAppealScore: rawResult.emotional_appeal_score ?? rawResult.emotionalAppealScore ?? null,
+      deterministicFindings: deterministicFindings || undefined,
     };
 
     return new Response(JSON.stringify(mappedResult), {
