@@ -702,7 +702,7 @@ const Session = () => {
                         </Badge>
                       )}
                       <Badge variant="outline" className={getStatusColor(sessionStatus)}>
-                        {sessionStatus === 'in_progress' ? 'In Progress' : sessionStatus === 'completed' ? 'Completed' : sessionStatus.replace('_', ' ')}
+                        {sessionStatus === 'in_progress' ? 'In Progress' : sessionStatus === 'completed' ? 'Completed' : sessionStatus.charAt(0).toUpperCase() + sessionStatus.slice(1)}
                       </Badge>
                       {sessionCreatedAt && (
                         <span>
@@ -766,7 +766,7 @@ const Session = () => {
                   ) : assets.some(a => a.analysisResult) ? (
                     'Re-run Audit'
                   ) : isStudioOrigin ? (
-                    'Re-analyze Image'
+                    <><Sparkles className="w-4 h-4 mr-2" />Analyze Compliance</>
                   ) : (
                     'Run Audit'
                   )}
@@ -797,9 +797,14 @@ const Session = () => {
                     Save to History
                   </Button>
                 )}
-                {assets.length === 0 && (
+                {assets.length === 0 && !isStudioOrigin && (
                   <p className="text-xs text-muted-foreground text-center py-2">
-                    This session has no images. It may have been created with an import that failed.
+                    No images found. The import may have failed — try again from the home page.
+                  </p>
+                )}
+                {assets.length === 0 && isStudioOrigin && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    The Studio image didn't load. Go back to Studio and try again.
                   </p>
                 )}
               </CardContent>
