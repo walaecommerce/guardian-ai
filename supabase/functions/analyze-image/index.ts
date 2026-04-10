@@ -502,7 +502,7 @@ serve(async (req) => {
     if (response.status === 402) {
       console.warn("[analyze-image] AI balance exhausted");
       return new Response(JSON.stringify({
-        error: "AI credits exhausted. Add credits in Settings → Cloud & AI balance.",
+        error: "Credits exhausted. Upgrade your plan to continue.",
         errorType: "payment_required",
       }), {
         status: 200,
