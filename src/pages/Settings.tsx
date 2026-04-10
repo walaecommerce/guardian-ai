@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useApiKey } from '@/hooks/useApiKey';
+import { useCredits } from '@/hooks/useCredits';
+import { useCreditsHistory } from '@/hooks/useCreditsHistory';
+import { useSubscription } from '@/hooks/useSubscription';
+import { TIERS, getTierByPlan } from '@/config/subscriptionTiers';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -14,9 +17,13 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import {
-  User, Key, Bell, Loader2, Save, CheckCircle2, XCircle, Clock, Send, Trash2, ShieldCheck, ExternalLink,
+  User, CreditCard, Bell, Loader2, Save, ExternalLink, Search, BarChart3, Sparkles, Send,
+  CheckCircle2, XCircle, Clock, TrendingUp,
 } from 'lucide-react';
 import {
   getNotificationPrefs, saveNotificationPrefs, NotificationPrefs,
@@ -103,135 +110,152 @@ function ProfileTab() {
   );
 }
 
-// ── AI Provider Tab ──────────────────────────────────────────
+// ── Billing Tab ──────────────────────────────────────────────
 
-function AIProviderTab() {
-  const { configured, keyHint, loading, saveKey, deleteKey } = useApiKey();
-  const [keyInput, setKeyInput] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+const usageChartConfig = {
+  scrape: { label: 'Scrapes', color: 'hsl(var(--primary))' },
+  analyze: { label: 'Analyses', color: 'hsl(var(--accent-foreground))' },
+  fix: { label: 'Fixes', color: 'hsl(var(--destructive))' },
+};
 
-  const handleSave = async () => {
-    if (!keyInput.trim()) return;
-    setSaving(true);
-    try {
-      await saveKey(keyInput.trim());
-      setKeyInput('');
-      toast.success('Gemini API key saved and validated');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to save API key');
-    } finally {
-      setSaving(false);
-    }
-  };
+function BillingTab() {
+  const { plan, subscribed, subscriptionEnd, openPortal } = useSubscription();
+  const { remainingCredits, totalCredits } = useCredits();
+  const { data: usageData, loading: usageLoading } = useCreditsHistory(30);
+  const navigate = useNavigate();
+  const tier = getTierByPlan(plan);
 
-  const handleDelete = async () => {
-    setDeleting(true);
-    try {
-      await deleteKey();
-      toast.success('API key removed');
-    } catch {
-      toast.error('Failed to remove API key');
-    } finally {
-      setDeleting(false);
-    }
-  };
+  const creditTypes = [
+    { type: 'scrape' as const, icon: Search, label: 'Scrapes' },
+    { type: 'analyze' as const, icon: BarChart3, label: 'Analyses' },
+    { type: 'fix' as const, icon: Sparkles, label: 'Fixes' },
+  ];
 
-  if (loading) {
-    return (
-      <Card className="border-white/5 bg-white/[0.02]">
-        <CardContent className="py-12 flex justify-center">
-          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    );
-  }
+  const hasUsageData = usageData.some(d => d.scrape + d.analyze + d.fix > 0);
 
   return (
     <div className="space-y-6">
+      {/* Current Plan */}
+      <Card className="border-white/5 bg-white/[0.02]">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Current Plan</CardTitle>
+              <CardDescription>Manage your subscription and billing</CardDescription>
+            </div>
+            <Badge className={`${plan === 'free' ? 'bg-white/10 text-muted-foreground' : 'bg-primary/15 text-primary'} px-3 py-1 text-sm font-semibold capitalize`}>
+              {tier.name}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground">{tier.price}</span>
+            <span className="text-sm text-muted-foreground">{tier.period}</span>
+          </div>
+
+          {subscribed && subscriptionEnd && (
+            <p className="text-xs text-muted-foreground">
+              Renews on {new Date(subscriptionEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            {plan === 'free' ? (
+              <Button onClick={() => navigate('/pricing')} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                Upgrade Plan
+              </Button>
+            ) : (
+              <>
+                <Button onClick={() => navigate('/pricing')} variant="outline">
+                  Change Plan
+                </Button>
+                <Button onClick={openPortal} variant="ghost" className="text-muted-foreground">
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Manage Billing
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Credit Usage */}
+      <Card className="border-white/5 bg-white/[0.02]">
+        <CardHeader>
+          <CardTitle className="text-lg">Credit Usage</CardTitle>
+          <CardDescription>Monthly credits for the current billing cycle</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {creditTypes.map(({ type, icon: Icon, label }) => {
+            const remaining = remainingCredits(type);
+            const total = totalCredits(type);
+            const pct = total > 0 ? (remaining / total) * 100 : 0;
+            const isLow = pct < 20;
+
+            return (
+              <div key={type} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-sm text-foreground font-medium">
+                    <Icon className="w-4 h-4 text-muted-foreground" />
+                    {label}
+                  </span>
+                  <span className={`text-sm font-semibold ${isLow ? 'text-destructive' : 'text-foreground'}`}>
+                    {remaining} / {total}
+                  </span>
+                </div>
+                <Progress value={pct} className={`h-2 ${isLow ? '[&>div]:bg-destructive' : ''}`} />
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Usage History Chart */}
       <Card className="border-white/5 bg-white/[0.02]">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-primary" />
-            Gemini API Key
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+            Usage History
           </CardTitle>
-          <CardDescription>
-            All AI features (analysis, fix generation, studio) use your own Google Gemini API key.
-            Your key is stored securely server-side and never exposed to the browser.
-          </CardDescription>
+          <CardDescription>Credit consumption over the last 30 days</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {configured ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-lg border border-green-500/20 bg-green-500/5">
-                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground">Key configured</p>
-                  <p className="text-xs text-muted-foreground font-mono">{keyHint}</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="text-destructive hover:text-destructive shrink-0"
-                >
-                  {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                </Button>
-              </div>
-
-              <Separator className="bg-white/5" />
-
-              <div className="space-y-2">
-                <Label>Replace key</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="password"
-                    value={keyInput}
-                    onChange={(e) => setKeyInput(e.target.value)}
-                    placeholder="AIza..."
-                    className="font-mono"
-                  />
-                  <Button onClick={handleSave} disabled={saving || !keyInput.trim()}>
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  </Button>
-                </div>
-              </div>
+        <CardContent>
+          {usageLoading ? (
+            <div className="flex items-center justify-center h-48">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !hasUsageData ? (
+            <div className="flex flex-col items-center justify-center h-48 text-center">
+              <BarChart3 className="w-8 h-8 text-muted-foreground/40 mb-2" />
+              <p className="text-sm text-muted-foreground">No usage data yet</p>
+              <p className="text-xs text-muted-foreground/60">Credits consumed will appear here</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-lg border border-amber-500/20 bg-amber-500/5">
-                <XCircle className="w-5 h-5 text-amber-500 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">No API key configured</p>
-                  <p className="text-xs text-muted-foreground">AI features are disabled until you add a key.</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="geminiKey">Google Gemini API Key</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="geminiKey"
-                    type="password"
-                    value={keyInput}
-                    onChange={(e) => setKeyInput(e.target.value)}
-                    placeholder="AIza..."
-                    className="font-mono"
-                  />
-                  <Button onClick={handleSave} disabled={saving || !keyInput.trim()}>
-                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Key className="w-4 h-4 mr-2" />}
-                    Save
-                  </Button>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Get your key from{' '}
-                  <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
-                    Google AI Studio <ExternalLink className="w-3 h-3" />
-                  </a>
-                </p>
-              </div>
-            </div>
+            <ChartContainer config={usageChartConfig} className="h-64 w-full">
+              <BarChart data={usageData} barCategoryGap="20%">
+                <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/30" />
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11 }}
+                  interval="preserveStartEnd"
+                  className="text-muted-foreground"
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11 }}
+                  allowDecimals={false}
+                  className="text-muted-foreground"
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="scrape" stackId="a" fill="var(--color-scrape)" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="analyze" stackId="a" fill="var(--color-analyze)" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="fix" stackId="a" fill="var(--color-fix)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
           )}
         </CardContent>
       </Card>
@@ -252,18 +276,27 @@ function NotificationsTab() {
   };
 
   const handleTest = async () => {
-    if (!prefs.slackWebhookUrl) { toast.error('Enter a Slack webhook URL first'); return; }
+    if (!prefs.slackWebhookUrl) {
+      toast.error('Enter a Slack webhook URL first');
+      return;
+    }
     setTesting(true);
     try {
       const { error } = await supabase.functions.invoke('send-slack-notification', {
         body: {
-          webhookUrl: prefs.slackWebhookUrl, type: 'test', title: 'Test Product',
-          status: '✅ PASS', score: 92, violations: 2, images: 7, criticalCount: 0,
+          webhookUrl: prefs.slackWebhookUrl,
+          type: 'test',
+          title: 'Test Product',
+          status: '✅ PASS',
+          score: 92,
+          violations: 2,
+          images: 7,
+          criticalCount: 0,
           topViolation: 'Minor text overlay on secondary image',
         },
       });
       if (error) throw error;
-      toast.success('Test notification sent');
+      toast.success('Test notification sent — check your Slack channel');
       setLog(getNotificationLog());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Test failed');
@@ -281,6 +314,7 @@ function NotificationsTab() {
 
   return (
     <div className="space-y-6">
+      {/* Slack */}
       <Card className="border-white/5 bg-white/[0.02]">
         <CardHeader>
           <CardTitle className="text-lg">Slack Integration</CardTitle>
@@ -289,12 +323,26 @@ function NotificationsTab() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="slackUrl">Webhook URL</Label>
-            <Input id="slackUrl" type="url" value={prefs.slackWebhookUrl} onChange={(e) => updatePrefs({ ...prefs, slackWebhookUrl: e.target.value })} placeholder="https://hooks.slack.com/services/..." />
+            <Input
+              id="slackUrl"
+              type="url"
+              value={prefs.slackWebhookUrl}
+              onChange={(e) => updatePrefs({ ...prefs, slackWebhookUrl: e.target.value })}
+              placeholder="https://hooks.slack.com/services/..."
+            />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="emailNotif">Email Address</Label>
-            <Input id="emailNotif" type="email" value={prefs.emailAddress} onChange={(e) => updatePrefs({ ...prefs, emailAddress: e.target.value })} placeholder="you@company.com" />
+            <Input
+              id="emailNotif"
+              type="email"
+              value={prefs.emailAddress}
+              onChange={(e) => updatePrefs({ ...prefs, emailAddress: e.target.value })}
+              placeholder="you@company.com"
+            />
           </div>
+
           <Button onClick={handleTest} disabled={testing || !prefs.slackWebhookUrl} variant="outline" size="sm">
             {testing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             Send Test
@@ -302,6 +350,7 @@ function NotificationsTab() {
         </CardContent>
       </Card>
 
+      {/* Triggers */}
       <Card className="border-white/5 bg-white/[0.02]">
         <CardHeader>
           <CardTitle className="text-lg">Notification Triggers</CardTitle>
@@ -315,11 +364,19 @@ function NotificationsTab() {
             { key: 'fixGenerated' as const, label: 'Fix generated' },
           ].map(({ key, label }) => (
             <div key={key} className="flex items-center gap-3">
-              <Checkbox id={key} checked={prefs.notifyOn[key]} onCheckedChange={(checked) => updatePrefs({ ...prefs, notifyOn: { ...prefs.notifyOn, [key]: !!checked } })} />
+              <Checkbox
+                id={key}
+                checked={prefs.notifyOn[key]}
+                onCheckedChange={(checked) =>
+                  updatePrefs({ ...prefs, notifyOn: { ...prefs.notifyOn, [key]: !!checked } })
+                }
+              />
               <Label htmlFor={key} className="text-sm cursor-pointer">{label}</Label>
             </div>
           ))}
+
           <Separator className="bg-white/5" />
+
           <div className="space-y-2">
             <Label>Minimum Severity</Label>
             <Select value={prefs.minSeverity} onValueChange={(v) => updatePrefs({ ...prefs, minSeverity: v as any })}>
@@ -334,9 +391,12 @@ function NotificationsTab() {
         </CardContent>
       </Card>
 
+      {/* Delivery Log */}
       {log.length > 0 && (
         <Card className="border-white/5 bg-white/[0.02]">
-          <CardHeader><CardTitle className="text-lg">Delivery Log</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-lg">Delivery Log</CardTitle>
+          </CardHeader>
           <CardContent>
             <ScrollArea className="max-h-48">
               <div className="space-y-2">
@@ -366,7 +426,7 @@ export default function SettingsPage() {
       <main className="container mx-auto px-4 py-10 max-w-3xl">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your account, AI provider, and notifications</p>
+          <p className="text-sm text-muted-foreground mt-1">Manage your account, subscription, and notifications</p>
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
@@ -374,8 +434,8 @@ export default function SettingsPage() {
             <TabsTrigger value="profile" className="gap-2 data-[state=active]:bg-white/5">
               <User className="w-4 h-4" /> Profile
             </TabsTrigger>
-            <TabsTrigger value="ai" className="gap-2 data-[state=active]:bg-white/5">
-              <Key className="w-4 h-4" /> AI Provider
+            <TabsTrigger value="billing" className="gap-2 data-[state=active]:bg-white/5">
+              <CreditCard className="w-4 h-4" /> Billing
             </TabsTrigger>
             <TabsTrigger value="notifications" className="gap-2 data-[state=active]:bg-white/5">
               <Bell className="w-4 h-4" /> Notifications
@@ -383,7 +443,7 @@ export default function SettingsPage() {
           </TabsList>
 
           <TabsContent value="profile"><ProfileTab /></TabsContent>
-          <TabsContent value="ai"><AIProviderTab /></TabsContent>
+          <TabsContent value="billing"><BillingTab /></TabsContent>
           <TabsContent value="notifications"><NotificationsTab /></TabsContent>
         </Tabs>
 

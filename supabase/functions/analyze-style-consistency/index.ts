@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
-import { resolveAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,8 +14,6 @@ serve(async (req) => {
   }
 
   try {
-    const { geminiApiKey } = await resolveAuth(req);
-
     const { images, listingTitle } = await req.json();
 
     if (!images || !Array.isArray(images) || images.length < 2) {
@@ -24,6 +21,9 @@ serve(async (req) => {
         error: "At least 2 images are required for style consistency analysis",
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     console.log(`[style-consistency] Analyzing ${images.length} images for listing: ${listingTitle?.slice(0, 50)}`);
 
@@ -98,7 +98,6 @@ Return this EXACT JSON structure:
 
     // Call gateway
     const response = await fetchGemini({
-      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [{ role: "user", content: contentParts }],
     });
@@ -109,7 +108,7 @@ Return this EXACT JSON structure:
       });
     }
     if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "Gemini API quota exceeded.", errorType: "payment_required" }), {
+      return new Response(JSON.stringify({ error: "AI credits exhausted.", errorType: "payment_required" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -151,12 +150,6 @@ Return this EXACT JSON structure:
     });
 
   } catch (error) {
-    // Handle auth/BYOK errors from resolveAuth
-    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
-      return new Response(JSON.stringify({ error: (error as any)?.message || "Unauthorized", errorType: (error as any)?.errorType || "auth_error" }), {
-        status: (error as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     console.error("[style-consistency] Error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Style consistency analysis failed",

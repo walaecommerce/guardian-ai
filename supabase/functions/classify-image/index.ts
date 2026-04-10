@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
-import { resolveAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,8 +51,6 @@ serve(async (req) => {
   }
 
   try {
-    const { geminiApiKey } = await resolveAuth(req);
-
     const { imageBase64, productTitle, asin } = await req.json();
 
     if (!imageBase64) {
@@ -96,7 +93,6 @@ Analyze the image and determine which category it belongs to based on its visual
     console.log(`[classify-image] using model: ${MODELS.analysis} via Google Gemini API`);
 
     const response = await fetchGemini({
-      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [
         { role: "system", content: systemPrompt },
@@ -117,7 +113,7 @@ Analyze the image and determine which category it belongs to based on its visual
     }
     if (response.status === 402) {
       console.warn('[classify-image] AI credits exhausted');
-      return new Response(JSON.stringify({ error: "Gemini API quota exceeded.", errorType: "payment_required", category: 'UNKNOWN', confidence: 0, reasoning: 'AI credits exhausted' }), {
+      return new Response(JSON.stringify({ error: "AI credits exhausted.", errorType: "payment_required", category: 'UNKNOWN', confidence: 0, reasoning: 'AI credits exhausted' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -171,12 +167,6 @@ Analyze the image and determine which category it belongs to based on its visual
     });
 
   } catch (error) {
-    // Handle auth/BYOK errors from resolveAuth
-    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
-      return new Response(JSON.stringify({ error: (error as any)?.message || "Unauthorized", errorType: (error as any)?.errorType || "auth_error" }), {
-        status: (error as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     console.error('[classify-image] Classification error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error', errorType: 'classification_failed', category: 'UNKNOWN', confidence: 0 }),

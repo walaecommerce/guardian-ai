@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Shield, BarChart3, Sparkles, Activity, Download, Loader2, Chrome, Menu, LogOut, User, CreditCard, Settings } from 'lucide-react';
 import { HeaderNavLink } from './NavLink';
 import { NotificationSettings } from './NotificationSettings';
-
+import { CreditsDisplay } from './auth/CreditsDisplay';
 import { Button } from './ui/button';
 import { createZipBlob } from '@/utils/zipExport';
 import { useToast } from '@/hooks/use-toast';
@@ -84,6 +84,9 @@ export function Header() {
         
         {/* Right: Credits + Actions + Avatar */}
         <div className="flex items-center gap-3">
+          <div className="hidden sm:block">
+            <CreditsDisplay />
+          </div>
 
           <Button
             variant="outline"
@@ -119,9 +122,9 @@ export function Header() {
                   <p className="text-xs text-muted-foreground truncate">{profile?.email || user.email}</p>
                 </div>
                 <DropdownMenuSeparator className="bg-white/5" />
-                <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
-                  <Key className="w-4 h-4" />
-                  AI Provider
+                <DropdownMenuItem onClick={() => navigate('/pricing')} className="gap-2 cursor-pointer">
+                  <CreditCard className="w-4 h-4" />
+                  Upgrade Plan
                 </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2 cursor-pointer">
                   <Settings className="w-4 h-4" />

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { resolveAuth } from "../_shared/auth.ts";
+import { useCredit, getUserIdFromAuth, createAdminClient } from "../_shared/credits.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -76,14 +76,26 @@ serve(async (req) => {
   }
 
   try {
-    // Auth check (no credits needed, just verify user is signed in)
+    // Deduct scrape credit
+    let userId: string;
     try {
-      await resolveAuth(req);
-    } catch (authErr: any) {
-      return new Response(
-        JSON.stringify({ success: false, error: authErr?.message || 'Unauthorized', errorType: authErr?.errorType || 'auth_error' }),
-        { status: authErr?.status || 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      userId = await getUserIdFromAuth(req);
+      const admin = createAdminClient();
+      await useCredit(admin, userId, 'scrape');
+    } catch (creditErr: any) {
+      if (creditErr?.status === 402) {
+        return new Response(
+          JSON.stringify({ success: false, error: creditErr.message || 'No scrape credits remaining', errorType: 'payment_required' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (creditErr?.status === 401) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.warn('[scrape-amazon] Credit check failed, proceeding anyway:', creditErr);
     }
 
     const { url } = await req.json();

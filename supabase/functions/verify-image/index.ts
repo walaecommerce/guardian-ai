@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
-import { resolveAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -76,8 +75,6 @@ serve(async (req) => {
   }
 
   try {
-    const { geminiApiKey } = await resolveAuth(req);
-
     const {
       originalImageBase64,
       generatedImageBase64,
@@ -87,6 +84,10 @@ serve(async (req) => {
       productIdentity,
       spatialAnalysis,
     } = await req.json();
+
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     const isMain = imageType === 'MAIN';
@@ -211,7 +212,6 @@ Return this EXACT JSON structure:
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       response = await fetchGemini({
-        apiKey: geminiApiKey,
         model: MODELS.verification,
         messages: [{ role: "user", content: contentParts }],
       });
@@ -234,7 +234,7 @@ Return this EXACT JSON structure:
       });
     }
     if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "Gemini API quota exceeded. Check your API key quota at console.cloud.google.com", errorType: "payment_required" }), {
+      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
         status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -351,12 +351,6 @@ Return this EXACT JSON structure:
     });
 
   } catch (error) {
-    // Handle auth/BYOK errors from resolveAuth
-    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
-      return new Response(JSON.stringify({ error: (error as any)?.message || "Unauthorized", errorType: (error as any)?.errorType || "auth_error" }), {
-        status: (error as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     console.error("[verify-image] Error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Verification failed",

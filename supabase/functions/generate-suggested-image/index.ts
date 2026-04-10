@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
-import { resolveAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,8 +12,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { geminiApiKey } = await resolveAuth(req);
-
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     const { prompt, imageType } = await req.json();
 
@@ -35,7 +34,6 @@ Requirements:
 Specific instructions: ${prompt}`;
 
     const response = await fetchGemini({
-      apiKey: geminiApiKey,
       model: MODELS.imageGen,
       messages: [
         { role: "user", content: enhancedPrompt },
@@ -52,7 +50,7 @@ Specific instructions: ${prompt}`;
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Gemini API quota exceeded." }), {
+        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -76,12 +74,6 @@ Specific instructions: ${prompt}`;
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    // Handle auth/BYOK errors from resolveAuth
-    if ((e as any)?.status === 401 || (e as any)?.status === 403) {
-      return new Response(JSON.stringify({ error: (e as any)?.message || "Unauthorized", errorType: (e as any)?.errorType || "auth_error" }), {
-        status: (e as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     console.error("Generate image error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

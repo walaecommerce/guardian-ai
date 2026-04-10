@@ -2,7 +2,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
-import { resolveAuth } from "../_shared/auth.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -157,7 +156,17 @@ serve(async (req) => {
   }
   
   try {
-    const { geminiApiKey } = await resolveAuth(req);
+    // Auth validation
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const supabaseAuth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(authHeader.replace('Bearer ', ''));
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    console.log(`[generate-enhancement] Authenticated user: ${claimsData.claims.sub}`);
 
     const {
       originalImage,
@@ -168,6 +177,10 @@ serve(async (req) => {
       preserveElements,
       customPrompt
     } = await req.json();
+
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     console.log(`[generate-enhancement] using model: ${MODELS.imageGen} via Gemini API`);
@@ -192,7 +205,6 @@ serve(async (req) => {
     }
 
     const response = await fetchGemini({
-      apiKey: geminiApiKey,
       model: MODELS.imageGen,
       messages: [{ role: "user", content: contentParts }],
       modalities: ["image", "text"],
@@ -204,7 +216,7 @@ serve(async (req) => {
       });
     }
     if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "Gemini API quota exceeded. Check your API key quota at console.cloud.google.com", errorType: "payment_required" }), {
+      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -257,12 +269,6 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    // Handle auth/BYOK errors from resolveAuth
-    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
-      return new Response(JSON.stringify({ error: (error as any)?.message || "Unauthorized", errorType: (error as any)?.errorType || "auth_error" }), {
-        status: (error as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     console.error("[Enhancement Gen] Error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Enhancement generation failed"

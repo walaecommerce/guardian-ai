@@ -7,7 +7,11 @@
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-// API key is now passed per-call via FetchGeminiOptions.apiKey
+function getApiKey(): string {
+  const key = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+  if (!key) throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
+  return key;
+}
 
 // ── Convert OpenAI messages → Gemini contents ────────────────────
 
@@ -126,8 +130,6 @@ export interface FetchGeminiOptions {
   temperature?: number;
   /** Set to ["image","text"] for image generation models */
   modalities?: string[];
-  /** BYOK Gemini API key — required */
-  apiKey: string;
 }
 
 /**
@@ -138,7 +140,7 @@ export interface FetchGeminiOptions {
  * into an OpenAI-shaped Response.
  */
 export async function fetchGemini(opts: FetchGeminiOptions): Promise<Response> {
-  const apiKey = opts.apiKey;
+  const apiKey = getApiKey();
   const { systemInstruction, contents } = convertMessages(opts.messages);
   const toolsPart = convertTools(opts.tools, opts.tool_choice);
 

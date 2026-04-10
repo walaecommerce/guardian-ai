@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
-import { resolveAuth } from "../_shared/auth.ts";
 import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
@@ -13,8 +12,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { geminiApiKey } = await resolveAuth(req);
-
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     const { listingTitle, auditResults, scoreCardData, imageCount } = await req.json();
 
@@ -31,7 +30,6 @@ Images analyzed: ${imageCount}
 Generate improvement recommendations.`;
 
     const response = await fetchGemini({
-      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [
         { role: "system", content: systemPrompt },
@@ -124,7 +122,7 @@ Generate improvement recommendations.`;
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Gemini API quota exceeded. Check your API key quota.", errorType: "payment_required" }), {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -148,12 +146,6 @@ Generate improvement recommendations.`;
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    // Handle auth/BYOK errors from resolveAuth
-    if ((e as any)?.status === 401 || (e as any)?.status === 403) {
-      return new Response(JSON.stringify({ error: (e as any)?.message || "Unauthorized", errorType: (e as any)?.errorType || "auth_error" }), {
-        status: (e as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     console.error("Suggestions error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
