@@ -213,7 +213,8 @@ const Index = () => {
             productAsin={session.productAsin || undefined}
             competitorData={session.competitorData}
             getMatchingPolicyUpdate={() => null}
-            onGoToFix={() => session.setCurrentStep('fix')}
+            onGoToFix={() => session.setCurrentStep(failedCount > 0 ? 'fix' : 'review')}
+            onGoToImport={() => session.setCurrentStep('import')}
             onRunAudit={session.handleRunAudit}
             onSelectAsset={handleSelectAsset}
             onRetryFailedAnalysis={session.handleRetryFailedAnalysis}
@@ -230,6 +231,7 @@ const Index = () => {
             isBatchFixing={session.isBatchFixing}
             batchFixProgress={session.batchFixProgress}
             onGoToReview={() => session.setCurrentStep('review')}
+            onGoToAudit={() => session.setCurrentStep('audit')}
             listingTitle={session.listingTitle}
             onApplyFix={(assetId, prompt) => session.handleRequestFix(assetId, undefined, prompt)}
             onBatchEnhance={session.handleBatchEnhance}
@@ -251,6 +253,7 @@ const Index = () => {
             onSaveReport={session.handleSaveReport}
             onImportCompetitor={session.handleImportCompetitor}
             onLoadAudit={handleLoadAudit}
+            onGoToAudit={() => session.setCurrentStep('audit')}
           />
         )}
 

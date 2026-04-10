@@ -26,7 +26,8 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  Wrench
+  Wrench,
+  Loader2
 } from 'lucide-react';
 import { uploadImage } from '@/services/imageStorage';
 import { extractAsin } from '@/services/amazonScraper';
@@ -681,7 +682,7 @@ const Session = () => {
                         <span className="font-mono">{productAsin}</span>
                       )}
                       <Badge variant="outline" className={getStatusColor(sessionStatus)}>
-                        {sessionStatus.replace('_', ' ')}
+                        {sessionStatus === 'in_progress' ? 'In Progress' : sessionStatus === 'completed' ? 'Completed' : sessionStatus.replace('_', ' ')}
                       </Badge>
                       {sessionCreatedAt && (
                         <span>
@@ -740,7 +741,13 @@ const Session = () => {
                   disabled={assets.length === 0 || isAnalyzing}
                   className="w-full"
                 >
-                  {isAnalyzing ? 'Analyzing...' : 'Run Audit'}
+                  {isAnalyzing ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analyzing…</>
+                  ) : assets.some(a => a.analysisResult) ? (
+                    'Re-run Audit'
+                  ) : (
+                    'Run Audit'
+                  )}
                 </Button>
                 {failedCount > 0 && (
                   <Button 
@@ -749,8 +756,27 @@ const Session = () => {
                     variant="outline"
                     className="w-full"
                   >
-                    {isBatchFixing ? 'Fixing...' : `Fix All Failed (${failedCount})`}
+                    {isBatchFixing ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fixing…</>
+                    ) : (
+                      `Fix All Failed (${failedCount})`
+                    )}
                   </Button>
+                )}
+                {assets.some(a => a.analysisResult) && (
+                  <Button 
+                    onClick={handleSaveReport} 
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Report
+                  </Button>
+                )}
+                {assets.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    This session has no images. It may have been created with an import that failed.
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -774,25 +800,28 @@ const Session = () => {
                   <TabsTrigger value="results">Analysis Results</TabsTrigger>
                   <TabsTrigger value="comparison">Before / After</TabsTrigger>
                 </TabsList>
-                {assets.some(a => a.analysisResult) && (
-                  <Button onClick={handleSaveReport} variant="outline" size="sm">
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Report
-                  </Button>
-                )}
               </div>
               <TabsContent value="results">
-                <AnalysisResults
-                  assets={assets}
-                  listingTitle={listingTitle}
-                  onRequestFix={(id) => handleRequestFix(id)}
-                  onViewDetails={handleViewDetails}
-                  onReverify={handleReverify}
-                  onBatchFix={handleBatchFix}
-                  onRetryAudit={handleRunAudit}
-                  isBatchFixing={isBatchFixing}
-                  productAsin={productAsin || undefined}
-                />
+                {assets.length === 0 ? (
+                  <Card className="py-12">
+                    <CardContent className="text-center">
+                      <Package className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
+                      <p className="text-sm text-muted-foreground">No images in this session</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <AnalysisResults
+                    assets={assets}
+                    listingTitle={listingTitle}
+                    onRequestFix={(id) => handleRequestFix(id)}
+                    onViewDetails={handleViewDetails}
+                    onReverify={handleReverify}
+                    onBatchFix={handleBatchFix}
+                    onRetryAudit={handleRunAudit}
+                    isBatchFixing={isBatchFixing}
+                    productAsin={productAsin || undefined}
+                  />
+                )}
               </TabsContent>
               <TabsContent value="comparison">
                 <BatchComparisonView
