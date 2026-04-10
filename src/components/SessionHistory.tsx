@@ -302,7 +302,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                 <div>
                   <p className="text-xs text-muted-foreground">Status</p>
                   <Badge variant="outline" className={getStatusColor(selectedSession.status)}>
-                    {selectedSession.status.replace('_', ' ')}
+                    {humanizeSessionStatus(selectedSession.status)}
                   </Badge>
                 </div>
               </div>
