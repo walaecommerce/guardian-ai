@@ -84,9 +84,7 @@ export function FixAttemptHistory({
               
               {/* Tier badge with fix method detail */}
               {attempt.fixTier && (() => {
-                const tierConfig = attempt.fixTier === 'gemini-flash'
-                  ? { label: 'T1', className: 'bg-cyan-500/90 text-white', Icon: Sparkles, title: 'Tier 1: Gemini Flash' }
-                  : { label: 'T2', className: 'bg-amber-500/90 text-white', Icon: Paintbrush, title: 'Tier 2: OpenAI Inpainting' };
+                const tierConfig = { label: 'T1', className: 'bg-cyan-500/90 text-white', Icon: Sparkles, title: 'Tier 1: Gemini Flash' };
                 // Check logs for fix method detail
                 const methodFromLogs = attempt.logs?.find(l => l.message.includes('BG Seg') || l.message.includes('Regen') || l.message.includes('Surgical') || l.message.includes('Inpaint'));
                 const methodLabel = methodFromLogs

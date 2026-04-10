@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ImageAsset, AnalysisResult, FixAttempt, ProductIdentityCard } from '@/types';
+import { refreshSignedUrl } from '@/services/imageStorage';
 
 interface EnhancementSession {
   id: string;
@@ -62,26 +63,29 @@ export function useSessionLoader() {
           const assetId = Math.random().toString(36).substring(2, 9);
           assetSessionMap.set(assetId, img.id);
 
+          // Resolve signed URLs for private storage
+          const signedOriginalUrl = await refreshSignedUrl(img.original_image_url);
+          const signedFixedUrl = img.fixed_image_url ? await refreshSignedUrl(img.fixed_image_url) : undefined;
+
           // Fetch image as File for local operations
           let file: File;
           try {
-            const response = await fetch(img.original_image_url);
+            const response = await fetch(signedOriginalUrl);
             const blob = await response.blob();
             file = new File([blob], img.image_name, { type: blob.type || 'image/jpeg' });
           } catch {
-            // Create a placeholder file if fetch fails
             file = new File([''], img.image_name, { type: 'image/jpeg' });
           }
 
           const asset: ImageAsset = {
             id: assetId,
             file,
-            preview: img.original_image_url,
+            preview: signedOriginalUrl,
             type: img.image_type as 'MAIN' | 'SECONDARY',
             name: img.image_name,
-            sourceUrl: img.original_image_url,
+            sourceUrl: signedOriginalUrl,
             analysisResult: img.analysis_result as unknown as AnalysisResult | undefined,
-            fixedImage: img.fixed_image_url || undefined,
+            fixedImage: signedFixedUrl,
           };
 
           return asset;

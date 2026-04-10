@@ -826,9 +826,6 @@ export function useAuditSession() {
             thinkingSteps: [...prev.thinkingSteps, `🖼️ Generation attempt ${attempt}/${maxAttempts}...`]
           } : prev);
 
-          const shouldUseOpenAIInpainting = asset.type !== 'MAIN' && attempt > 1 && 
-            (asset.analysisResult?.spatialAnalysis?.overlayElements?.length > 0);
-
           const { data: genData, error: genError } = await supabase.functions.invoke('generate-fix', {
             body: { 
               imageBase64: originalBase64, 
@@ -843,7 +840,6 @@ export function useAuditSession() {
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
               imageCategory: asset.analysisResult?.productCategory || undefined,
               productIdentity: productIdentity || undefined,
-              useOpenAIInpainting: shouldUseOpenAIInpainting,
               violations: asset.analysisResult?.violations || [],
               scoringRationale: asset.analysisResult?.scoringRationale || undefined,
             }
@@ -882,13 +878,11 @@ export function useAuditSession() {
           }
           if (!genData?.fixedImage) throw new Error('No image generated');
 
-          const fixMethod = genData.usedOpenAIInpainting 
-            ? 'openai-inpainting' as const
-            : genData.usedBackgroundSegmentation 
-              ? 'bg-segmentation' as const
-              : asset.type === 'MAIN' 
-                ? 'full-regeneration' as const
-                : 'surgical-edit' as const;
+          const fixMethod = genData.usedBackgroundSegmentation 
+            ? 'bg-segmentation' as const
+            : asset.type === 'MAIN' 
+              ? 'full-regeneration' as const
+              : 'surgical-edit' as const;
           lastFixMethod = fixMethod;
 
           addLog('success', `✨ AI generation complete (${fixMethod})`);
@@ -898,7 +892,7 @@ export function useAuditSession() {
             attempt,
             generatedImage: genData.fixedImage,
             status: 'verifying',
-            fixTier: genData.usedOpenAIInpainting ? 'openai-inpainting' : 'gemini-flash',
+            fixTier: 'gemini-flash',
           };
 
           setFixProgress(prev => prev ? {

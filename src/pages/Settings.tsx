@@ -266,13 +266,27 @@ function BillingTab() {
 // ── Notifications Tab ────────────────────────────────────────
 
 function NotificationsTab() {
-  const [prefs, setPrefs] = useState<NotificationPrefs>(getNotificationPrefs);
+  const [prefs, setPrefs] = useState<NotificationPrefs>({
+    slackWebhookUrl: '',
+    emailAddress: '',
+    notifyOn: { auditComplete: true, criticalViolations: true, scoreDropped: true, fixGenerated: false },
+    minSeverity: 'any',
+  });
   const [log, setLog] = useState<NotificationLogEntry[]>(getNotificationLog);
   const [testing, setTesting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const updatePrefs = (updated: NotificationPrefs) => {
+  // Load prefs from server on mount
+  useState(() => {
+    getNotificationPrefs().then(p => {
+      setPrefs(p);
+      setLoading(false);
+    });
+  });
+
+  const updatePrefs = async (updated: NotificationPrefs) => {
     setPrefs(updated);
-    saveNotificationPrefs(updated);
+    await saveNotificationPrefs(updated);
   };
 
   const handleTest = async () => {
@@ -280,11 +294,12 @@ function NotificationsTab() {
       toast.error('Enter a Slack webhook URL first');
       return;
     }
+    // Save first so server has the webhook
+    await saveNotificationPrefs(prefs);
     setTesting(true);
     try {
       const { error } = await supabase.functions.invoke('send-slack-notification', {
         body: {
-          webhookUrl: prefs.slackWebhookUrl,
           type: 'test',
           title: 'Test Product',
           status: '✅ PASS',

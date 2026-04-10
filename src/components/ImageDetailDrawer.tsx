@@ -14,7 +14,6 @@ const FIX_METHOD_CONFIG: Record<FixMethod, { label: string; icon: React.ElementT
   'bg-segmentation': { label: 'A1 · BG Seg', icon: Layers, className: 'bg-cyan-500/90 text-white' },
   'full-regeneration': { label: 'A2 · Regen', icon: RefreshCw, className: 'bg-violet-500/90 text-white' },
   'surgical-edit': { label: 'T1 · Surgical', icon: Scissors, className: 'bg-emerald-500/90 text-white' },
-  'openai-inpainting': { label: 'T2 · Inpaint', icon: Paintbrush, className: 'bg-amber-500/90 text-white' },
   'enhancement': { label: 'Enhanced', icon: Sparkles, className: 'bg-purple-500/90 text-white' },
 };
 

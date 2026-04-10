@@ -14,7 +14,7 @@ export interface ProductIdentityCard {
 }
 
 // Fix method used to generate the fixed image
-export type FixMethod = 'bg-segmentation' | 'full-regeneration' | 'openai-inpainting' | 'surgical-edit' | 'enhancement';
+export type FixMethod = 'bg-segmentation' | 'full-regeneration' | 'surgical-edit' | 'enhancement';
 
 export interface ImageAsset {
   id: string;
@@ -165,7 +165,7 @@ export interface VerificationResult {
 }
 
 // Fix Generation Types
-export type FixTier = 'gemini-flash' | 'openai-inpainting';
+export type FixTier = 'gemini-flash';
 
 export interface FixAttempt {
   attempt: number;

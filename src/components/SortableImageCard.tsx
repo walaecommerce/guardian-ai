@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { X, Loader2, Crop, Star, GripVertical, Layers, RefreshCw, Paintbrush, Scissors } from 'lucide-react';
+import { X, Loader2, Crop, Star, GripVertical, Layers, RefreshCw, Scissors, Sparkles } from 'lucide-react';
 import { ImageAsset, FixMethod } from '@/types';
 
 interface SortableImageCardProps {
@@ -38,10 +38,10 @@ const getFixMethodConfig = (method: FixMethod) => {
       return { label: 'A1 · BG Seg', icon: Layers, className: 'bg-cyan-500/90 text-white' };
     case 'full-regeneration':
       return { label: 'A2 · Regen', icon: RefreshCw, className: 'bg-violet-500/90 text-white' };
-    case 'openai-inpainting':
-      return { label: 'T2 · Inpaint', icon: Paintbrush, className: 'bg-amber-500/90 text-white' };
     case 'surgical-edit':
       return { label: 'T1 · Surgical', icon: Scissors, className: 'bg-emerald-500/90 text-white' };
+    case 'enhancement':
+      return { label: 'Enhanced', icon: Sparkles, className: 'bg-purple-500/90 text-white' };
   }
 };
 

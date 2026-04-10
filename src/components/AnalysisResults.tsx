@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
-import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Paintbrush, Scissors, AlertOctagon } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Scissors, AlertOctagon, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,10 +14,10 @@ const getFixMethodConfig = (method: FixMethod) => {
       return { label: 'A1 · BG Seg', icon: Layers, className: 'bg-cyan-500/90 text-white' };
     case 'full-regeneration':
       return { label: 'A2 · Regen', icon: RefreshCw, className: 'bg-violet-500/90 text-white' };
-    case 'openai-inpainting':
-      return { label: 'T2 · Inpaint', icon: Paintbrush, className: 'bg-amber-500/90 text-white' };
     case 'surgical-edit':
       return { label: 'T1 · Surgical', icon: Scissors, className: 'bg-emerald-500/90 text-white' };
+    case 'enhancement':
+      return { label: 'Enhanced', icon: Sparkles, className: 'bg-purple-500/90 text-white' };
   }
 };
 import { ExportButton } from '@/components/ExportButton';

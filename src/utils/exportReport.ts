@@ -24,7 +24,7 @@ export interface ExportReport {
     'bg-segmentation': number;
     'full-regeneration': number;
     'surgical-edit': number;
-    'openai-inpainting': number;
+    'enhancement': number;
   };
   assets: {
     filename: string;
@@ -107,7 +107,7 @@ export function generateExportData(
   };
 
   // Aggregate fix method counts
-  const fixMethodCounts = { 'bg-segmentation': 0, 'full-regeneration': 0, 'surgical-edit': 0, 'openai-inpainting': 0 };
+  const fixMethodCounts = { 'bg-segmentation': 0, 'full-regeneration': 0, 'surgical-edit': 0, 'enhancement': 0 };
   assets.filter(a => a.fixedImage && a.fixMethod).forEach(a => {
     if (a.fixMethod && a.fixMethod in fixMethodCounts) {
       fixMethodCounts[a.fixMethod]++;
@@ -238,7 +238,7 @@ export function exportToPDFSummary(data: ExportReport): void {
       ${data.fix_methods['bg-segmentation'] > 0 ? `<div style="background:#ecfeff;border:1px solid #67e8f9;border-radius:8px;padding:8px 16px;text-align:center;"><div style="font-size:20px;font-weight:700;color:#0891b2;">${data.fix_methods['bg-segmentation']}</div><div style="font-size:11px;font-weight:600;color:#0891b2;">A1 · BG Seg</div></div>` : ''}
       ${data.fix_methods['full-regeneration'] > 0 ? `<div style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px;padding:8px 16px;text-align:center;"><div style="font-size:20px;font-weight:700;color:#7c3aed;">${data.fix_methods['full-regeneration']}</div><div style="font-size:11px;font-weight:600;color:#7c3aed;">A2 · Regen</div></div>` : ''}
       ${data.fix_methods['surgical-edit'] > 0 ? `<div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:8px 16px;text-align:center;"><div style="font-size:20px;font-weight:700;color:#059669;">${data.fix_methods['surgical-edit']}</div><div style="font-size:11px;font-weight:600;color:#059669;">T1 · Surgical</div></div>` : ''}
-      ${data.fix_methods['openai-inpainting'] > 0 ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 16px;text-align:center;"><div style="font-size:20px;font-weight:700;color:#d97706;">${data.fix_methods['openai-inpainting']}</div><div style="font-size:11px;font-weight:600;color:#d97706;">T2 · Inpaint</div></div>` : ''}
+      ${data.fix_methods['enhancement'] > 0 ? `<div style="background:#faf5ff;border:1px solid #c4b5fd;border-radius:8px;padding:8px 16px;text-align:center;"><div style="font-size:20px;font-weight:700;color:#7c3aed;">${data.fix_methods['enhancement']}</div><div style="font-size:11px;font-weight:600;color:#7c3aed;">Enhanced</div></div>` : ''}
     </div>
   </div>
   ` : ''}
@@ -364,7 +364,7 @@ export function exportToPDF(data: ExportReport): void {
       'bg-segmentation': { label: 'A1 · BG Seg', color: [8, 145, 178] },
       'full-regeneration': { label: 'A2 · Regen', color: [124, 58, 237] },
       'surgical-edit': { label: 'T1 · Surgical', color: [5, 150, 105] },
-      'openai-inpainting': { label: 'T2 · Inpaint', color: [217, 119, 6] },
+      'enhancement': { label: 'Enhanced', color: [124, 58, 237] },
     };
 
     if (currentY > doc.internal.pageSize.getHeight() - 60) {

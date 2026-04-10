@@ -321,9 +321,6 @@ const Session = () => {
             thinkingSteps: [...prev.thinkingSteps, `🖼️ Generation attempt ${attempt}/${maxAttempts}...`]
           } : prev);
 
-          const shouldUseOpenAIInpainting = asset.type !== 'MAIN' && attempt > 1 && 
-            (asset.analysisResult?.spatialAnalysis?.overlayElements?.length > 0);
-
           const { data: genData, error: genError } = await supabase.functions.invoke('generate-fix', {
             body: { 
               imageBase64: originalBase64, 
@@ -338,7 +335,6 @@ const Session = () => {
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
               imageCategory: asset.analysisResult?.productCategory || undefined,
               productIdentity: productIdentity || undefined,
-              useOpenAIInpainting: shouldUseOpenAIInpainting,
             }
           });
 

@@ -294,7 +294,7 @@ export function ComplianceReportCard({ assets, isAnalyzing }: ComplianceReportCa
                   'bg-segmentation': { label: 'A1 · BG Seg', className: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/30' },
                   'full-regeneration': { label: 'A2 · Regen', className: 'bg-violet-500/10 text-violet-600 border-violet-500/30' },
                   'surgical-edit': { label: 'T1 · Surgical', className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' },
-                  'openai-inpainting': { label: 'T2 · Inpaint', className: 'bg-amber-500/10 text-amber-600 border-amber-500/30' },
+                  'enhancement': { label: 'Enhanced', className: 'bg-purple-500/10 text-purple-600 border-purple-500/30' },
                 };
                 fixedAssets.forEach(a => {
                   const m = a.fixMethod!;
