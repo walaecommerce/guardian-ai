@@ -645,8 +645,13 @@ ${productPages}
                       Stop Campaign
                     </Button>
                   )}
+                  {!isRunning && products.some(p => p.status === 'pending') && (
+                    <Button size="sm" onClick={resumeCampaign}>
+                      Resume ({products.filter(p => p.status === 'pending').length} remaining)
+                    </Button>
+                  )}
                   {!isRunning && (
-                    <Button variant="outline" size="sm" onClick={() => { setProducts([]); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setProducts([]); setSummary(null); }}>
                       Clear & Start Over
                     </Button>
                   )}

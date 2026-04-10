@@ -214,8 +214,8 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className={getStatusColor(session.status)}>
-                            {session.status.replace('_', ' ')}
+                         <Badge variant="outline" className={getStatusColor(session.status)}>
+                            {session.status === 'in_progress' ? 'In Progress' : session.status === 'completed' ? 'Completed' : session.status.replace('_', ' ')}
                           </Badge>
                           {session.product_asin && (
                             <span className="text-xs font-mono text-muted-foreground">
@@ -404,8 +404,20 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                   className="flex-1"
                 >
                   <ArrowRight className="h-4 w-4 mr-2" />
-                  Open Full Session
+                  {selectedSession.status === 'in_progress' ? 'Continue Working' : 'Open Session'}
                 </Button>
+                {selectedSession.failed_count > 0 && selectedSession.fixed_count < selectedSession.failed_count && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setShowDetailDialog(false);
+                      navigate(`/session/${selectedSession.id}`);
+                    }}
+                  >
+                    <Wrench className="h-4 w-4 mr-2" />
+                    Fix Issues
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   onClick={() => setShowDetailDialog(false)}
