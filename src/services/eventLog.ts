@@ -24,7 +24,7 @@ export async function logEvent(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    await supabase.from('app_events').insert({
+    await (supabase.from('app_events') as any).insert({
       user_id: user.id,
       event_type: eventType,
       metadata,
