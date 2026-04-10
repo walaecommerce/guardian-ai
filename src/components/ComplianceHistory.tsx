@@ -58,7 +58,7 @@ export async function saveAuditToHistory(assets: ImageAsset[], listingTitle: str
     passed_count: passed,
     failed_count: failed,
     average_score: avgScore,
-    report_data: reportData,
+    report_data: JSON.parse(JSON.stringify(reportData)),
   }]);
 }
 

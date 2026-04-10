@@ -272,14 +272,35 @@ function NotificationsTab() {
     notifyOn: { auditComplete: true, criticalViolations: true, scoreDropped: true, fixGenerated: false },
     minSeverity: 'any',
   });
-  const [log, setLog] = useState<NotificationLogEntry[]>(getNotificationLog);
+  const [log, setLog] = useState<NotificationLogEntry[]>([]);
   const [testing, setTesting] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load prefs from server on mount
+  // Load prefs + log from server on mount
   useState(() => {
-    getNotificationPrefs().then(p => {
+    Promise.all([
+      getNotificationPrefs(),
+      (async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return [];
+        const { data } = await supabase
+          .from('notification_log')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        return (data || []).map((row: any) => ({
+          id: row.id,
+          timestamp: row.created_at,
+          type: row.type,
+          message: row.message,
+          status: row.status,
+          error: row.error || undefined,
+        })) as NotificationLogEntry[];
+      })(),
+    ]).then(([p, l]) => {
       setPrefs(p);
+      setLog(l);
       setLoading(false);
     });
   });

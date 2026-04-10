@@ -389,6 +389,12 @@ export function AnalysisResults({
   const failedAssets = assets.filter(a => a.analysisError && !a.analysisResult && !a.isAnalyzing);
   const allFailed = failedAssets.length > 0 && analyzedAssets.length === 0;
 
+  // FEATURE 3: Violation Trend Badges (must be before early returns)
+  const [trend, setTrend] = useState<{ prevScore: number; prevDate: string; direction: 'up' | 'down' | 'same' } | null>(null);
+  useEffect(() => {
+    getScoreTrend(listingTitle).then(setTrend);
+  }, [listingTitle]);
+
   // Determine the most common error reason
   const primaryError = allFailed
     ? failedAssets.reduce((acc, a) => {
@@ -453,11 +459,6 @@ export function AnalysisResults({
     ? Math.round(completedAssets.reduce((sum, a) => sum + (a.analysisResult?.overallScore || 0), 0) / completedAssets.length)
     : 0;
 
-  // FEATURE 3: Violation Trend Badges
-  const [trend, setTrend] = useState<{ prevScore: number; prevDate: string; direction: 'up' | 'down' | 'same' } | null>(null);
-  useEffect(() => {
-    getScoreTrend(listingTitle).then(setTrend);
-  }, [listingTitle]);
 
   return (
     <div className="space-y-4">
