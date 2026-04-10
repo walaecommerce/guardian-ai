@@ -258,9 +258,54 @@ function extractImageFromResponse(data: any): string | null {
   return data?.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
 }
 
+// ── Main handler ─────────────────────────────────────────────────
 
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
 
-    // Determine model: use imageEdit (Nano Banana 2) for secondary, imageGen for main
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const supabaseAuth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(authHeader.replace('Bearer ', ''));
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    console.log(`[generate-fix] Authenticated user: ${claimsData.claims.sub}`);
+
+    try {
+      const admin = createAdminClient();
+      await useCredit(admin, claimsData.claims.sub as string, 'fix');
+    } catch (creditErr: any) {
+      if (creditErr?.status === 402) {
+        return new Response(
+          JSON.stringify({ error: creditErr.message || 'No fix credits remaining', errorType: 'payment_required' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.warn('[generate-fix] Credit check failed, proceeding:', creditErr);
+    }
+
+    const {
+      imageBase64, imageType, generativePrompt, mainImageBase64,
+      previousCritique, previousGeneratedImage, productTitle, customPrompt,
+      spatialAnalysis, imageCategory, productIdentity, violations, scoringRationale,
+    } = await req.json();
+
+    const fixCategory = detectFixCategory(imageCategory, productTitle);
+    console.log(`[generate-fix] Detected category: ${fixCategory}`);
+
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+
+    const isMain = imageType === 'MAIN';
+    const isSecondary = !isMain;
+
+    // Determine model
     const model = isSecondary ? MODELS.imageEdit : MODELS.imageGen;
     console.log(`[generate-fix] using model: ${model} via Google Gemini API`);
 
