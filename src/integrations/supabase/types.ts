@@ -234,7 +234,6 @@ export type Database = {
           id: string
           min_severity: string
           notify_on: Json
-          slack_webhook_url: string | null
           updated_at: string
           user_id: string
         }
@@ -244,7 +243,6 @@ export type Database = {
           id?: string
           min_severity?: string
           notify_on?: Json
-          slack_webhook_url?: string | null
           updated_at?: string
           user_id: string
         }
@@ -254,7 +252,6 @@ export type Database = {
           id?: string
           min_severity?: string
           notify_on?: Json
-          slack_webhook_url?: string | null
           updated_at?: string
           user_id?: string
         }
