@@ -165,7 +165,7 @@ export interface VerificationResult {
 }
 
 // Fix Generation Types
-export type FixTier = 'gemini-flash' | 'openai-inpainting';
+export type FixTier = 'gemini-flash';
 
 export interface FixAttempt {
   attempt: number;
