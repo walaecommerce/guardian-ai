@@ -76,7 +76,7 @@ const Studio = () => {
   const [results, setResults] = useState<GeneratedImage[]>([]);
   const [history, setHistory] = useState<GeneratedImage[]>([]);
 
-  // Load history from Supabase on mount
+  // Load history from Supabase on mount — resolve signed URLs for stored images
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -86,16 +86,23 @@ const Studio = () => {
         .order('created_at', { ascending: false })
         .limit(20);
       if (data) {
-        setHistory(data.map(row => ({
-          id: row.id,
-          image: '', // Not stored in DB
-          prompt: row.prompt || '',
-          template: row.template,
-          productName: row.product_name,
-          score: row.score,
-          status: 'analyzed' as const,
-          date: row.created_at,
-        })));
+        const entries: GeneratedImage[] = await Promise.all(data.map(async row => {
+          let image = '';
+          if (row.image_url) {
+            try { image = await getImageUrl(row.image_url); } catch { /* fallback empty */ }
+          }
+          return {
+            id: row.id,
+            image,
+            prompt: row.prompt || '',
+            template: row.template,
+            productName: row.product_name,
+            score: row.score,
+            status: 'analyzed' as const,
+            date: row.created_at,
+          };
+        }));
+        setHistory(entries);
       }
     })();
   }, [user]);
