@@ -74,7 +74,7 @@ serve(async (req) => {
 
     const webhookUrl = prefs?.slack_webhook_url;
     if (!webhookUrl) {
-      return errorResponse(400, 'No Slack webhook URL configured. Add one in Settings → Notifications.', {}, corsHeaders);
+      return successResponse({ skipped: true, reason: 'No Slack webhook URL configured. Add one in Settings → Notifications.' }, corsHeaders);
     }
 
     // Server-side gating (skip for test notifications)
