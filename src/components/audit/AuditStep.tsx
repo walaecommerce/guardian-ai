@@ -1,11 +1,12 @@
 import { AnalysisResults } from '@/components/AnalysisResults';
 import { ComplianceReportCard } from '@/components/ComplianceReportCard';
+import { EmptyState } from '@/components/EmptyState';
 import { ImageAsset, LogEntry } from '@/types';
 import { CompetitorData } from '@/components/CompetitorAudit';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowRight, Wand2, Search, CheckCircle2, XCircle, AlertTriangle, BarChart3, Loader2 } from 'lucide-react';
+import { ArrowRight, Wand2, Search, CheckCircle2, XCircle, AlertTriangle, BarChart3, Loader2, Import } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface AuditStepProps {
@@ -22,6 +23,7 @@ interface AuditStepProps {
   competitorData: CompetitorData | null;
   getMatchingPolicyUpdate?: (violationMessage: string, violationCategory: string) => any;
   onGoToFix: () => void;
+  onGoToImport?: () => void;
   onRunAudit: () => void;
   onSelectAsset: (asset: ImageAsset) => void;
   onRetryFailedAnalysis: () => void;
@@ -32,7 +34,7 @@ export function AuditStep({
   assets, listingTitle, isAnalyzing,
   onRequestFix, onViewDetails, onReverify, onBatchFix,
   isBatchFixing, batchFixProgress, productAsin, competitorData,
-  getMatchingPolicyUpdate, onGoToFix, onRunAudit, onSelectAsset,
+  getMatchingPolicyUpdate, onGoToFix, onGoToImport, onRunAudit, onSelectAsset,
   onRetryFailedAnalysis, aiCreditsExhausted,
 }: AuditStepProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult);
@@ -41,10 +43,24 @@ export function AuditStep({
   const errorAssets = assets.filter(a => a.analysisError);
   const hasResults = analyzedAssets.length > 0;
   const needsAudit = assets.length > 0 && !hasResults && !isAnalyzing && errorAssets.length === 0;
+  const noImages = assets.length === 0;
 
   const scores = analyzedAssets.map(a => a.analysisResult?.overallScore || 0);
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
   const criticalCount = analyzedAssets.flatMap(a => a.analysisResult?.violations || []).filter(v => v.severity?.toLowerCase() === 'critical').length;
+
+  // No images at all — guide back to import
+  if (noImages) {
+    return (
+      <EmptyState
+        icon={Import}
+        title="No Images Imported"
+        description="Go back to the Import step to add images before running an audit."
+        actionLabel={onGoToImport ? "Go to Import" : undefined}
+        onAction={onGoToImport}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -53,9 +69,12 @@ export function AuditStep({
         <div className="text-center py-12 space-y-3 border border-dashed border-primary/30 rounded-xl bg-primary/5">
           <Search className="w-10 h-10 text-primary mx-auto" />
           <p className="text-lg font-semibold">{assets.length} images ready for audit</p>
-          <p className="text-sm text-muted-foreground">Click "Run Audit" in the command bar or below</p>
+          <p className="text-sm text-muted-foreground">
+            Click below to run AI compliance checks on all imported images
+          </p>
           <Button onClick={onRunAudit} size="lg" className="mt-2">
-            Run Audit
+            <Search className="w-4 h-4 mr-2" />
+            Run Compliance Audit
           </Button>
         </div>
       )}
@@ -69,9 +88,12 @@ export function AuditStep({
               <Loader2 className="w-5 h-5 animate-spin text-primary shrink-0" />
               <div className="flex-1 space-y-1.5">
                 <p className="text-sm font-medium text-foreground">
-                  Analyzing {analyzedAssets.length}/{assets.length}…
+                  Analyzing image {analyzedAssets.length + 1} of {assets.length}…
                 </p>
                 <Progress value={assets.length > 0 ? (analyzedAssets.length / assets.length) * 100 : 0} className="h-2" />
+                <p className="text-xs text-muted-foreground">
+                  {analyzedAssets.length} analyzed · {passedAssets.length} passed · {failedAssets.length} failed
+                </p>
               </div>
             </div>
           )}
@@ -80,6 +102,7 @@ export function AuditStep({
           {assets.map((asset) => {
             const hasResult = !!asset.analysisResult;
             const isPassing = asset.analysisResult?.status === 'PASS';
+            const hasError = !!asset.analysisError;
             return (
               <button
                 key={asset.id}
@@ -96,9 +119,16 @@ export function AuditStep({
                 </span>
 
                 {/* Analysis status overlay */}
-                {isAnalyzing && !hasResult && (
+                {isAnalyzing && !hasResult && !hasError && (
                   <div className="absolute inset-0 bg-background/70 flex items-center justify-center">
                     <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                )}
+
+                {/* Error overlay */}
+                {hasError && !hasResult && (
+                  <div className="absolute inset-0 bg-destructive/10 flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-destructive" />
                   </div>
                 )}
 
@@ -134,7 +164,7 @@ export function AuditStep({
                 : `${errorAssets.length} image(s) failed to analyze.`}
             </p>
             <Button variant="outline" size="sm" onClick={onRetryFailedAnalysis} disabled={isAnalyzing}>
-              Retry Failed
+              Retry Failed ({errorAssets.length})
             </Button>
           </div>
           <ul className="text-xs text-muted-foreground space-y-0.5">
@@ -204,14 +234,22 @@ export function AuditStep({
         aiCreditsExhausted={aiCreditsExhausted}
       />
 
-      {/* Bottom CTA bar */}
-      {failedAssets.length > 0 && !isAnalyzing && (
+      {/* Bottom CTA bar — contextual based on results */}
+      {hasResults && !isAnalyzing && (
         <div className="flex items-center justify-center gap-3 py-4">
-          <Button onClick={onGoToFix} size="lg">
-            <Wand2 className="w-4 h-4 mr-2" />
-            Fix {failedAssets.length} Issue{failedAssets.length > 1 ? 's' : ''}
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+          {failedAssets.length > 0 ? (
+            <Button onClick={onGoToFix} size="lg">
+              <Wand2 className="w-4 h-4 mr-2" />
+              Fix {failedAssets.length} Issue{failedAssets.length > 1 ? 's' : ''}
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          ) : (
+            <Button onClick={() => onGoToFix()} size="lg" variant="outline">
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              All Passed — Review & Export
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@ import { ClientReportGenerator } from '@/components/ClientReportGenerator';
 import { CompetitorAudit, CompetitorData, AIComparisonResult } from '@/components/CompetitorAudit';
 import { ComplianceHistory, AuditHistoryEntry } from '@/components/ComplianceHistory';
 import { ExportButton } from '@/components/ExportButton';
+import { EmptyState } from '@/components/EmptyState';
 import { ImageAsset } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Save, Swords, Loader2, Import, FileBarChart, GitCompare } from 'lucide-react';
+import { Save, Swords, Loader2, Import, FileBarChart, GitCompare, Search } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface ReviewStepProps {
@@ -25,6 +26,7 @@ interface ReviewStepProps {
   onSaveReport: () => void;
   onImportCompetitor: (url: string) => void;
   onLoadAudit: (entry: AuditHistoryEntry) => void;
+  onGoToAudit?: () => void;
 }
 
 function CompetitorUrlInput({
@@ -87,7 +89,7 @@ function CompetitorUrlInput({
         {importProgress && (
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">
-              Analyzing competitor image {importProgress.current}/{importProgress.total}...
+              Analyzing competitor image {importProgress.current}/{importProgress.total}…
             </p>
             <Progress value={(importProgress.current / importProgress.total) * 100} className="h-1.5" />
           </div>
@@ -101,25 +103,35 @@ export function ReviewStep({
   assets, listingTitle, productAsin,
   competitorData, aiComparison, isLoadingAIComparison,
   isImportingCompetitor, competitorProgress,
-  onSaveReport, onImportCompetitor, onLoadAudit,
+  onSaveReport, onImportCompetitor, onLoadAudit, onGoToAudit,
 }: ReviewStepProps) {
   const [subTab, setSubTab] = useState('reports');
   const hasResults = assets.some(a => a.analysisResult);
+
+  if (!hasResults) {
+    return (
+      <EmptyState
+        icon={Search}
+        title="No Audit Results to Review"
+        description="Run a compliance audit first to generate reports and export results."
+        actionLabel={onGoToAudit ? "Go to Audit" : undefined}
+        onAction={onGoToAudit}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
       {/* Top action bar */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg font-semibold">Review & Export</h3>
-        {hasResults && (
-          <div className="flex items-center gap-2">
-            <ClientReportGenerator assets={assets} listingTitle={listingTitle} productAsin={productAsin} competitorData={aiComparison} />
-            <Button onClick={onSaveReport} variant="outline" size="sm">
-              <Save className="h-4 w-4 mr-2" />
-              Save Report
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <ClientReportGenerator assets={assets} listingTitle={listingTitle} productAsin={productAsin} competitorData={aiComparison} />
+          <Button onClick={onSaveReport} variant="outline" size="sm">
+            <Save className="h-4 w-4 mr-2" />
+            Save Report
+          </Button>
+        </div>
       </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>

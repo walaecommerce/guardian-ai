@@ -1,6 +1,7 @@
-import { Check, Import, Search, Wand2, FileText } from 'lucide-react';
+import { Check, Import, Search, Wand2, FileText, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AuditStep } from '@/hooks/useAuditSession';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface StepConfig {
   id: AuditStep;
@@ -22,6 +23,17 @@ function getStepIndex(step: AuditStep) {
   return STEP_ORDER.indexOf(step);
 }
 
+/** Returns a human-readable reason why a step is disabled, or null if navigable */
+function getDisabledReason(step: AuditStep, hasAssets: boolean, hasResults: boolean): string | null {
+  switch (step) {
+    case 'import': return null;
+    case 'audit': return hasAssets ? null : 'Import images first';
+    case 'fix': return hasResults ? null : 'Run an audit first';
+    case 'review': return hasResults ? null : 'Run an audit first';
+    default: return null;
+  }
+}
+
 interface AuditStepperProps {
   currentStep: AuditStep;
   onStepChange: (step: AuditStep) => void;
@@ -34,34 +46,25 @@ interface AuditStepperProps {
 export function AuditStepper({ currentStep, onStepChange, completedSteps, hasAssets, hasResults, hasFailures }: AuditStepperProps) {
   const currentIdx = getStepIndex(currentStep);
 
-  const canNavigateTo = (step: AuditStep): boolean => {
-    switch (step) {
-      case 'import': return true;
-      case 'audit': return hasAssets;
-      case 'fix': return hasResults;
-      case 'review': return hasResults;
-      default: return false;
-    }
-  };
-
   return (
-    <div className="w-full overflow-x-auto">
-      <div className="flex items-center gap-0.5 min-w-0">
-        {STEPS.map((step, idx) => {
-          const isActive = step.id === currentStep;
-          const isCompleted = completedSteps.has(step.id);
-          const isPast = idx < currentIdx;
-          const isClickable = canNavigateTo(step.id);
-          const Icon = step.icon;
+    <TooltipProvider delayDuration={300}>
+      <div className="w-full overflow-x-auto">
+        <div className="flex items-center gap-0.5 min-w-0">
+          {STEPS.map((step, idx) => {
+            const isActive = step.id === currentStep;
+            const isCompleted = completedSteps.has(step.id);
+            const disabledReason = getDisabledReason(step.id, hasAssets, hasResults);
+            const isClickable = !disabledReason;
+            const Icon = step.icon;
 
-          return (
-            <div key={step.id} className="flex items-center flex-1 min-w-0 last:flex-none">
+            const button = (
               <button
                 onClick={() => isClickable && onStepChange(step.id)}
                 disabled={!isClickable}
+                aria-current={isActive ? 'step' : undefined}
                 className={cn(
                   'flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all text-left group min-w-0',
-                  isActive && 'bg-primary/10 border border-primary/20',
+                  isActive && 'bg-primary/10 border border-primary/20 shadow-sm',
                   !isActive && isClickable && 'hover:bg-muted/50 cursor-pointer',
                   !isClickable && 'opacity-40 cursor-not-allowed'
                 )}
@@ -91,17 +94,34 @@ export function AuditStepper({ currentStep, onStepChange, completedSteps, hasAss
                   isActive ? 'text-primary' : 'sr-only'
                 )}>{step.label}</span>
               </button>
+            );
 
-              {idx < STEPS.length - 1 && (
-                <div className={cn(
-                  'flex-1 h-px mx-0.5 min-w-2 transition-colors',
-                  idx < currentIdx ? 'bg-primary/40' : 'bg-border'
-                )} />
-              )}
-            </div>
-          );
-        })}
+            return (
+              <div key={step.id} className="flex items-center flex-1 min-w-0 last:flex-none">
+                {disabledReason ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>{button}</TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {disabledReason}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : button}
+
+                {idx < STEPS.length - 1 && (
+                  <div className={cn(
+                    'flex-1 flex items-center justify-center min-w-2 mx-0.5',
+                  )}>
+                    <ChevronRight className={cn(
+                      'w-3.5 h-3.5 transition-colors',
+                      idx < currentIdx ? 'text-primary/60' : 'text-border'
+                    )} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

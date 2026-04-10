@@ -2,8 +2,9 @@ import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { RecommendationsPanel } from '@/components/recommendations/RecommendationsPanel';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { EmptyState } from '@/components/EmptyState';
 import { ImageAsset } from '@/types';
-import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles } from 'lucide-react';
+import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, ArrowLeft, Search } from 'lucide-react';
 
 interface FixStepProps {
   assets: ImageAsset[];
@@ -13,6 +14,7 @@ interface FixStepProps {
   isBatchFixing: boolean;
   batchFixProgress: { current: number; total: number } | null;
   onGoToReview: () => void;
+  onGoToAudit?: () => void;
   listingTitle?: string;
   onApplyFix?: (assetId: string, prompt?: string) => void;
   onBatchEnhance?: () => void;
@@ -22,7 +24,7 @@ interface FixStepProps {
 
 export function FixStep({
   assets, onViewDetails, onDownload,
-  onBatchFix, isBatchFixing, batchFixProgress, onGoToReview,
+  onBatchFix, isBatchFixing, batchFixProgress, onGoToReview, onGoToAudit,
   listingTitle, onApplyFix,
   onBatchEnhance, isBatchEnhancing = false, batchEnhanceProgress,
 }: FixStepProps) {
@@ -30,8 +32,40 @@ export function FixStep({
     (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage
   );
   const fixedAssets = assets.filter(a => a.fixedImage);
+  const analyzedAssets = assets.filter(a => a.analysisResult);
   const allFixed = failedAssets.length === 0 && fixedAssets.length > 0;
   const enhanceableCount = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
+  const hasNoResults = analyzedAssets.length === 0;
+
+  // If no analyzed assets, show helpful empty state
+  if (hasNoResults) {
+    return (
+      <EmptyState
+        icon={Search}
+        title="No Audit Results Yet"
+        description="Run a compliance audit first to identify issues that need fixing."
+        actionLabel={onGoToAudit ? "Go to Audit" : undefined}
+        onAction={onGoToAudit}
+      />
+    );
+  }
+
+  // If all passed and no fixes needed
+  if (failedAssets.length === 0 && fixedAssets.length === 0) {
+    return (
+      <div className="text-center py-12 space-y-3 border border-dashed border-success/30 rounded-xl bg-success/5">
+        <CheckCircle className="w-10 h-10 text-success mx-auto" />
+        <p className="text-lg font-semibold">All Images Passed!</p>
+        <p className="text-sm text-muted-foreground">
+          No compliance issues found. You can proceed to review and export.
+        </p>
+        <Button onClick={onGoToReview} size="lg" className="mt-2">
+          Review & Export
+          <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -62,7 +96,7 @@ export function FixStep({
               ) : (
                 <Wand2 className="w-4 h-4 mr-2" />
               )}
-              {isBatchFixing ? 'Fixing...' : `Fix All (${failedAssets.length})`}
+              {isBatchFixing ? `Fixing ${batchFixProgress ? `${batchFixProgress.current}/${batchFixProgress.total}` : '...'}` : `Fix All (${failedAssets.length})`}
             </Button>
           )}
 
@@ -78,7 +112,7 @@ export function FixStep({
               ) : (
                 <Sparkles className="w-4 h-4 mr-2" />
               )}
-              {isBatchEnhancing ? 'Enhancing...' : `Enhance All (${enhanceableCount})`}
+              {isBatchEnhancing ? `Enhancing ${batchEnhanceProgress ? `${batchEnhanceProgress.current}/${batchEnhanceProgress.total}` : '...'}` : `Enhance All (${enhanceableCount})`}
             </Button>
           )}
 
@@ -97,9 +131,10 @@ export function FixStep({
         <div className="space-y-2 p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Loader2 className="w-4 h-4 animate-spin text-primary" />
-            Fixing {batchFixProgress.current} of {batchFixProgress.total}...
+            Fixing image {batchFixProgress.current} of {batchFixProgress.total}…
           </div>
           <Progress value={(batchFixProgress.current / batchFixProgress.total) * 100} className="h-2" />
+          <p className="text-xs text-muted-foreground">Each image goes through AI generation → verification → retry if needed. This may take a moment.</p>
         </div>
       )}
 
@@ -108,7 +143,7 @@ export function FixStep({
         <div className="space-y-2 p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Sparkles className="w-4 h-4 animate-pulse text-purple-400" />
-            Enhancing {batchEnhanceProgress.current} of {batchEnhanceProgress.total}...
+            Enhancing image {batchEnhanceProgress.current} of {batchEnhanceProgress.total}…
           </div>
           <Progress value={(batchEnhanceProgress.current / batchEnhanceProgress.total) * 100} className="h-2" />
         </div>
