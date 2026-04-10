@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
-import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Paintbrush, Scissors, AlertOctagon } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Scissors, AlertOctagon, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

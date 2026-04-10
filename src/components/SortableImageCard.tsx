@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { X, Loader2, Crop, Star, GripVertical, Layers, RefreshCw, Paintbrush, Scissors } from 'lucide-react';
+import { X, Loader2, Crop, Star, GripVertical, Layers, RefreshCw, Scissors, Sparkles } from 'lucide-react';
 import { ImageAsset, FixMethod } from '@/types';
 
 interface SortableImageCardProps {
