@@ -1,50 +1,37 @@
 
 
-## Usability Polish Plan — Launch-Ready Pass
+## Final Launch-Readiness Polish
 
-### What's already good
-Dashboard, ImportStep, FixStep, ReviewStep, Campaign, Studio, Tracker, and Session all have reasonable copy, empty states, and completion CTAs from prior phases. The remaining gaps are small but add up.
+### Assessment
+The codebase has been through extensive polishing. The remaining gaps are minor copy/label inconsistencies and a few missing "what next?" nudges.
 
-### Changes
+### Changes (6 files, all copy/label-level)
 
-**1. Tracker empty state — add "what to expect" guidance (src/pages/Tracker.tsx)**
-- The Tracker empty state says "Paste an Amazon product URL above to start monitoring" but doesn't explain the value. Add a brief line: "You'll see compliance scores, trend charts, and alerts when scores drop."
-- When detail view has no audits, improve "No audits yet." to be more action-oriented.
+**1. `src/components/audit/AuditStep.tsx` — Audit completion confidence**
+- Line 249: When all passed, change CTA from "All Passed — Review & Export" to "All Passed — Save & Export" (matches FixStep language)
+- Line 71: Change "Click below to run AI compliance checks on all imported images" to "Run AI compliance checks on all your images" (shorter, more confident)
 
-**2. Campaign Audit — improve paused/completion copy (src/pages/CampaignAudit.tsx)**
-- Paused state copy says `Paused — N of M products done` but the "Clear & Start Over" button label is vague about data loss. Change to "Discard & Start Over".
-- In the summary view, the "Start New Campaign" button should confirm intent: rename to "New Campaign" and keep consistent with Dashboard language.
-- The summary "needs fixes" guidance says "Open each product in the Single Audit tool" — clarify this to "Open each product URL in a New Audit to apply AI fixes."
+**2. `src/components/audit/FixStep.tsx` — Fix completion nudge**
+- Line 79-81: When `allFixed`, change description to "All issues corrected. Review the before/after results, then save your report." (adds clear next action)
+- Line 137: Shorten progress description from "Each image goes through AI generation → verification → retry if needed. This may take a moment." to "AI is generating, verifying, and retrying if needed."
 
-**3. Studio results empty state — improve guidance (src/pages/Studio.tsx)**
-- Current empty: "No images yet / Fill in the product details and click Generate..." — good but could mention the compliance check happens automatically.
-- Update to: "No images yet. Fill in the product details and hit Generate — each image is automatically checked for Amazon compliance."
+**3. `src/components/audit/ReviewStep.tsx` — Review confidence**
+- Line 145: Change "All Clear — Ready to Export" to "All Clear — Export or Save Your Report" (more specific)
 
-**4. Session page — improve "no images" empty state (src/pages/Session.tsx)**
-- Current: "No images in this session" with no next action. Add a CTA to go back home or to the audit page.
-- Improve the non-Studio empty state from "No images found. The import may have failed — try again from the home page." to include a button.
+**4. `src/pages/Session.tsx` — Session empty & completion states**
+- Line 855: Change "No images in this session" to "This session has no images yet" (warmer)
+- Line 813: Change "No images found. The import may have failed." to "No images loaded. Try importing again from the audit page." (clearer cause)
 
-**5. ComplianceHistory — improve "Load" button label (src/components/ComplianceHistory.tsx)**
-- The "Load" button on each row is vague. Change to "Review" to match the Review step language.
-- Add a small tooltip or description to the empty state to explain what saved reports contain.
+**5. `src/components/SessionHistory.tsx` — History confidence**
+- Line 195: Change CardDescription to "View past sessions, continue unfinished work, or export results" (more actionable)
+- Line 324: Change "No images in this session" to "No images recorded for this session"
 
-**6. CommandBar — polish the "Run Audit" label for re-runs (src/components/CommandBar.tsx)**
-- When assets already have results, the CommandBar still shows "Run Audit". Add logic: if `analyzedCount > 0`, show "Re-run Audit" to match Session page behavior.
-
-**7. Session page — completion action improvement (src/pages/Session.tsx)**
-- When all images are analyzed and none failed, the Session Actions panel doesn't show a clear "done" indicator. Add a small success message: "All images passed — save or export your report."
-- When all failed images are fixed, add "All issues fixed" line before the "Save to History" button.
-
-### Files to change
-1. `src/pages/Tracker.tsx` — empty state & detail copy
-2. `src/pages/CampaignAudit.tsx` — paused/completion copy
-3. `src/pages/Studio.tsx` — results empty state
-4. `src/pages/Session.tsx` — empty state + completion messaging
-5. `src/components/ComplianceHistory.tsx` — "Load" → "Review"
-6. `src/components/CommandBar.tsx` — "Re-run Audit" when results exist
+**6. `src/components/ComplianceHistory.tsx` — History empty state**
+- Line 163: Change "No Saved Reports" to "No Reports Yet" (less stark)
+- Line 164-165: Simplify description to "Run an audit and save it here to track your compliance improvements over time."
 
 ### Technical details
-- All changes are copy/label updates — no new components, hooks, or database changes.
-- No new dependencies.
-- Existing tests should remain unaffected (only user-facing strings change).
+- All changes are string/copy only — no logic, hooks, types, or DB changes.
+- Zero risk of breaking tests or workflows.
+- No new components or dependencies.
 
