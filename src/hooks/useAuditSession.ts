@@ -1087,8 +1087,8 @@ export function useAuditSession() {
       if (aiCreditsExhausted) {
         addLog('warning', `🚫 AI credits exhausted — skipping remaining ${failedAssets.length - i} fix(es).`);
         toast({
-          title: 'AI Credits Exhausted',
-          description: 'Add more AI balance to continue fixing images.',
+          title: 'Credits Exhausted',
+          description: 'Upgrade your plan to continue fixing images.',
           variant: 'destructive',
           duration: 8000,
         });
