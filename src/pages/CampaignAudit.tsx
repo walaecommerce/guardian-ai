@@ -331,8 +331,9 @@ const CampaignAudit = () => {
     setIsRunning(false);
     setCurrentIndex(-1);
 
-    // Save to Supabase
-    if (user) {
+    // Save to Supabase (with idempotency guard)
+    if (user && !submittingRef.current) {
+      submittingRef.current = true;
       // Strip large base64 image data before storing
       const strippedProducts = completedProducts.map(p => ({
         ...p,
@@ -367,6 +368,7 @@ const CampaignAudit = () => {
           summary: strippedSummary as any,
         }, ...prev].slice(0, 20));
       }
+      submittingRef.current = false;
     }
 
     toast({ title: 'Campaign Complete', description: `Audited ${completedProducts.length} products with ${avgScore}% average score` });
