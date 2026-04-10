@@ -20,9 +20,9 @@ interface RecentSession {
 }
 
 const QUICK_ACTIONS = [
-  { title: 'New Audit', description: 'Analyze product images for compliance', icon: Search, to: '/audit', color: 'text-primary' },
-  { title: 'Campaign Audit', description: 'Audit multiple listings at once', icon: BarChart3, to: '/campaign', color: 'text-violet-400' },
-  { title: 'Open Studio', description: 'Generate & enhance product images', icon: Sparkles, to: '/studio', color: 'text-amber-400' },
+  { title: 'New Audit', description: 'Paste an Amazon URL → get compliance results in minutes', icon: Search, to: '/audit', color: 'text-primary' },
+  { title: 'Campaign Audit', description: 'Audit up to 25 listings in one batch', icon: BarChart3, to: '/campaign', color: 'text-violet-400' },
+  { title: 'Image Studio', description: 'Generate compliant product images with AI', icon: Sparkles, to: '/studio', color: 'text-amber-400' },
 ];
 
 const CREDIT_TYPES = [
@@ -61,8 +61,8 @@ export default function Dashboard() {
     <div className="p-6 space-y-8 max-w-6xl mx-auto">
       {/* Welcome */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Monitor your listing health and jump into actions.</p>
+        <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
+        <p className="text-sm text-muted-foreground mt-1">Pick up where you left off, or start a new audit.</p>
       </div>
 
       {/* Quick Actions */}
@@ -101,8 +101,9 @@ export default function Dashboard() {
               {loading ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">Loading…</p>
               ) : sessions.length === 0 ? (
-                <div className="text-center py-8 space-y-2">
-                  <p className="text-sm text-muted-foreground">No sessions yet.</p>
+                <div className="text-center py-8 space-y-3">
+                  <p className="text-sm font-medium text-foreground">Ready to check your first listing?</p>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">Paste an Amazon product URL to analyze all listing images for compliance issues.</p>
                   <Button asChild size="sm">
                     <Link to="/audit"><Plus className="w-3.5 h-3.5 mr-1" /> Start Your First Audit</Link>
                   </Button>
@@ -130,7 +131,7 @@ export default function Dashboard() {
                           </span>
                         )}
                         <Badge variant={s.status === 'completed' ? 'success' : 'secondary'} className="text-[10px]">
-                          {s.status}
+                          {s.status === 'in_progress' ? 'In Progress' : s.status === 'completed' ? 'Done' : s.status}
                         </Badge>
                         <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
