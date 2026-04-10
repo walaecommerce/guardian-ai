@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Download, ClipboardCheck, ShieldCheck, Zap, BarChart3,
-  FileJson, Gauge, CheckCircle2, XCircle, ArrowLeft,
+  FileJson, Gauge, CheckCircle2, XCircle, ArrowLeft, Bell,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -90,6 +90,20 @@ const TEST_CASES: TestCase[] = [
       { id: 'ex-3', instruction: 'Open the downloaded JSON file in a text editor.', expected: 'Valid JSON with proper formatting (pretty-printed).' },
       { id: 'ex-4', instruction: 'Verify required top-level fields.', expected: 'Contains: timestamp (ISO string), listing_title (string), overall_status ("PASS" or "FAIL"), total_assets, passed, failed.' },
       { id: 'ex-5', instruction: 'Verify the assets array.', expected: 'Each asset object has: filename, type, score (number), status ("PASS"/"FAIL"), severity, violations (array), fixed (boolean).' },
+    ],
+  },
+  {
+    id: 'notification-settings',
+    title: 'Notification Settings',
+    icon: Bell,
+    description: 'Configure notification preferences and verify they persist correctly.',
+    steps: [
+      { id: 'ns-1', instruction: 'Navigate to Settings → Notifications tab.', expected: 'The Notifications panel loads showing email address, notification triggers, and minimum severity fields.' },
+      { id: 'ns-2', instruction: 'Enter or change the email address field.', expected: 'The input accepts a valid email and the Save button becomes active.' },
+      { id: 'ns-3', instruction: 'Toggle each notification trigger (Audit Complete, Critical Violations, Score Dropped, Fix Generated).', expected: 'Each toggle switches on/off smoothly. No console errors.' },
+      { id: 'ns-4', instruction: 'Change the Minimum Severity dropdown to a different value.', expected: 'Dropdown updates to the selected severity level (Any, Low, Medium, High, Critical).' },
+      { id: 'ns-5', instruction: 'Click Save and reload the page, then return to Settings → Notifications.', expected: 'All previously saved values (email, toggles, severity) persist correctly after reload.' },
+      { id: 'ns-6', instruction: 'Check the Notification History section.', expected: 'If past notifications exist, they appear in a log list with type, message, and timestamp. If none exist, an empty state message is shown.' },
     ],
   },
 ];
