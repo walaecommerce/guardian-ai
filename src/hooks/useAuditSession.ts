@@ -13,7 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 import { uploadImage } from '@/services/imageStorage';
 import { logEvent } from '@/services/eventLog';
 import { saveAuditToHistory } from '@/components/ComplianceHistory';
-import { sendSlackNotification } from '@/components/NotificationSettings';
 import { MaxImagesOption } from '@/components/ImageUploader';
 import { CompetitorData, buildComparisonReport, AIComparisonResult } from '@/components/CompetitorAudit';
 
@@ -692,25 +691,6 @@ export function useAuditSession() {
     const allViolations = latestAssets.flatMap(a => a.analysisResult?.violations || []);
     const criticals = allViolations.filter(v => v.severity === 'critical');
 
-    sendSlackNotification({
-      type: 'audit_complete',
-      title: listingTitle || 'Untitled Product',
-      status: failedCount === 0 ? '✅ PASS' : '❌ FAIL',
-      score: avgScore,
-      violations: allViolations.length,
-      images: assets.length,
-      criticalCount: criticals.length,
-      topViolation: allViolations[0]?.message || 'None',
-    });
-
-    if (criticals.length > 0) {
-      sendSlackNotification({
-        type: 'critical_violation',
-        title: listingTitle || 'Untitled Product',
-        criticalCount: criticals.length,
-        topViolation: criticals[0]?.message,
-      });
-    }
 
     if (creditsExhaustedDuringRun) {
       toast({

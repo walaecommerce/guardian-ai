@@ -22,7 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import {
-  User, CreditCard, Bell, Loader2, Save, ExternalLink, Search, BarChart3, Sparkles, Send,
+  User, CreditCard, Bell, Loader2, Save, ExternalLink, Search, BarChart3, Sparkles,
   CheckCircle2, XCircle, Clock, TrendingUp,
 } from 'lucide-react';
 import {
@@ -267,13 +267,11 @@ function BillingTab() {
 
 function NotificationsTab() {
   const [prefs, setPrefs] = useState<NotificationPrefs>({
-    slackWebhookUrl: '',
     emailAddress: '',
     notifyOn: { auditComplete: true, criticalViolations: true, scoreDropped: true, fixGenerated: false },
     minSeverity: 'any',
   });
   const [log, setLog] = useState<NotificationLogEntry[]>([]);
-  const [testing, setTesting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Load prefs + log from server on mount
@@ -310,47 +308,6 @@ function NotificationsTab() {
     await saveNotificationPrefs(updated);
   };
 
-  const handleTest = async () => {
-    if (!prefs.slackWebhookUrl) {
-      toast.error('Enter a Slack webhook URL first');
-      return;
-    }
-    // Save first so server has the webhook
-    await saveNotificationPrefs(prefs);
-    setTesting(true);
-    try {
-      const { error } = await supabase.functions.invoke('send-slack-notification', {
-        body: {
-          type: 'test',
-          title: 'Test Product',
-          status: '✅ PASS',
-          score: 92,
-          violations: 2,
-          images: 7,
-          criticalCount: 0,
-          topViolation: 'Minor text overlay on secondary image',
-        },
-      });
-      if (error) throw error;
-      toast.success('Test notification sent — check your Slack channel');
-      // Refresh log from DB
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: logData } = await supabase.from('notification_log').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
-        setLog((logData || []).map((r: any) => ({ id: r.id, timestamp: r.created_at, type: r.type, message: r.message, status: r.status, error: r.error || undefined })));
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Test failed');
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: logData } = await supabase.from('notification_log').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
-        setLog((logData || []).map((r: any) => ({ id: r.id, timestamp: r.created_at, type: r.type, message: r.message, status: r.status, error: r.error || undefined })));
-      }
-    } finally {
-      setTesting(false);
-    }
-  };
-
   const statusIcon = (status: string) => {
     if (status === 'sent') return <CheckCircle2 className="w-3.5 h-3.5 text-success" />;
     if (status === 'failed') return <XCircle className="w-3.5 h-3.5 text-destructive" />;
@@ -359,24 +316,13 @@ function NotificationsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Slack */}
+      {/* Email */}
       <Card className="border-white/5 bg-white/[0.02]">
         <CardHeader>
-          <CardTitle className="text-lg">Slack Integration</CardTitle>
-          <CardDescription>Receive audit alerts in your Slack channel</CardDescription>
+          <CardTitle className="text-lg">Email Notifications</CardTitle>
+          <CardDescription>Receive audit alerts via email</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="slackUrl">Webhook URL</Label>
-            <Input
-              id="slackUrl"
-              type="url"
-              value={prefs.slackWebhookUrl}
-              onChange={(e) => updatePrefs({ ...prefs, slackWebhookUrl: e.target.value })}
-              placeholder="https://hooks.slack.com/services/..."
-            />
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="emailNotif">Email Address</Label>
             <Input
@@ -387,11 +333,6 @@ function NotificationsTab() {
               placeholder="you@company.com"
             />
           </div>
-
-          <Button onClick={handleTest} disabled={testing || !prefs.slackWebhookUrl} variant="outline" size="sm">
-            {testing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-            Send Test
-          </Button>
         </CardContent>
       </Card>
 
