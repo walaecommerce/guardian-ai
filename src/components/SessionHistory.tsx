@@ -9,6 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow, format } from 'date-fns';
+import { getSessionActionLabel, humanizeSessionStatus, isStudioSession } from '@/utils/sessionHelpers';
 import { 
   History, 
   RefreshCw, 
@@ -20,7 +21,8 @@ import {
   Wrench,
   ChevronRight,
   Package,
-  ArrowRight
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 
 interface SessionImage {
@@ -216,11 +218,11 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                          <Badge variant="outline" className={getStatusColor(session.status)}>
-                            {session.status === 'in_progress' ? 'In Progress' : session.status === 'completed' ? 'Completed' : session.status.replace('_', ' ')}
+                            {humanizeSessionStatus(session.status)}
                           </Badge>
-                          {!session.amazon_url && (session as any).product_identity?.origin === 'studio' && (
+                          {isStudioSession(session.product_identity) && (
                             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px]">
-                              Studio
+                              <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Studio
                             </Badge>
                           )}
                           {session.product_asin && (
@@ -300,7 +302,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                 <div>
                   <p className="text-xs text-muted-foreground">Status</p>
                   <Badge variant="outline" className={getStatusColor(selectedSession.status)}>
-                    {selectedSession.status.replace('_', ' ')}
+                    {humanizeSessionStatus(selectedSession.status)}
                   </Badge>
                 </div>
               </div>
@@ -410,14 +412,15 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                   className="flex-1"
                 >
                   <ArrowRight className="h-4 w-4 mr-2" />
-                  {selectedSession.status === 'in_progress' 
-                    ? (selectedSession.failed_count > 0 && selectedSession.fixed_count < selectedSession.failed_count
-                        ? 'Continue Fixing'
-                        : 'Continue Working')
-                    : selectedSession.failed_count > 0 && selectedSession.fixed_count < selectedSession.failed_count
-                      ? 'Review & Fix Issues'
-                      : 'Review Session'}
+                  {getSessionActionLabel(selectedSession)}
                 </Button>
+                {selectedSession.amazon_url && (
+                  <Button variant="outline" size="icon" asChild>
+                    <a href={selectedSession.amazon_url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   onClick={() => setShowDetailDialog(false)}
