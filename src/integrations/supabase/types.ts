@@ -46,6 +46,7 @@ export type Database = {
           name: string
           products_count: number
           score: number
+          status: string
           summary: Json
           user_id: string
         }
@@ -56,6 +57,7 @@ export type Database = {
           name: string
           products_count?: number
           score?: number
+          status?: string
           summary?: Json
           user_id: string
         }
@@ -66,6 +68,7 @@ export type Database = {
           name?: string
           products_count?: number
           score?: number
+          status?: string
           summary?: Json
           user_id?: string
         }
