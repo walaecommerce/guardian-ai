@@ -17,9 +17,11 @@ const priorityStyles: Record<string, string> = {
 interface Props {
   items: MissingImageType[];
   onImageGenerated?: (imageUrl: string, imageType: string) => void;
+  listingTitle?: string;
+  category?: string;
 }
 
-export function MissingImagesTab({ items, onImageGenerated }: Props) {
+export function MissingImagesTab({ items, onImageGenerated, listingTitle, category }: Props) {
   const [generatingImage, setGeneratingImage] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Record<string, string>>({});
   const [editingPrompt, setEditingPrompt] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export function MissingImagesTab({ items, onImageGenerated }: Props) {
     try {
       const finalPrompt = customPrompts[type] || prompt;
       const { data, error } = await supabase.functions.invoke('generate-suggested-image', {
-        body: { prompt: finalPrompt, imageType: type },
+        body: { prompt: finalPrompt, imageType: type, productName: listingTitle, category },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);

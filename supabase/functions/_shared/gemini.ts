@@ -107,9 +107,10 @@ function convertTools(
     geminiTools.push({ functionDeclarations });
   }
 
-  // Pass google_search as a separate tool entry (Gemini native grounding)
+  // Pass google_search as a separate tool entry (Gemini native REST API grounding)
+  // The REST API expects { google_search: {} } not { googleSearch: {} }
   for (const gst of googleSearchTools) {
-    geminiTools.push({ googleSearch: gst.google_search });
+    geminiTools.push({ google_search: gst.google_search });
   }
 
   if (geminiTools.length === 0) return {};
