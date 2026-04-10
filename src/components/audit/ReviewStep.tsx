@@ -122,8 +122,8 @@ export function ReviewStep({
       <EmptyState
         icon={Search}
         title="No Results to Review"
-        description="Complete a compliance audit first, then come here to save reports, export results, and compare with competitors."
-        actionLabel={onGoToAudit ? "Go to Audit" : undefined}
+        description="Run a compliance audit first. Once complete, you can save reports, export results, and compare with competitors."
+        actionLabel={onGoToAudit ? "Run an Audit First" : undefined}
         onAction={onGoToAudit}
       />
     );
@@ -142,11 +142,11 @@ export function ReviewStep({
             )}
             <div className="flex-1">
               <p className="text-sm font-semibold">
-                {allClean ? 'Audit Complete — All Issues Resolved' : `${failedCount - fixedCount} issue${failedCount - fixedCount !== 1 ? 's' : ''} still need fixing`}
+                {allClean ? 'All Clear — Ready to Export' : `${failedCount - fixedCount} issue${failedCount - fixedCount !== 1 ? 's' : ''} still need fixing`}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {analyzedAssets.length} images analyzed • {avgScore}% average score
-                {fixedCount > 0 && ` • ${fixedCount} fixed`}
+                {analyzedAssets.length} images · {avgScore}% avg score
+                {fixedCount > 0 && ` · ${fixedCount} fixed`}
               </p>
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">

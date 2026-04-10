@@ -57,9 +57,9 @@ export function ImportStep({
             <Sparkles className="w-10 h-10 text-primary" />
           </div>
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Start Your Compliance Audit</h2>
+            <h2 className="text-3xl font-bold tracking-tight">Check Your Listing Images</h2>
             <p className="text-muted-foreground mt-2 max-w-lg mx-auto text-base">
-              Paste an Amazon product URL to automatically import all listing images, or upload images manually.
+              Paste an Amazon URL to import all listing images, then run an AI compliance audit. You'll get results in under a minute.
             </p>
           </div>
         </div>

@@ -56,11 +56,11 @@ export function FixStep({
       <div className="text-center py-12 space-y-3 border border-dashed border-success/30 rounded-xl bg-success/5">
         <CheckCircle className="w-10 h-10 text-success mx-auto" />
         <p className="text-lg font-semibold">All Images Passed!</p>
-        <p className="text-sm text-muted-foreground">
-          No compliance issues found. You can proceed to review and export.
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+          No compliance issues found. Save a report or export your results.
         </p>
         <Button onClick={onGoToReview} size="lg" className="mt-2">
-          Review & Export
+          Save & Export Results
           <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </div>
