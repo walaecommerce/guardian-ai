@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
+import { refreshSignedUrl } from '@/services/imageStorage';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -31,6 +32,9 @@ interface MediaImage {
   created_at: string;
   session_id: string;
   analysis_result: any;
+  // Signed URLs resolved at load time
+  signedOriginalUrl?: string;
+  signedFixedUrl?: string;
 }
 
 interface SessionInfo {
@@ -70,7 +74,17 @@ const Media = () => {
       ]);
 
       if (sessionsRes.data) setSessions(sessionsRes.data as SessionInfo[]);
-      if (imagesRes.data) setImages(imagesRes.data as MediaImage[]);
+      if (imagesRes.data) {
+        // Resolve signed URLs for private bucket
+        const resolved = await Promise.all(
+          (imagesRes.data as MediaImage[]).map(async (img) => ({
+            ...img,
+            signedOriginalUrl: await refreshSignedUrl(img.original_image_url),
+            signedFixedUrl: img.fixed_image_url ? await refreshSignedUrl(img.fixed_image_url) : undefined,
+          }))
+        );
+        setImages(resolved);
+      }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to load media library', variant: 'destructive' });
     } finally {
@@ -216,7 +230,7 @@ const Media = () => {
               >
                 <div className="aspect-square">
                   <img
-                    src={img.fixed_image_url || img.original_image_url}
+                    src={img.signedFixedUrl || img.signedOriginalUrl || img.original_image_url}
                     alt={img.image_name}
                     className="w-full h-full object-cover"
                     loading="lazy"
