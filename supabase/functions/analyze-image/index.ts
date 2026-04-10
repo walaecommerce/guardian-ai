@@ -577,8 +577,13 @@ serve(async (req) => {
     else if (score >= 50) { derivedStatus = 'WARNING'; derivedSeverity = 'MEDIUM'; }
     else { derivedStatus = 'FAIL'; derivedSeverity = score < 25 ? 'CRITICAL' : 'HIGH'; }
 
-    // Normalize severity to lowercase (AI may return CRITICAL/WARNING/INFO)
-    const normalizeSeverity = (s: string): string => (s || 'info').toLowerCase();
+    // Map AI severity values to the frontend's canonical enum: critical | warning | info
+    const normalizeSeverity = (s: string): 'critical' | 'warning' | 'info' => {
+      const upper = (s || '').toUpperCase();
+      if (upper === 'CRITICAL' || upper === 'HIGH') return 'critical';
+      if (upper === 'MEDIUM' || upper === 'WARNING') return 'warning';
+      return 'info'; // LOW, INFO, NONE, or unknown
+    };
 
     // Normalize spatial analysis inner fields to camelCase
     const normalizeSpatialAnalysis = (sa: any) => {
@@ -602,7 +607,7 @@ serve(async (req) => {
     const mappedResult = {
       overallScore: score,
       status: derivedStatus,
-      severity: derivedSeverity,
+      severity: normalizeSeverity(derivedSeverity),
       scoringRationale: rawResult.scoring_rationale || rawResult.scoringRationale || null,
       productCategory: detectedCategory,
       violations: (rawResult.violations || []).map((v: any) => ({
