@@ -63,10 +63,7 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
       };
 
       const imageCategories = new Set(
-        assets.map(a => {
-          const result = a.analysisResult as any;
-          return (result?.imageCategory || a.name.replace(/\.[^.]+$/, '').toUpperCase() || 'UNKNOWN');
-        })
+        assets.map(a => extractImageCategory(a))
       );
 
       const missingCoverageTypes: string[] = [];
@@ -80,7 +77,6 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
         body: {
           listingTitle,
           auditResults,
-          scoreCardData: null,
           imageCount: assets.length,
           titleRuleViolations,
           missingCoverageTypes,
@@ -197,7 +193,7 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
             </TabsList>
 
             <TabsContent value="missing" className="mt-3">
-              <MissingImagesTab items={data.missing_image_types || []} onImageGenerated={onImageGenerated} listingTitle={listingTitle} />
+              <MissingImagesTab items={data.missing_image_types || []} onImageGenerated={onImageGenerated} listingTitle={listingTitle} category={getDominantCategory(assets)} />
             </TabsContent>
             <TabsContent value="quickwins" className="mt-3">
               <QuickWinsTab items={data.quick_wins || []} />

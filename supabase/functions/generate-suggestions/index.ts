@@ -18,7 +18,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { listingTitle, auditResults, scoreCardData, imageCount, titleRuleViolations, missingCoverageTypes } = await req.json();
+    const { listingTitle, auditResults, imageCount, titleRuleViolations, missingCoverageTypes } = await req.json();
 
     // Build context-rich prompt with deterministic findings
     const titleViolationsContext = titleRuleViolations?.length > 0
@@ -46,8 +46,6 @@ Do not generate generic advice like "improve your listing" or "add more images".
     const userPrompt = `Product: ${listingTitle}
 
 Audit results: ${JSON.stringify(auditResults, null, 2)}
-
-Listing health scores: ${JSON.stringify(scoreCardData || {}, null, 2)}
 
 Images analyzed: ${imageCount}${titleViolationsContext}${coverageContext}
 
