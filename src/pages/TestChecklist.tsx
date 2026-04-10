@@ -92,19 +92,6 @@ const TEST_CASES: TestCase[] = [
       { id: 'ex-5', instruction: 'Verify the assets array.', expected: 'Each asset object has: filename, type, score (number), status ("PASS"/"FAIL"), severity, violations (array), fixed (boolean).' },
     ],
   },
-  {
-    id: 'slack',
-    title: 'Slack Notifications',
-    icon: Bell,
-    description: 'Configure Slack webhook and test notification delivery.',
-    steps: [
-      { id: 'sl-1', instruction: 'Click the Settings gear icon in the header.', expected: 'Notification Settings modal opens with Slack Webhook URL field, email field, trigger checkboxes, and severity filter.' },
-      { id: 'sl-2', instruction: 'Verify all notification trigger checkboxes exist.', expected: 'Checkboxes for: Audit Complete, Critical Violations Found, Score Dropped, Fix Generated.' },
-      { id: 'sl-3', instruction: 'Enter a real Slack webhook URL (or test URL for error verification).', expected: 'URL is accepted and saved to browser storage.' },
-      { id: 'sl-4', instruction: 'Click "Send Test Notification".', expected: 'With a real webhook: Slack channel receives a formatted message. With a test URL: error is logged in Recent Notifications.' },
-      { id: 'sl-5', instruction: 'Check the Recent Notifications log at the bottom of the modal.', expected: 'Entry shows with status icon (✅ sent or ❌ failed), type badge, timestamp, and error message if applicable.' },
-    ],
-  },
 ];
 
 type StepResult = 'untested' | 'pass' | 'fail';
