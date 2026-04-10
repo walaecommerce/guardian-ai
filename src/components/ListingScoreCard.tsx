@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { extractImageCategory, getDominantCategory } from '@/utils/imageCategory';
+import { extractImageCategory, getDominantProductCategory } from '@/utils/imageCategory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -216,20 +216,21 @@ export function ListingScoreCard({ assets, listingTitle }: ListingScoreCardProps
       const images = await Promise.all(
         assets.slice(0, 9).map(async (asset) => {
           const base64 = await fileToBase64(asset.file);
-          const category = extractImageCategory(asset);
+          const imageCategory = extractImageCategory(asset);
+          const analysisResult = asset.analysisResult as any;
           return {
             base64,
             type: asset.type,
-            category,
-            analysisScore: result?.overallScore,
-            textReadabilityScore: result?.textReadabilityScore ?? null,
-            emotionalAppealScore: result?.emotionalAppealScore ?? null,
+            category: imageCategory,
+            analysisScore: analysisResult?.overallScore,
+            textReadabilityScore: analysisResult?.textReadabilityScore ?? null,
+            emotionalAppealScore: analysisResult?.emotionalAppealScore ?? null,
           };
         })
       );
 
       const { data: result, error: fnError } = await supabase.functions.invoke('listing-scorecard', {
-        body: { images, listingTitle, category: getDominantCategory(assets) },
+        body: { images, listingTitle, category: getDominantProductCategory(assets) },
       });
 
       if (fnError) throw new Error(fnError.message);
