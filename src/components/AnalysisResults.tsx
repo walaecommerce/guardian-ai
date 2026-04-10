@@ -122,17 +122,9 @@ function ScoreGauge({ score, size = 80 }: { score: number; size?: number }) {
   );
 }
 
-// ── Severity helpers ──
+// ── Severity helpers (imported from shared module) ──
 
-const SEVERITY_ORDER: Record<string, number> = { CRITICAL: 0, critical: 0, HIGH: 1, high: 1, MEDIUM: 2, medium: 2, warning: 2, LOW: 3, low: 3, info: 4 };
-
-const getSeverityBadgeClass = (severity: string) => {
-  const s = severity.toUpperCase();
-  if (s === 'CRITICAL') return 'bg-red-500 text-white';
-  if (s === 'HIGH') return 'bg-orange-500 text-white';
-  if (s === 'MEDIUM' || s === 'WARNING') return 'bg-yellow-500 text-black';
-  return 'bg-blue-500 text-white';
-};
+import { SEVERITY_ORDER, getSeverityBadgeClass } from '@/utils/severityHelpers';
 
 // ── Violation Card with expandable recommendation ──
 
