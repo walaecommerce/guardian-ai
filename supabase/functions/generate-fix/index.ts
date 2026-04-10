@@ -232,6 +232,7 @@ async function callGateway(apiKey: string, contentParts: any[], model?: string):
   const requestedModel = model || MODELS.imageGen;
 
   let response = await fetchGemini({
+    apiKey,
     model: requestedModel,
     messages: [{ role: "user", content: contentParts }],
     modalities: ["image", "text"],
@@ -245,6 +246,7 @@ async function callGateway(apiKey: string, contentParts: any[], model?: string):
     );
 
     response = await fetchGemini({
+      apiKey,
       model: IMAGE_MODEL_FALLBACK,
       messages: [{ role: "user", content: contentParts }],
       modalities: ["image", "text"],
