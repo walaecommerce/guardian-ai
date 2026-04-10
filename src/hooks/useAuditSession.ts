@@ -13,7 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 import { uploadImage } from '@/services/imageStorage';
 import { logEvent } from '@/services/eventLog';
 import { saveAuditToHistory } from '@/components/ComplianceHistory';
-import { sendSlackNotification } from '@/components/NotificationSettings';
 import { MaxImagesOption } from '@/components/ImageUploader';
 import { CompetitorData, buildComparisonReport, AIComparisonResult } from '@/components/CompetitorAudit';
 
