@@ -8,19 +8,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Prohibited elements for ALL Amazon product images
+const PROHIBITED = [
+  'promotional badges ("Best Seller", "Amazon\'s Choice", "#1")',
+  'watermarks or third-party logos',
+  'competitor brand names',
+  '"Buy Now", "Sale", "Discount" text',
+  'star ratings or review counts',
+  'misleading size representations',
+  'fake certification badges',
+];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth guard
     const authResult = await requireAuth(req, corsHeaders);
     if (isAuthError(authResult)) return authResult;
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { prompt, imageType } = await req.json();
+    const { prompt, imageType, category, productName } = await req.json();
 
     if (!prompt) {
       return new Response(JSON.stringify({ error: "No prompt provided" }), {
@@ -28,15 +37,28 @@ serve(async (req) => {
       });
     }
 
-    const enhancedPrompt = `Generate a high-quality Amazon product listing image.
-Type: ${imageType || "PRODUCT"}
-Requirements:
+    // Build a structured, Amazon-safe prompt wrapper
+    const sections: string[] = [];
+
+    sections.push(`Generate a high-quality Amazon product listing image.`);
+    sections.push(`IMAGE TYPE: ${imageType || "PRODUCT"}`);
+    if (productName) sections.push(`PRODUCT: ${productName}`);
+    if (category) sections.push(`CATEGORY: ${category}`);
+
+    sections.push(`REQUIREMENTS:
 - Professional product photography quality
 - High resolution, sharp focus
 - Amazon marketplace standards
-- Clean, appealing composition
+- Clean, appealing composition`);
 
-Specific instructions: ${prompt}`;
+    sections.push(`SPECIFIC INSTRUCTIONS: ${prompt}`);
+
+    sections.push(`PROHIBITED — DO NOT INCLUDE:
+${PROHIBITED.map(p => `• ${p}`).join('\n')}`);
+
+    sections.push(`AMAZON COMPLIANCE: No misleading elements. No fake badges or awards. Product must be accurately represented.`);
+
+    const enhancedPrompt = sections.join('\n\n');
 
     const response = await fetchGemini({
       model: MODELS.imageGen,

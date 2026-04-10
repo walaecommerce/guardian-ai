@@ -4,6 +4,7 @@ export interface MissingImageType {
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
   estimated_conversion_impact: string;
   generation_prompt: string;
+  evidence?: string;
 }
 
 export interface TitleImprovement {
@@ -11,6 +12,7 @@ export interface TitleImprovement {
   current_example: string;
   suggested_fix: string;
   reason: string;
+  evidence?: string;
 }
 
 export interface QuickWin {
@@ -18,6 +20,7 @@ export interface QuickWin {
   effort: 'LOW' | 'MEDIUM' | 'HIGH';
   estimated_impact: string;
   how_to_do_it: string;
+  evidence?: string;
 }
 
 export interface ImageImprovement {
@@ -25,6 +28,7 @@ export interface ImageImprovement {
   current_issue: string;
   specific_recommendation: string;
   example_prompt_for_ai_generation: string;
+  evidence?: string;
 }
 
 export interface SuggestionsData {

@@ -11,25 +11,62 @@ const corsHeaders = {
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const MAX_RETRIES = 3;
 
-// ── Prompt templates ─────────────────────────────────────────
+// ── Category-specific prohibited elements ─────────────────────
 
-const TEMPLATES: Record<string, (p: PromptParams) => string> = {
-  hero: (p) => `Professional Amazon product photography of ${p.productName}. ${p.description}. Pure white background RGB(255,255,255), no shadows or gradients. Product centered and filling 85% of frame. Studio lighting with soft shadows. Sharp focus, high resolution. ${p.claims.length ? p.claims.join(', ') + ' visible on packaging.' : ''} Amazon main image compliant.`,
+const PROHIBITED_ELEMENTS = [
+  'promotional badges ("Best Seller", "Amazon\'s Choice", "#1")',
+  'watermarks or logos not belonging to the brand',
+  'competitor brand names or logos',
+  '"Buy Now", "Sale", "Discount" text',
+  'star ratings or review counts',
+  'QR codes on main images',
+  'misleading size representations',
+];
 
-  lifestyle: (p) => `Lifestyle photograph showing ${p.productName} being enjoyed in a natural setting. ${p.description}. Warm natural lighting. Person enjoying the product in an aspirational way. ${p.claims.length ? p.claims.join(', ') + ' subtly visible on product packaging.' : ''} High resolution photography. No text overlays or badges.`,
-
-  infographic: (p) => `Clean product infographic for ${p.productName}. Product on left side of frame. Right side shows 3-4 key benefits as text callouts with arrows pointing to product features. Clean sans-serif font. ${p.colors.length ? 'Brand colors: ' + p.colors.join(', ') + '.' : ''} Key claims: ${p.claims.join(', ') || 'premium quality'}. Professional Amazon listing design. ${p.description}`,
-
-  size_reference: (p) => `Product size reference photo for ${p.productName}. ${p.description}. Product placed next to a common everyday object (hand, coin, ruler, pen) for scale comparison. Clean white or light neutral background. Clear size relationship visible. Professional product photography.`,
-
-  ingredients: (p) => `Macro closeup shot of key ingredients for ${p.productName}. ${p.description}. Beautiful food/ingredient photography showing raw ingredients scattered artfully. Natural lighting, shallow depth of field. ${p.claims.length ? 'Highlighting: ' + p.claims.join(', ') + '.' : ''} High resolution detail photography.`,
-
-  benefits_grid: (p) => `Professional 2x2 benefits grid infographic for ${p.productName}. Four quadrants each showing one key benefit with icon and short text. ${p.description}. ${p.colors.length ? 'Brand colors: ' + p.colors.join(', ') + '.' : ''} Clean modern design. ${p.claims.length ? 'Benefits: ' + p.claims.join(', ') + '.' : ''} Amazon listing format.`,
-
-  before_after: (p) => `Before and after split image for ${p.productName}. Left side shows the problem/before state, right side shows the solution/after state with the product. ${p.description}. Clean dividing line between halves. Professional comparison photography. ${p.claims.length ? p.claims.join(', ') : ''}`,
-
-  bundle: (p) => `Professional product bundle shot showing ${p.productName} with all included items/accessories arranged neatly. ${p.description}. Clean white background. All items clearly visible and labeled. Studio lighting. ${p.claims.length ? p.claims.join(', ') + '.' : ''} Amazon compliant product photography.`,
+const CATEGORY_RULES: Record<string, { required: string[]; prohibited: string[]; style: string }> = {
+  FOOD_BEVERAGE: {
+    required: ['packaging as hero subject', 'front-label clearly visible', 'appetizing presentation'],
+    prohibited: ['loose food without packaging on MAIN', 'unverified health claims'],
+    style: 'Warm, appetizing lighting. Clean presentation. Food-safe setting.',
+  },
+  SUPPLEMENTS: {
+    required: ['bottle/container as hero', 'supplement facts panel visible', 'clinical clarity'],
+    prohibited: ['loose pills/capsules as MAIN image', 'medical claims without FDA disclaimer'],
+    style: 'Clean, clinical lighting. White or neutral background. Professional health product aesthetics.',
+  },
+  APPAREL: {
+    required: ['flat lay or ghost mannequin', 'fabric texture visible', 'true-to-life colors'],
+    prohibited: ['wrinkled or poorly ironed garments', 'cluttered backgrounds'],
+    style: 'Even, neutral lighting. Ghost mannequin or flat lay. Accurate color representation.',
+  },
+  ELECTRONICS: {
+    required: ['3/4 angle showing depth', 'visible ports and interfaces', 'screen content if applicable'],
+    prohibited: ['outdated UI on screens', 'cables obscuring product'],
+    style: 'Sharp, detailed studio lighting. Slight shadow for depth. Technical precision.',
+  },
+  BEAUTY: {
+    required: ['luxurious lighting', 'glass/metallic texture rendering', 'slight 5-degree angle'],
+    prohibited: ['before/after medical claims', 'unrealistic skin editing'],
+    style: 'Soft, luxurious lighting. Premium feel. Emphasis on texture and finish.',
+  },
+  PET_SUPPLIES: {
+    required: ['treats front-facing', 'toys at natural play angles', 'size reference where relevant'],
+    prohibited: ['unsafe product usage depictions', 'aggressive animal imagery'],
+    style: 'Warm, friendly lighting. Natural angles. Pet-safe context.',
+  },
+  HOME_GARDEN: {
+    required: ['material textures clearly visible', 'warm-neutral lighting', 'room context for lifestyle'],
+    prohibited: ['misleading scale', 'unrelated decor distracting from product'],
+    style: 'Warm, inviting lighting. Home setting context. Material detail emphasis.',
+  },
+  GENERAL: {
+    required: ['product clearly identifiable', 'clean composition', 'professional lighting'],
+    prohibited: [],
+    style: 'Clean, professional studio lighting. Sharp focus. Product-forward composition.',
+  },
 };
+
+// ── Structured prompt planner ─────────────────────────────────
 
 interface PromptParams {
   productName: string;
@@ -40,26 +77,77 @@ interface PromptParams {
   aspectRatio: string;
   resolution: string;
   customPrompt?: string;
+  category?: string;
+}
+
+function buildStructuredPrompt(params: PromptParams): string {
+  const cat = (params.category || 'GENERAL').toUpperCase();
+  const rules = CATEGORY_RULES[cat] || CATEGORY_RULES.GENERAL;
+
+  const sections: string[] = [];
+
+  // Subject
+  sections.push(`SUBJECT: ${params.productName}${params.description ? '. ' + params.description : ''}`);
+
+  // Template-specific composition
+  const compositionMap: Record<string, string> = {
+    hero: 'Pure white background RGB(255,255,255). Product centered, filling 85%+ of frame. No shadows, gradients, or props. Single product only.',
+    lifestyle: 'Natural, aspirational setting. Product in active use by a person. Warm natural lighting. Shallow depth of field on background.',
+    infographic: 'Product on left 40% of frame. Right side: 3-4 key benefit callouts with clean arrows pointing to features. Sans-serif typography. Clean grid layout.',
+    size_reference: 'Product placed next to a common everyday object (hand, coin, ruler) for scale. Clean white or light neutral background.',
+    ingredients: 'Macro close-up of raw key ingredients scattered artfully. Natural lighting. Shallow depth of field. Vibrant, appetizing colors.',
+    benefits_grid: '2×2 grid layout. Each quadrant shows one key benefit with icon and short label. Product centered or in each quadrant. Clean modern design.',
+    before_after: 'Split composition: left shows the problem state, right shows the solution with the product. Clean vertical dividing line. Equal lighting on both halves.',
+    bundle: 'All included items arranged in a clean, organized flat lay or stepped arrangement. Each item clearly visible and identifiable. White background.',
+  };
+  sections.push(`COMPOSITION: ${compositionMap[params.template] || compositionMap.hero}`);
+
+  // Style direction
+  sections.push(`STYLE: ${rules.style}`);
+
+  // Category requirements
+  if (rules.required.length > 0) {
+    sections.push(`CATEGORY REQUIREMENTS: ${rules.required.join('. ')}.`);
+  }
+
+  // Claims to preserve
+  if (params.claims.length > 0) {
+    sections.push(`ALLOWED CLAIMS (show on packaging if visible): ${params.claims.join(', ')}`);
+  }
+
+  // Brand colors
+  if (params.colors.length > 0) {
+    sections.push(`BRAND COLORS: ${params.colors.join(', ')}`);
+  }
+
+  // Prohibited elements — always include
+  const allProhibited = [...PROHIBITED_ELEMENTS, ...rules.prohibited];
+  sections.push(`PROHIBITED — DO NOT INCLUDE:\n${allProhibited.map(p => `  • ${p}`).join('\n')}`);
+
+  // Amazon compliance
+  sections.push(`AMAZON COMPLIANCE: Professional product photography quality. High resolution. Sharp focus. No misleading elements. No text overlays on MAIN images.`);
+
+  return sections.join('\n\n');
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth guard
     const authResult = await requireAuth(req, corsHeaders);
     if (isAuthError(authResult)) return authResult;
 
     const body: PromptParams = await req.json();
-    const { productName, description, claims = [], colors = [], template, aspectRatio = '1:1', resolution = '2K', customPrompt } = body;
+    const { productName, description, claims = [], colors = [], template, aspectRatio = '1:1', resolution = '2K', customPrompt, category } = body;
 
     if (!productName) throw new Error('Product name is required');
 
-    // Build prompt
-    const templateFn = TEMPLATES[template] || TEMPLATES.hero;
-    const prompt = customPrompt || templateFn({ productName, description: description || '', claims, colors, template, aspectRatio, resolution });
+    // Build structured prompt
+    const prompt = customPrompt || buildStructuredPrompt({
+      productName, description: description || '', claims, colors, template, aspectRatio, resolution, category,
+    });
 
-    console.log(`[Studio] Generating ${template} image for "${productName}" at ${aspectRatio} ${resolution}`);
+    console.log(`[Studio] Generating ${template} image for "${productName}" (category: ${category || 'GENERAL'}) at ${aspectRatio} ${resolution}`);
 
     let lastError = '';
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
