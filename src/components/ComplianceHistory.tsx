@@ -3,11 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { History, Trash2, RotateCcw } from 'lucide-react';
+import { History, Trash2, RotateCcw, Loader2 } from 'lucide-react';
 import { ImageAsset } from '@/types';
-
-const STORAGE_KEY = 'guardian-audits';
-const MAX_ENTRIES = 20;
+import { supabase } from '@/integrations/supabase/client';
 
 export interface AuditHistoryEntry {
   id: string;
@@ -27,23 +25,23 @@ export interface AuditHistoryEntry {
   }>;
 }
 
-export function saveAuditToHistory(assets: ImageAsset[], listingTitle: string) {
+/**
+ * Save audit to compliance_reports (server-side persistence).
+ */
+export async function saveAuditToHistory(assets: ImageAsset[], listingTitle: string) {
   const analyzed = assets.filter(a => a.analysisResult);
   if (analyzed.length === 0) return;
 
   const passed = analyzed.filter(a => a.analysisResult?.status === 'PASS').length;
   const failed = analyzed.filter(a => a.analysisResult?.status === 'FAIL').length;
   const passRate = Math.round((passed / analyzed.length) * 100);
+  const scores = analyzed.map(a => a.analysisResult!.overallScore);
+  const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
 
-  const entry: AuditHistoryEntry = {
-    id: Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
-    date: new Date().toISOString(),
-    listingTitle: listingTitle || 'Untitled Listing',
-    totalImages: analyzed.length,
-    passed,
-    failed,
-    passRate,
-    overallStatus: failed > 0 ? 'FAIL' : 'PASS',
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const reportData = {
     assets: analyzed.map(a => ({
       name: a.name,
       type: a.type,
@@ -53,37 +51,44 @@ export function saveAuditToHistory(assets: ImageAsset[], listingTitle: string) {
     })),
   };
 
-  const existing = getAuditHistory();
-  const updated = [entry, ...existing].slice(0, MAX_ENTRIES);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  return entry;
+  await supabase.from('compliance_reports').insert([{
+    user_id: user.id,
+    listing_title: listingTitle || 'Untitled Listing',
+    total_images: analyzed.length,
+    passed_count: passed,
+    failed_count: failed,
+    average_score: avgScore,
+    report_data: JSON.parse(JSON.stringify(reportData)),
+  }]);
 }
 
-export function getAuditHistory(): AuditHistoryEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
+/**
+ * Get score trend from compliance_reports by listing title.
+ */
+export async function getScoreTrend(listingTitle: string): Promise<{ prevScore: number; prevDate: string; direction: 'up' | 'down' | 'same' } | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
 
-export function getScoreTrend(listingTitle: string): { prevScore: number; prevDate: string; direction: 'up' | 'down' | 'same' } | null {
-  const history = getAuditHistory();
-  // Find entries matching this title (at least 2 previous = 3+ total including current)
-  const matching = history.filter(h => h.listingTitle === listingTitle);
-  if (matching.length < 2) return null; // Need at least 2 previous entries (3+ audits total)
+  const { data } = await supabase
+    .from('compliance_reports')
+    .select('average_score, created_at')
+    .eq('user_id', user.id)
+    .eq('listing_title', listingTitle)
+    .order('created_at', { ascending: false })
+    .limit(2);
 
-  const previous = matching[0]; // Most recent previous
-  const older = matching[1];
+  if (!data || data.length < 2) return null;
 
-  const direction = previous.passRate > older.passRate ? 'up'
-    : previous.passRate < older.passRate ? 'down'
-    : 'same';
+  const recent = data[0];
+  const older = data[1];
+  const recentScore = Math.round((recent.average_score as number) || 0);
+  const olderScore = Math.round((older.average_score as number) || 0);
+
+  const direction = recentScore > olderScore ? 'up' : recentScore < olderScore ? 'down' : 'same';
 
   return {
-    prevScore: previous.passRate,
-    prevDate: previous.date,
+    prevScore: recentScore,
+    prevDate: recent.created_at,
     direction,
   };
 }
@@ -94,21 +99,57 @@ interface ComplianceHistoryProps {
 
 export function ComplianceHistory({ onLoadAudit }: ComplianceHistoryProps) {
   const [history, setHistory] = useState<AuditHistoryEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setHistory(getAuditHistory());
-  }, []);
+    (async () => {
+      setIsLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setIsLoading(false); return; }
 
-  const handleClear = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setHistory([]);
-  };
+      const { data } = await supabase
+        .from('compliance_reports')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (data) {
+        setHistory(data.map(r => {
+          const rd = r.report_data as any;
+          const passRate = r.total_images > 0 ? Math.round((r.passed_count / r.total_images) * 100) : 0;
+          return {
+            id: r.id,
+            date: r.created_at,
+            listingTitle: r.listing_title || 'Untitled',
+            totalImages: r.total_images,
+            passed: r.passed_count,
+            failed: r.failed_count,
+            passRate,
+            overallStatus: r.failed_count > 0 ? 'FAIL' as const : 'PASS' as const,
+            assets: rd?.assets || [],
+          };
+        }));
+      }
+      setIsLoading(false);
+    })();
+  }, []);
 
   const formatDate = (iso: string) => {
     return new Date(iso).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
     });
   };
+
+  if (isLoading) {
+    return (
+      <Card className="glass-card min-h-[400px] flex items-center justify-center">
+        <CardContent className="text-center py-16">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (history.length === 0) {
     return (
@@ -134,10 +175,6 @@ export function ComplianceHistory({ onLoadAudit }: ComplianceHistoryProps) {
             <History className="w-4 h-4 text-primary" />
             Audit History ({history.length})
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={handleClear} className="text-xs text-muted-foreground">
-            <Trash2 className="w-3 h-3 mr-1" />
-            Clear
-          </Button>
         </div>
       </CardHeader>
       <CardContent>

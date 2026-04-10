@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,9 +42,6 @@ const TEMPLATES: Template[] = [
 
 const CLAIM_OPTIONS = ['Gluten Free', 'Non-GMO', 'Keto', 'Vegan', 'Organic', 'Sugar Free', 'High Protein', 'All Natural', 'Dairy Free', 'Plant Based'];
 
-const HISTORY_KEY = 'guardian-studio-history';
-const MAX_HISTORY = 20;
-
 interface GeneratedImage {
   id: string;
   image: string;
@@ -56,21 +54,10 @@ interface GeneratedImage {
   date: string;
 }
 
-function getHistory(): GeneratedImage[] {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
-  catch { return []; }
-}
-function saveHistory(items: GeneratedImage[]) {
-  // Don't store full base64 in history - just metadata
-  const slim = items.slice(0, MAX_HISTORY).map(i => ({
-    ...i, image: i.image.substring(0, 100) + '...',
-  }));
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(slim)); } catch { /* full */ }
-}
-
 // ── Component ───────────────────────────────────────────────
 
 const Studio = () => {
+  const { user } = useAuth();
   const [selectedTemplate, setSelectedTemplate] = useState('hero');
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
@@ -85,7 +72,32 @@ const Studio = () => {
   const [category, setCategory] = useState('GENERAL');
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<GeneratedImage[]>([]);
-  const [history] = useState<GeneratedImage[]>(getHistory);
+  const [history, setHistory] = useState<GeneratedImage[]>([]);
+
+  // Load history from Supabase on mount
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('studio_generations')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (data) {
+        setHistory(data.map(row => ({
+          id: row.id,
+          image: '', // Not stored in DB
+          prompt: row.prompt || '',
+          template: row.template,
+          productName: row.product_name,
+          score: row.score,
+          status: 'analyzed' as const,
+          date: row.created_at,
+        })));
+      }
+    })();
+  }, [user]);
+  
 
   const { toast } = useToast();
 
@@ -200,10 +212,29 @@ const Studio = () => {
         analysisResult: analysis,
       } : r));
 
-      // Save to history
-      const hist = getHistory();
-      hist.unshift({ ...img, score: analysis.overallScore, status: 'analyzed' });
-      saveHistory(hist);
+      // Save to DB history
+      if (user) {
+        await supabase.from('studio_generations').insert([{
+          user_id: user.id,
+          template: img.template,
+          product_name: img.productName,
+          prompt: img.prompt,
+          score: analysis.overallScore,
+          status: 'analyzed',
+          image_url: null,
+        }]);
+        // Update local history
+        setHistory(prev => [{
+          id: crypto.randomUUID(),
+          image: '',
+          prompt: img.prompt,
+          template: img.template,
+          productName: img.productName,
+          score: analysis.overallScore,
+          status: 'analyzed' as const,
+          date: new Date().toISOString(),
+        }, ...prev].slice(0, 20));
+      }
 
     } catch {
       setResults(prev => prev.map(r => r.id === img.id ? { ...r, status: 'analyzed' as const } : r));

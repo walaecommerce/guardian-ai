@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCreditGate } from '@/hooks/useCreditGate';
+import { useAuth } from '@/hooks/useAuth';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 // ── Types ────────────────────────────────────────────────────
 
 interface AuditRecord {
+  id?: string;
   date: string;
   scores: {
     compliance: number;
@@ -39,15 +41,12 @@ interface AuditRecord {
 }
 
 interface TrackedProduct {
+  id: string; // DB id
   asin: string;
   title: string;
   url: string;
   added_date: string;
   audits: AuditRecord[];
-}
-
-interface TrackerData {
-  products: TrackedProduct[];
 }
 
 interface TrackerAlert {
@@ -60,16 +59,8 @@ interface TrackerAlert {
   dismissed: boolean;
 }
 
-const TRACKER_KEY = 'guardian-tracker';
 const ALERTS_KEY = 'guardian-tracker-alerts';
 
-function loadTracker(): TrackerData {
-  try { return JSON.parse(localStorage.getItem(TRACKER_KEY) || '{"products":[]}'); }
-  catch { return { products: [] }; }
-}
-function saveTracker(data: TrackerData) {
-  localStorage.setItem(TRACKER_KEY, JSON.stringify(data));
-}
 function loadAlerts(): TrackerAlert[] {
   try { return JSON.parse(localStorage.getItem(ALERTS_KEY) || '[]'); }
   catch { return []; }
@@ -132,7 +123,9 @@ function filterByRange(audits: AuditRecord[], range: string): AuditRecord[] {
 
 const Tracker = () => {
   const { guard: creditGate } = useCreditGate();
-  const [tracker, setTracker] = useState<TrackerData>(loadTracker);
+  const { user } = useAuth();
+  const [products, setProducts] = useState<TrackedProduct[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [alerts, setAlerts] = useState<TrackerAlert[]>(loadAlerts);
   const [urlInput, setUrlInput] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -141,9 +134,49 @@ const Tracker = () => {
   const [dateRange, setDateRange] = useState('all');
   const { toast } = useToast();
 
-  // Persist
-  useEffect(() => { saveTracker(tracker); }, [tracker]);
+  // Persist alerts only (ephemeral UI dismissals)
   useEffect(() => { saveAlerts(alerts); }, [alerts]);
+
+  // Load products from Supabase on mount
+  useEffect(() => {
+    if (!user) { setIsLoadingProducts(false); return; }
+    (async () => {
+      setIsLoadingProducts(true);
+      const { data: prods, error: prodsErr } = await supabase
+        .from('tracked_products')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (prodsErr) { console.error(prodsErr); setIsLoadingProducts(false); return; }
+
+      const loaded: TrackedProduct[] = [];
+      for (const p of prods || []) {
+        const { data: audits } = await supabase
+          .from('tracker_audits')
+          .select('*')
+          .eq('tracked_product_id', p.id)
+          .order('created_at', { ascending: true });
+
+        loaded.push({
+          id: p.id,
+          asin: p.asin,
+          title: p.title,
+          url: p.url,
+          added_date: p.added_date,
+          audits: (audits || []).map(a => ({
+            id: a.id,
+            date: a.created_at,
+            scores: (a.scores as any) || {},
+            violations_count: a.violations_count,
+            status: a.status,
+            fixApplied: a.fix_applied,
+          })),
+        });
+      }
+      setProducts(loaded);
+      setIsLoadingProducts(false);
+    })();
+  }, [user]);
 
   // ── File to base64 ────────────────────────────────────────
   const fileToBase64 = (file: File): Promise<string> =>
@@ -164,7 +197,6 @@ const Tracker = () => {
       let totalScore = 0;
       let analyzed = 0;
       let totalViolations = 0;
-      const dimensionTotals = { compliance: 0, completeness: 0, diversity: 0, readability: 0, appeal: 0, consistency: 0 };
 
       for (let i = 0; i < imagesToProcess.length; i++) {
         const file = await downloadImage(imagesToProcess[i].url);
@@ -185,17 +217,34 @@ const Tracker = () => {
       }
 
       const healthScore = analyzed > 0 ? Math.round(totalScore / analyzed) : 0;
+      const scores = {
+        compliance: healthScore,
+        completeness: Math.min(100, Math.round((imagesToProcess.length / 7) * 100)),
+        diversity: Math.min(100, Math.round(new Set(imagesToProcess.map(i => i.category)).size / 4 * 100)),
+        readability: healthScore,
+        appeal: healthScore,
+        consistency: healthScore,
+        health: healthScore,
+      };
+
+      // Persist audit to DB
+      const { data: auditRow } = await supabase
+        .from('tracker_audits')
+        .insert({
+          tracked_product_id: product.id,
+          user_id: user!.id,
+          scores,
+          violations_count: totalViolations,
+          status: healthScore >= 85 ? 'PASS' : 'FAIL',
+          fix_applied: false,
+        })
+        .select()
+        .single();
+
       const audit: AuditRecord = {
-        date: new Date().toISOString(),
-        scores: {
-          compliance: healthScore,
-          completeness: Math.min(100, Math.round((imagesToProcess.length / 7) * 100)),
-          diversity: Math.min(100, Math.round(new Set(imagesToProcess.map(i => i.category)).size / 4 * 100)),
-          readability: healthScore,
-          appeal: healthScore,
-          consistency: healthScore,
-          health: healthScore,
-        },
+        id: auditRow?.id,
+        date: auditRow?.created_at || new Date().toISOString(),
+        scores,
         violations_count: totalViolations,
         status: healthScore >= 85 ? 'PASS' : 'FAIL',
       };
@@ -218,13 +267,16 @@ const Tracker = () => {
         }
       }
 
-      setTracker(prev => ({
-        products: prev.products.map(p =>
-          p.asin === product.asin
-            ? { ...p, title: scraped.title || p.title, audits: [...p.audits, audit] }
-            : p
-        ),
-      }));
+      // Update title if scraped title changed
+      if (scraped.title && scraped.title !== product.title) {
+        await supabase.from('tracked_products').update({ title: scraped.title }).eq('id', product.id);
+      }
+
+      setProducts(prev => prev.map(p =>
+        p.id === product.id
+          ? { ...p, title: scraped.title || p.title, audits: [...p.audits, audit] }
+          : p
+      ));
 
       toast({ title: 'Audit complete', description: `${product.title}: ${healthScore}%` });
     } catch (e) {
@@ -232,14 +284,14 @@ const Tracker = () => {
     } finally {
       setAuditingAsin(null);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   // ── Add product ───────────────────────────────────────────
   const addProduct = async () => {
-    if (!urlInput.trim()) return;
+    if (!urlInput.trim() || !user) return;
     if (!creditGate('scrape')) return;
     const asin = extractAsin(urlInput.trim());
-    if (tracker.products.some(p => p.asin === asin || p.url === urlInput.trim())) {
+    if (products.some(p => p.asin === asin || p.url === urlInput.trim())) {
       toast({ title: 'Already tracked', variant: 'destructive' });
       return;
     }
@@ -247,15 +299,31 @@ const Tracker = () => {
     setIsAdding(true);
     try {
       const scraped = await scrapeAmazonProduct(urlInput.trim());
+      const finalAsin = scraped.asin !== 'UNKNOWN' ? scraped.asin : asin || 'UNKNOWN';
+
+      const { data: inserted, error: insertErr } = await supabase
+        .from('tracked_products')
+        .insert({
+          user_id: user.id,
+          asin: finalAsin,
+          title: scraped.title,
+          url: urlInput.trim(),
+        })
+        .select()
+        .single();
+
+      if (insertErr) throw new Error(insertErr.message);
+
       const newProduct: TrackedProduct = {
-        asin: scraped.asin !== 'UNKNOWN' ? scraped.asin : asin || 'UNKNOWN',
+        id: inserted.id,
+        asin: finalAsin,
         title: scraped.title,
         url: urlInput.trim(),
-        added_date: new Date().toISOString(),
+        added_date: inserted.added_date,
         audits: [],
       };
 
-      setTracker(prev => ({ products: [...prev.products, newProduct] }));
+      setProducts(prev => [...prev, newProduct]);
       setUrlInput('');
       toast({ title: 'Product added', description: `${scraped.title} — running first audit...` });
 
@@ -268,9 +336,10 @@ const Tracker = () => {
     }
   };
 
-  const removeProduct = (asin: string) => {
-    setTracker(prev => ({ products: prev.products.filter(p => p.asin !== asin) }));
-    if (selectedProduct === asin) setSelectedProduct(null);
+  const removeProduct = async (productId: string) => {
+    await supabase.from('tracked_products').delete().eq('id', productId);
+    setProducts(prev => prev.filter(p => p.id !== productId));
+    if (selectedProduct === products.find(p => p.id === productId)?.asin) setSelectedProduct(null);
   };
 
   const dismissAlert = (id: string) => {
@@ -278,7 +347,7 @@ const Tracker = () => {
   };
 
   const activeAlerts = alerts.filter(a => !a.dismissed);
-  const detail = selectedProduct ? tracker.products.find(p => p.asin === selectedProduct) : null;
+  const detail = selectedProduct ? products.find(p => p.asin === selectedProduct) : null;
 
   // ── Chart data for detail view ────────────────────────────
   const chartData = detail ? filterByRange(detail.audits, dateRange).map((a, i) => ({
@@ -292,6 +361,14 @@ const Tracker = () => {
     consistency: a.scores.consistency,
     fixApplied: a.fixApplied,
   })) : [];
+
+  if (isLoadingProducts) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -311,7 +388,7 @@ const Tracker = () => {
                   Amazon may have updated requirements or the listing was changed.
                 </p>
                 <Button variant="outline" size="sm" className="text-xs flex-shrink-0" onClick={() => {
-                  const prod = tracker.products.find(p => p.asin === alert.productAsin);
+                  const prod = products.find(p => p.asin === alert.productAsin);
                   if (prod) { dismissAlert(alert.id); runAudit(prod); }
                 }}>
                   Audit Now
@@ -451,7 +528,7 @@ const Tracker = () => {
                       {[...detail.audits].reverse().map((a, i, arr) => {
                         const prev = arr[i + 1]; // reversed order
                         return (
-                          <tr key={i} className="border-b border-border/50">
+                          <tr key={a.id || i} className="border-b border-border/50">
                             <td className="px-4 py-2 text-muted-foreground">
                               {new Date(a.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               {a.fixApplied && <Badge className="ml-2 text-xs bg-primary/15 text-primary border-primary/30">Fix Applied</Badge>}
@@ -478,8 +555,8 @@ const Tracker = () => {
         ) : (
           /* Product List */
           <Card>
-            <CardContent className={tracker.products.length === 0 ? 'pt-6' : 'p-0 pt-0'}>
-              {tracker.products.length === 0 ? (
+            <CardContent className={products.length === 0 ? 'pt-6' : 'p-0 pt-0'}>
+              {products.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Activity className="w-10 h-10 mx-auto mb-3 opacity-30" />
                   <p className="text-sm">No tracked products yet. Add an Amazon URL above to start.</p>
@@ -499,12 +576,12 @@ const Tracker = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {tracker.products.map(p => {
+                      {products.map(p => {
                         const latest = p.audits[p.audits.length - 1];
                         const prev = p.audits.length >= 2 ? p.audits[p.audits.length - 2] : undefined;
                         const isAuditing = auditingAsin === p.asin;
                         return (
-                          <tr key={p.asin} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedProduct(p.asin)}>
+                          <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedProduct(p.asin)}>
                             <td className="px-4 py-3 max-w-[220px] truncate font-medium">{p.title || p.url.substring(0, 40)}</td>
                             <td className="px-4 py-3 font-mono text-xs text-center">{p.asin}</td>
                             <td className="px-4 py-3 text-xs text-muted-foreground text-center">
@@ -534,7 +611,7 @@ const Tracker = () => {
                                 >
                                   {isAuditing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                                 </Button>
-                                <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => removeProduct(p.asin)}>
+                                <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => removeProduct(p.id)}>
                                   <Trash2 className="w-3 h-3" />
                                 </Button>
                               </div>
