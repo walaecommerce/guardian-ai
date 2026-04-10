@@ -58,6 +58,7 @@ interface CampaignSummary {
 }
 
 interface SavedCampaign {
+  id: string;
   name: string;
   client: string;
   date: string;
