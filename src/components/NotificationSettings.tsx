@@ -76,7 +76,6 @@ export async function saveNotificationPrefs(prefs: NotificationPrefs): Promise<b
       .from('notification_preferences')
       .upsert({
         user_id: user.id,
-        slack_webhook_url: null,
         email_address: prefs.emailAddress || null,
         notify_on: prefs.notifyOn,
         min_severity: prefs.minSeverity,
