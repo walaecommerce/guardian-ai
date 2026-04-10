@@ -134,6 +134,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_address: string | null
+          id: string
+          min_severity: string
+          notify_on: Json
+          slack_webhook_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_address?: string | null
+          id?: string
+          min_severity?: string
+          notify_on?: Json
+          slack_webhook_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_address?: string | null
+          id?: string
+          min_severity?: string
+          notify_on?: Json
+          slack_webhook_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       product_claim_cache: {
         Row: {
           claim_key: string
