@@ -710,7 +710,7 @@ export function useAuditSession() {
     if (creditsExhaustedDuringRun) {
       toast({
         title: 'Audit Paused',
-        description: 'AI balance ran out. Already-analyzed results are preserved.',
+        description: 'Credits exhausted. Already-analyzed results are preserved.',
       });
       refreshCredits();
       return;
@@ -864,7 +864,7 @@ export function useAuditSession() {
               addLog('error', `❌ ${serverMsg || 'Not enough AI credits.'}`);
               setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
               setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
-              toast({ title: 'AI Credits Exhausted', description: 'Add more AI balance in Settings → Cloud & AI balance to continue.', variant: 'destructive', duration: 8000 });
+              toast({ title: 'Credits Exhausted', description: 'Upgrade your plan or wait for your next billing cycle to continue.', variant: 'destructive', duration: 8000 });
               return;
             }
             throw genError;
@@ -875,7 +875,7 @@ export function useAuditSession() {
               addLog('error', `❌ ${genData.error}`);
               setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
               setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
-              toast({ title: 'AI Credits Exhausted', description: 'Add more AI balance in Settings → Cloud & AI balance to continue.', variant: 'destructive', duration: 8000 });
+              toast({ title: 'Credits Exhausted', description: 'Upgrade your plan or wait for your next billing cycle to continue.', variant: 'destructive', duration: 8000 });
               return;
             }
             throw new Error(genData.error);
@@ -1145,7 +1145,7 @@ export function useAuditSession() {
     for (let i = 0; i < enhanceable.length; i++) {
       if (aiCreditsExhausted) {
         addLog('warning', `🚫 AI credits exhausted — skipping remaining ${enhanceable.length - i} enhancement(s).`);
-        toast({ title: 'AI Credits Exhausted', description: 'Add more AI balance to continue.', variant: 'destructive', duration: 8000 });
+        toast({ title: 'Credits Exhausted', description: 'Upgrade your plan to continue.', variant: 'destructive', duration: 8000 });
         break;
       }
 
@@ -1478,7 +1478,7 @@ export function useAuditSession() {
     setAnalyzingProgress(undefined);
 
     if (creditsExhaustedDuringResume) {
-      toast({ title: 'Audit Paused Again', description: 'AI balance is still insufficient.' });
+      toast({ title: 'Audit Paused Again', description: 'Credits are still insufficient.' });
     } else {
       toast({ title: 'Audit Complete', description: 'All remaining images analyzed.' });
 
