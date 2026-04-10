@@ -161,7 +161,7 @@ export function ComplianceHistory({ onLoadAudit }: ComplianceHistoryProps) {
           </div>
           <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Saved Reports</h3>
           <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
-            When you save an audit report, it will appear here so you can compare results over time.
+            Saved audit reports appear here with pass rates, scores, and full violation details — so you can track improvements over time.
           </p>
         </CardContent>
       </Card>
