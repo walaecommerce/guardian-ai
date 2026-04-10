@@ -2,12 +2,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PolicyUpdate {
-  date: string;
-  policy_area: string;
-  change_description: string;
+  title: string;
+  summary: string;
+  sourceUrl: string;
+  sourceName: string;
+  publishedDate: string;
+  checkedAt: string;
+  confidence: 'high' | 'medium' | 'low';
+  affectedArea: 'title' | 'image' | 'claims' | 'content' | 'general';
   impact: 'HIGH' | 'MEDIUM' | 'LOW';
-  source_url?: string;
   keywords: string[];
+  // Legacy compat
+  date?: string;
+  policy_area?: string;
+  change_description?: string;
+  source_url?: string;
 }
 
 export interface CurrentRulesSummary {
@@ -17,10 +26,13 @@ export interface CurrentRulesSummary {
 }
 
 export interface PolicyData {
+  status: 'updates_found' | 'no_updates' | 'error';
   updates: PolicyUpdate[];
-  last_checked: string;
+  checkedAt: string;
+  last_checked?: string;
   source_summary?: string;
   current_rules_summary?: CurrentRulesSummary;
+  reason?: string;
 }
 
 const CACHE_KEY = 'guardian_policy_updates';
@@ -65,15 +77,32 @@ export function usePolicyUpdates() {
       const { data: result, error } = await supabase.functions.invoke('check-policy-updates');
       if (error) {
         console.warn('Policy update check failed (non-critical):', error.message);
+        setData({
+          status: 'error',
+          updates: [],
+          checkedAt: new Date().toISOString(),
+          reason: error.message,
+        });
         return;
       }
       if (result && !result.error) {
         const policyData = result as PolicyData;
+        // Ensure status field exists
+        if (!policyData.status) {
+          policyData.status = (policyData.updates?.length > 0) ? 'updates_found' : 'no_updates';
+        }
+        policyData.checkedAt = policyData.checkedAt || policyData.last_checked || new Date().toISOString();
         setData(policyData);
         setCache(policyData);
       }
     } catch (e) {
       console.warn('Policy update check failed (non-critical):', e);
+      setData({
+        status: 'error',
+        updates: [],
+        checkedAt: new Date().toISOString(),
+        reason: 'Research unavailable',
+      });
     } finally {
       setLoading(false);
     }
@@ -85,7 +114,6 @@ export function usePolicyUpdates() {
 
   const highImpactUpdates = data?.updates?.filter(u => u.impact === 'HIGH') || [];
 
-  // Check if a violation message matches any recent policy keyword
   const getMatchingUpdate = useCallback((violationMessage: string, violationCategory: string): PolicyUpdate | null => {
     if (!data?.updates) return null;
     const lowerMsg = (violationMessage + ' ' + violationCategory).toLowerCase();

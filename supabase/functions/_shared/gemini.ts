@@ -24,7 +24,6 @@ function convertMessages(messages: any[]): {
 
   for (const msg of messages) {
     if (msg.role === "system") {
-      // Gemini supports a single systemInstruction
       const text =
         typeof msg.content === "string"
           ? msg.content
@@ -54,7 +53,6 @@ function convertMessages(messages: any[]): {
               });
             }
           } else if (typeof url === "string" && (url.startsWith("http://") || url.startsWith("https://"))) {
-            // Gemini supports fileData for URLs — but inline is safer
             parts.push({ text: `[Image at ${url}]` });
           }
         }
@@ -94,13 +92,29 @@ function convertTools(
 ): { tools?: any; toolConfig?: any } {
   if (!tools || tools.length === 0) return {};
 
-  const functionDeclarations = tools.map((t: any) => ({
-    name: t.function.name,
-    description: t.function.description,
-    parameters: cleanSchema(t.function.parameters),
-  }));
+  // Separate google_search tools from function tools
+  const functionTools = tools.filter((t: any) => t.type === "function" && t.function);
+  const googleSearchTools = tools.filter((t: any) => t.google_search !== undefined);
 
-  const result: any = { tools: [{ functionDeclarations }] };
+  const geminiTools: any[] = [];
+
+  if (functionTools.length > 0) {
+    const functionDeclarations = functionTools.map((t: any) => ({
+      name: t.function.name,
+      description: t.function.description,
+      parameters: cleanSchema(t.function.parameters),
+    }));
+    geminiTools.push({ functionDeclarations });
+  }
+
+  // Pass google_search as a separate tool entry (Gemini native grounding)
+  for (const gst of googleSearchTools) {
+    geminiTools.push({ googleSearch: gst.google_search });
+  }
+
+  if (geminiTools.length === 0) return {};
+
+  const result: any = { tools: geminiTools };
 
   if (toolChoice?.function?.name) {
     result.toolConfig = {
@@ -171,14 +185,12 @@ export async function fetchGemini(opts: FetchGeminiOptions): Promise<Response> {
     const status = resp.status;
     const errBody = await resp.text();
 
-    // 429 → rate limit (keep as-is)
     if (status === 429)
       return new Response(errBody, {
         status: 429,
         headers: { "Content-Type": "application/json" },
       });
 
-    // 403 with RESOURCE_EXHAUSTED or billing → map to 402
     if (
       status === 403 &&
       (errBody.includes("RESOURCE_EXHAUSTED") ||
@@ -190,7 +202,6 @@ export async function fetchGemini(opts: FetchGeminiOptions): Promise<Response> {
         headers: { "Content-Type": "application/json" },
       });
 
-    // Other errors — pass through
     return new Response(errBody, {
       status,
       headers: { "Content-Type": "application/json" },
@@ -203,7 +214,6 @@ export async function fetchGemini(opts: FetchGeminiOptions): Promise<Response> {
   const candidate = data.candidates?.[0];
 
   if (!candidate) {
-    // Safety block or empty response
     const blockReason = data.promptFeedback?.blockReason;
     if (blockReason) {
       return new Response(
@@ -261,9 +271,13 @@ export async function fetchGemini(opts: FetchGeminiOptions): Promise<Response> {
   if (images.length > 0) openAiMessage.images = images;
   if (toolCalls.length > 0) openAiMessage.tool_calls = toolCalls;
 
-  const openAiResponse = {
+  // Attach grounding metadata if present (for google_search tool)
+  const groundingMetadata = candidate.groundingMetadata || data.candidates?.[0]?.groundingMetadata;
+
+  const openAiResponse: any = {
     choices: [{ message: openAiMessage, finish_reason: finishReason }],
   };
+  if (groundingMetadata) openAiResponse.groundingMetadata = groundingMetadata;
 
   return new Response(JSON.stringify(openAiResponse), {
     status: 200,
