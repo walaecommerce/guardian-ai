@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ImageAsset, AnalysisResult, FixAttempt, ProductIdentityCard } from '@/types';
 import { refreshSignedUrl } from '@/services/imageStorage';
+import { buildAssetFromSessionImage } from '@/utils/sessionAssetHelpers';
 
 interface EnhancementSession {
   id: string;
@@ -60,9 +61,6 @@ export function useSessionLoader() {
       const assetSessionMap = new Map<string, string>();
       const assets: ImageAsset[] = await Promise.all(
         (images || []).map(async (img) => {
-          const assetId = Math.random().toString(36).substring(2, 9);
-          assetSessionMap.set(assetId, img.id);
-
           // Resolve signed URLs for private storage
           const signedOriginalUrl = await refreshSignedUrl(img.original_image_url);
           const signedFixedUrl = img.fixed_image_url ? await refreshSignedUrl(img.fixed_image_url) : undefined;
@@ -77,16 +75,8 @@ export function useSessionLoader() {
             file = new File([''], img.image_name, { type: 'image/jpeg' });
           }
 
-          const asset: ImageAsset = {
-            id: assetId,
-            file,
-            preview: signedOriginalUrl,
-            type: img.image_type as 'MAIN' | 'SECONDARY',
-            name: img.image_name,
-            sourceUrl: signedOriginalUrl,
-            analysisResult: img.analysis_result as unknown as AnalysisResult | undefined,
-            fixedImage: signedFixedUrl,
-          };
+          const { asset, assetId } = buildAssetFromSessionImage(img, file, signedOriginalUrl, signedFixedUrl);
+          assetSessionMap.set(assetId, img.id);
 
           return asset;
         })
