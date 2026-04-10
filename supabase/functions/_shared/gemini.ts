@@ -138,7 +138,7 @@ export interface FetchGeminiOptions {
  * into an OpenAI-shaped Response.
  */
 export async function fetchGemini(opts: FetchGeminiOptions): Promise<Response> {
-  const apiKey = getApiKey();
+  const apiKey = opts.apiKey;
   const { systemInstruction, contents } = convertMessages(opts.messages);
   const toolsPart = convertTools(opts.tools, opts.tool_choice);
 
