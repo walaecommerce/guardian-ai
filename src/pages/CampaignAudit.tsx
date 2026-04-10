@@ -622,13 +622,13 @@ ${productPages}
             <h2 className="text-2xl font-bold text-foreground">Campaign Auditor</h2>
             <p className="text-sm text-muted-foreground">Audit up to 25 products at once</p>
           </div>
-          {savedCampaigns.length > 0 && (
+          {savedCampaigns.filter(c => c.status === 'completed').length > 0 && (
             <Select value={selectedCampaign} onValueChange={loadCampaign}>
               <SelectTrigger className="w-[280px]">
                 <SelectValue placeholder="View a saved campaign…" />
               </SelectTrigger>
               <SelectContent>
-                {savedCampaigns.map(c => (
+                {savedCampaigns.filter(c => c.status === 'completed').map(c => (
                   <SelectItem key={c.id} value={c.id}>
                     <div className="flex flex-col">
                       <span className="text-sm font-medium">{c.name}</span>
@@ -710,7 +710,14 @@ ${productPages}
                     </Button>
                   )}
                   {!isRunning && (
-                    <Button variant="outline" size="sm" onClick={() => { setProducts([]); setSummary(null); }}>
+                    <Button variant="outline" size="sm" onClick={async () => {
+                      // Delete in-progress DB record if exists
+                      if (activeCampaignId && user) {
+                        await supabase.from('campaign_audits').delete().eq('id', activeCampaignId);
+                        setSavedCampaigns(prev => prev.filter(c => c.id !== activeCampaignId));
+                      }
+                      setProducts([]); setSummary(null); setActiveCampaignId(null); setUrls(''); setCampaignName(''); setClientName('');
+                    }}>
                       Clear & Start Over
                     </Button>
                   )}
