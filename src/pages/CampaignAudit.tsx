@@ -111,11 +111,12 @@ const CampaignAudit = () => {
   const [summary, setSummary] = useState<CampaignSummary | null>(null);
   const [savedCampaigns, setSavedCampaigns] = useState<SavedCampaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
+  const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
   const abortRef = useRef(false);
   const submittingRef = useRef(false);
   const { toast } = useToast();
 
-  // Load saved campaigns from Supabase
+  // Load saved campaigns from Supabase, auto-restore in-progress
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -125,15 +126,27 @@ const CampaignAudit = () => {
         .order('created_at', { ascending: false })
         .limit(20);
       if (data) {
-        setSavedCampaigns(data.map(c => ({
+        const mapped: SavedCampaign[] = data.map(c => ({
           id: c.id,
           name: c.name,
           client: c.client,
           date: c.created_at,
           score: c.score,
           products: c.products_count,
+          status: (c as any).status || 'completed',
           summary: (c.summary as any) || {},
-        })));
+        }));
+        setSavedCampaigns(mapped);
+
+        // Auto-restore most recent in-progress campaign
+        const inProgress = mapped.find(c => c.status === 'in_progress');
+        if (inProgress && inProgress.summary?.products?.length > 0) {
+          setActiveCampaignId(inProgress.id);
+          setCampaignName(inProgress.name);
+          setClientName(inProgress.client);
+          setProducts(inProgress.summary.products || []);
+          toast({ title: 'Campaign Restored', description: `"${inProgress.name}" has unfinished work. Resume or start over.` });
+        }
       }
     })();
   }, [user]);
