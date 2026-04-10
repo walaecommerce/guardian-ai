@@ -333,10 +333,19 @@ function NotificationsTab() {
       });
       if (error) throw error;
       toast.success('Test notification sent — check your Slack channel');
-      setLog(getNotificationLog());
+      // Refresh log from DB
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: logData } = await supabase.from('notification_log').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
+        setLog((logData || []).map((r: any) => ({ id: r.id, timestamp: r.created_at, type: r.type, message: r.message, status: r.status, error: r.error || undefined })));
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Test failed');
-      setLog(getNotificationLog());
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: logData } = await supabase.from('notification_log').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
+        setLog((logData || []).map((r: any) => ({ id: r.id, timestamp: r.created_at, type: r.type, message: r.message, status: r.status, error: r.error || undefined })));
+      }
     } finally {
       setTesting(false);
     }
