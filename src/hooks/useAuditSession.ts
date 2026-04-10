@@ -1301,13 +1301,17 @@ export function useAuditSession() {
         const classification = await classifyImage(base64, product.title, product.asin !== 'UNKNOWN' ? product.asin : undefined);
         const aiCategory = classification.category as ImageCategory;
 
-        const asset = buildAssetFromDownload(
+        const downloadedAsset = buildAssetFromDownload(
           file,
           aiCategory,
           imagesToProcess[i].url,
           contentHash,
           compAssets.length === 0,
         );
+        const asset: ImageAsset = {
+          ...downloadedAsset,
+          id: `comp_${downloadedAsset.id}`,
+        };
 
         addLog('processing', `Auditing competitor image ${compAssets.length + 1}...`);
         const { result } = await analyzeAsset(asset);
