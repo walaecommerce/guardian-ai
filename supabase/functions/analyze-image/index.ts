@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
-import { useCredit, getUserIdFromAuth, createAdminClient } from "../_shared/credits.ts";
+import { resolveAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -443,29 +443,7 @@ serve(async (req) => {
   }
 
   try {
-    // Deduct analyze credit
-    try {
-      const userId = await getUserIdFromAuth(req);
-      const admin = createAdminClient();
-      await useCredit(admin, userId, 'analyze');
-    } catch (creditErr: any) {
-      if (creditErr?.status === 402) {
-        return new Response(
-          JSON.stringify({
-            error: creditErr.message || 'No analyze credits remaining',
-            errorType: 'payment_required'
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (creditErr?.status === 401) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      console.warn('[analyze-image] Credit check failed, proceeding:', creditErr);
-    }
+    const { geminiApiKey } = await resolveAuth(req);
 
     const { imageBase64, imageType, listingTitle, forcedCategory } = await req.json();
 
@@ -479,6 +457,7 @@ serve(async (req) => {
     const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}`;
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [
         { role: "system", content: systemPrompt },
@@ -500,10 +479,10 @@ serve(async (req) => {
       });
     }
     if (response.status === 402) {
-      console.warn("[analyze-image] AI balance exhausted");
+      console.warn("[analyze-image] Gemini quota exhausted");
       return new Response(JSON.stringify({
-        error: "AI credits exhausted. Add credits in Settings → Cloud & AI balance.",
-        errorType: "payment_required",
+        error: "Gemini API quota exceeded. Check your API key quota at console.cloud.google.com",
+        errorType: "provider_quota",
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -621,7 +600,12 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.status === 401 || error?.status === 403) {
+      return new Response(JSON.stringify({ error: error?.message || "Unauthorized", errorType: error?.errorType || "auth_error" }), {
+        status: error.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("[analyze-image] Error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Analysis failed",

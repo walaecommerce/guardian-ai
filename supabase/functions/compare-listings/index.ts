@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
+import { resolveAuth } from "../_shared/auth.ts";
 import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
@@ -13,11 +14,9 @@ serve(async (req) => {
   }
 
   try {
-    const { yourAnalysis, competitorAnalysis, yourTitle, competitorTitle } = await req.json();
+    const { geminiApiKey } = await resolveAuth(req);
 
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+    const { yourAnalysis, competitorAnalysis, yourTitle, competitorTitle } = await req.json();
     }
 
     const systemPrompt = `You are an Amazon competitive intelligence analyst. Compare two product listings and identify competitive advantages and gaps. Return ONLY valid JSON matching the exact schema requested.`;
@@ -57,6 +56,7 @@ Return ONLY this JSON structure:
     console.log("[compare-listings] Calling AI gateway...");
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [
         { role: "system", content: systemPrompt },
@@ -154,7 +154,7 @@ Return ONLY this JSON structure:
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits required. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
+        return new Response(JSON.stringify({ error: "Gemini API quota exceeded.", errorType: "payment_required" }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -191,6 +191,12 @@ Return ONLY this JSON structure:
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    // Handle auth/BYOK errors from resolveAuth
+    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
+      return new Response(JSON.stringify({ error: (error as any)?.message || "Unauthorized", errorType: (error as any)?.errorType || "auth_error" }), {
+        status: (error as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("[compare-listings] Error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Comparison failed",

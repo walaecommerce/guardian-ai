@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { MODELS } from "../_shared/models.ts";
-import { useCredit, createAdminClient } from "../_shared/credits.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
+import { resolveAuth } from "../_shared/auth.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -232,6 +232,7 @@ async function callGateway(apiKey: string, contentParts: any[], model?: string):
   const requestedModel = model || MODELS.imageGen;
 
   let response = await fetchGemini({
+    apiKey,
     model: requestedModel,
     messages: [{ role: "user", content: contentParts }],
     modalities: ["image", "text"],
@@ -245,6 +246,7 @@ async function callGateway(apiKey: string, contentParts: any[], model?: string):
     );
 
     response = await fetchGemini({
+      apiKey,
       model: IMAGE_MODEL_FALLBACK,
       messages: [{ role: "user", content: contentParts }],
       modalities: ["image", "text"],
@@ -480,31 +482,7 @@ serve(async (req) => {
   }
 
   try {
-    // Auth validation
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    const supabaseAuth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(authHeader.replace('Bearer ', ''));
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    console.log(`[generate-fix] Authenticated user: ${claimsData.claims.sub}`);
-
-    // Deduct fix credit
-    try {
-      const admin = createAdminClient();
-      await useCredit(admin, claimsData.claims.sub as string, 'fix');
-    } catch (creditErr: any) {
-      if (creditErr?.status === 402) {
-        return new Response(
-          JSON.stringify({ error: creditErr.message || 'No fix credits remaining', errorType: 'payment_required' }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      console.warn('[generate-fix] Credit check failed, proceeding:', creditErr);
-    }
+    const { geminiApiKey } = await resolveAuth(req);
 
     const {
       imageBase64,
@@ -525,11 +503,6 @@ serve(async (req) => {
 
     const fixCategory = detectFixCategory(imageCategory, productTitle);
     console.log(`[generate-fix] Detected category: ${fixCategory} (from imageCategory=${imageCategory}, title=${productTitle?.slice(0, 40)})`);
-
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
-    }
 
     const isMain = imageType === 'MAIN';
     const isSecondary = !isMain;
@@ -672,7 +645,7 @@ serve(async (req) => {
 
     console.log(`[generate-fix] Sending request: contentParts=${contentParts.length}, isMain=${isMain}, bgSeg=${usedBackgroundSegmentation}, model=${model}`);
 
-    let response = await callGateway(GEMINI_API_KEY, contentParts, model);
+    let response = await callGateway(geminiApiKey, contentParts, model);
 
     // If background segmentation attempt failed, fall back to full regeneration
     if (usedBackgroundSegmentation && (!response.ok || response.status >= 500)) {
@@ -683,7 +656,7 @@ serve(async (req) => {
       if (imageBase64) {
         fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
       }
-      response = await callGateway(GEMINI_API_KEY, fallbackParts);
+      response = await callGateway(geminiApiKey, fallbackParts);
       usedBackgroundSegmentation = false;
       console.log(`[generate-fix] Fallback to Pattern A2 full regeneration`);
     }
@@ -702,8 +675,8 @@ serve(async (req) => {
       const body = await response.text();
       console.error("[generate-fix] Payment required:", body);
       return new Response(JSON.stringify({
-        error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.",
-        errorType: "payment_required",
+        error: "Gemini API quota exceeded. Check your API key quota at console.cloud.google.com",
+        errorType: "provider_quota",
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -729,7 +702,7 @@ serve(async (req) => {
         if (imageBase64) {
           fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
         }
-        const fallbackResp = await callGateway(GEMINI_API_KEY, fallbackParts);
+        const fallbackResp = await callGateway(geminiApiKey, fallbackParts);
         if (fallbackResp.ok) {
           const fbText = await fallbackResp.text();
           try {
@@ -773,7 +746,7 @@ serve(async (req) => {
         if (imageBase64) {
           fallbackParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
         }
-        const fallbackResp = await callGateway(GEMINI_API_KEY, fallbackParts);
+        const fallbackResp = await callGateway(geminiApiKey, fallbackParts);
         if (fallbackResp.ok) {
           const fbText = await fallbackResp.text();
           try {
@@ -805,7 +778,12 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.status === 401 || error?.status === 403) {
+      return new Response(JSON.stringify({ error: error?.message || "Unauthorized", errorType: error?.errorType || "auth_error" }), {
+        status: error.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("[generate-fix] Error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Fix generation failed",

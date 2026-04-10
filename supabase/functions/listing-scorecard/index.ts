@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
+import { resolveAuth } from "../_shared/auth.ts";
 import { MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
@@ -12,8 +13,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+    const { geminiApiKey } = await resolveAuth(req);
+
 
     const { images, listingTitle } = await req.json();
 
@@ -95,6 +96,7 @@ Return JSON:
 }`;
 
     const response = await fetchGemini({
+      apiKey: geminiApiKey,
       model: MODELS.analysis,
       messages: [
         { role: "system", content: systemPrompt },
@@ -121,6 +123,12 @@ Return JSON:
         if (needsReadability) aiReadability = Math.max(0, Math.min(100, parsed.text_readability ?? 50));
         if (needsEmotion) aiEmotion = Math.max(0, Math.min(100, parsed.emotional_appeal ?? 50));
       } catch (e) {
+    // Handle auth/BYOK errors from resolveAuth
+    if ((e as any)?.status === 401 || (e as any)?.status === 403) {
+      return new Response(JSON.stringify({ error: (e as any)?.message || "Unauthorized", errorType: (e as any)?.errorType || "auth_error" }), {
+        status: (e as any)?.status || 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
         console.error("Failed to parse AI response:", e);
       }
     } else {
