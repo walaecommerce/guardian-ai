@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaign_audits: {
+        Row: {
+          client: string
+          created_at: string
+          id: string
+          name: string
+          products_count: number
+          score: number
+          summary: Json
+          user_id: string
+        }
+        Insert: {
+          client?: string
+          created_at?: string
+          id?: string
+          name: string
+          products_count?: number
+          score?: number
+          summary?: Json
+          user_id: string
+        }
+        Update: {
+          client?: string
+          created_at?: string
+          id?: string
+          name?: string
+          products_count?: number
+          score?: number
+          summary?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       compliance_reports: {
         Row: {
           amazon_url: string | null
@@ -131,6 +164,36 @@ export type Database = {
           total_images?: number
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      notification_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          message: string
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          message: string
+          status?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          message?: string
+          status?: string
+          type?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -255,6 +318,113 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "enhancement_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_generations: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string | null
+          product_name: string
+          prompt: string | null
+          score: number | null
+          status: string
+          template: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          product_name: string
+          prompt?: string | null
+          score?: number | null
+          status?: string
+          template: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          product_name?: string
+          prompt?: string | null
+          score?: number | null
+          status?: string
+          template?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tracked_products: {
+        Row: {
+          added_date: string
+          asin: string
+          created_at: string
+          id: string
+          title: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          added_date?: string
+          asin: string
+          created_at?: string
+          id?: string
+          title: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          added_date?: string
+          asin?: string
+          created_at?: string
+          id?: string
+          title?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tracker_audits: {
+        Row: {
+          created_at: string
+          fix_applied: boolean
+          id: string
+          scores: Json
+          status: string
+          tracked_product_id: string
+          user_id: string
+          violations_count: number
+        }
+        Insert: {
+          created_at?: string
+          fix_applied?: boolean
+          id?: string
+          scores?: Json
+          status?: string
+          tracked_product_id: string
+          user_id: string
+          violations_count?: number
+        }
+        Update: {
+          created_at?: string
+          fix_applied?: boolean
+          id?: string
+          scores?: Json
+          status?: string
+          tracked_product_id?: string
+          user_id?: string
+          violations_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracker_audits_tracked_product_id_fkey"
+            columns: ["tracked_product_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_products"
             referencedColumns: ["id"]
           },
         ]
