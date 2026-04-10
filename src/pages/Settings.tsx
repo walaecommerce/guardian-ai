@@ -22,7 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import {
-  User, CreditCard, Bell, Loader2, Save, ExternalLink, Search, BarChart3, Sparkles, Send,
+  User, CreditCard, Bell, Loader2, Save, ExternalLink, Search, BarChart3, Sparkles,
   CheckCircle2, XCircle, Clock, TrendingUp,
 } from 'lucide-react';
 import {
