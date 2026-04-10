@@ -146,7 +146,7 @@ export default function Onboarding() {
           {/* Credits reminder */}
           <div className="text-center">
             <p className="text-xs text-muted-foreground">
-              You have <span className="text-primary font-semibold">10 scrape</span>, <span className="text-primary font-semibold">20 analyze</span>, and <span className="text-primary font-semibold">5 fix</span> credits on the free plan.
+              You have <span className="text-primary font-semibold">5 scrape</span>, <span className="text-primary font-semibold">10 analyze</span>, and <span className="text-primary font-semibold">2 fix</span> credits on the free plan.
             </p>
           </div>
         </div>
