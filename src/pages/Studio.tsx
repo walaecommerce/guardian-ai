@@ -97,7 +97,7 @@ const Studio = () => {
       }
     })();
   }, [user]);
-  const [history] = useState<GeneratedImage[]>(getHistory);
+  
 
   const { toast } = useToast();
 
@@ -212,10 +212,29 @@ const Studio = () => {
         analysisResult: analysis,
       } : r));
 
-      // Save to history
-      const hist = getHistory();
-      hist.unshift({ ...img, score: analysis.overallScore, status: 'analyzed' });
-      saveHistory(hist);
+      // Save to DB history
+      if (user) {
+        await supabase.from('studio_generations').insert([{
+          user_id: user.id,
+          template: img.template,
+          product_name: img.productName,
+          prompt: img.prompt,
+          score: analysis.overallScore,
+          status: 'analyzed',
+          image_url: null,
+        }]);
+        // Update local history
+        setHistory(prev => [{
+          id: crypto.randomUUID(),
+          image: '',
+          prompt: img.prompt,
+          template: img.template,
+          productName: img.productName,
+          score: analysis.overallScore,
+          status: 'analyzed' as const,
+          date: new Date().toISOString(),
+        }, ...prev].slice(0, 20));
+      }
 
     } catch {
       setResults(prev => prev.map(r => r.id === img.id ? { ...r, status: 'analyzed' as const } : r));
