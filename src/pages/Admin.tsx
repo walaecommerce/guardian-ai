@@ -154,7 +154,7 @@ function AIProviderStatusPanel() {
   );
 }
 
-
+export default function Admin() {
   const { isAdmin, isLoading: authLoading, user } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserRow[]>([]);
