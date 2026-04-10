@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth, isAuthError } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,6 +48,10 @@ serve(async (req) => {
   }
 
   try {
+    // Auth guard
+    const authResult = await requireAuth(req, corsHeaders);
+    if (isAuthError(authResult)) return authResult;
+
     const { claims, productTitle, asin } = await req.json();
     
     const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
