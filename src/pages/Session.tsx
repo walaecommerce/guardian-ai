@@ -26,7 +26,8 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  Wrench
+  Wrench,
+  Loader2
 } from 'lucide-react';
 import { uploadImage } from '@/services/imageStorage';
 import { extractAsin } from '@/services/amazonScraper';
