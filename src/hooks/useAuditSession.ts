@@ -549,6 +549,7 @@ export function useAuditSession() {
     setStyleConsistency(null);
     setAnalyzingProgress({ current: 0, total: assets.length });
     addLog('processing', `🔍 Guardian initializing batch audit...`);
+    logEvent('audit_started', { imageCount: assets.length, listingTitle, asin: productAsin });
     addLog('info', `📦 ${assets.length} images queued for compliance check`);
 
     let passedCount = 0;
@@ -677,6 +678,7 @@ export function useAuditSession() {
     setIsAnalyzing(false);
     setAnalyzingProgress(undefined);
     setAuditComplete({ passed: passedCount, failed: failedCount });
+    logEvent('audit_completed', { passed: passedCount, failed: failedCount, listingTitle, avgScore: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0 });
 
     setAssets(currentAssets => {
       saveAuditToHistory(currentAssets, listingTitle);
@@ -1008,12 +1010,14 @@ export function useAuditSession() {
         }
         
         addLog('success', `🎉 Fix complete for ${asset.name}`);
+        logEvent('fix_generated', { assetName: asset.name, assetId });
         toast({ title: 'Fix Generated', description: 'AI-corrected image is ready and saved' });
         refreshCredits();
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Fix failed';
       addLog('error', `❌ Fix failed: ${msg}`);
+      logEvent('audit_failed', { assetName: asset.name, error: msg });
       setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
       setFixProgress(null);
       toast({ title: 'Fix Failed', description: msg, variant: 'destructive' });

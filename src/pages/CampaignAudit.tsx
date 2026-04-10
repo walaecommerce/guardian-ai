@@ -330,6 +330,7 @@ const CampaignAudit = () => {
     setSummary(campaignSummary);
     setIsRunning(false);
     setCurrentIndex(-1);
+    logEvent('audit_completed', { campaign: campaignSummary.campaign_name, products: completedProducts.length, avgScore });
 
     // Save to Supabase (with idempotency guard)
     if (user && !submittingRef.current) {
