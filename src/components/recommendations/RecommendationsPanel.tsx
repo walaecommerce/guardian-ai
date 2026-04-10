@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Sparkles, ImagePlus, Zap, Type, Image as ImageIcon, Lightbulb } from 'lucide-react';
 import { ImageAsset } from '@/types';
+import { extractImageCategory, getDominantCategory } from '@/utils/imageCategory';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SuggestionsData } from './types';
@@ -62,11 +63,8 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
         'Detail / Supporting Image': ['DETAIL', 'PACKAGING', 'SIZE_CHART', 'COMPARISON', 'INGREDIENTS', 'CLOSEUP'],
       };
 
-      const imageCategories = new Set(
-        assets.map(a => {
-          const result = a.analysisResult as any;
-          return (result?.imageCategory || a.name.replace(/\.[^.]+$/, '').toUpperCase() || 'UNKNOWN');
-        })
+      const imageCategories = new Set<string>(
+        assets.map(a => extractImageCategory(a))
       );
 
       const missingCoverageTypes: string[] = [];
@@ -80,7 +78,6 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
         body: {
           listingTitle,
           auditResults,
-          scoreCardData: null,
           imageCount: assets.length,
           titleRuleViolations,
           missingCoverageTypes,
@@ -197,7 +194,7 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
             </TabsList>
 
             <TabsContent value="missing" className="mt-3">
-              <MissingImagesTab items={data.missing_image_types || []} onImageGenerated={onImageGenerated} listingTitle={listingTitle} />
+              <MissingImagesTab items={data.missing_image_types || []} onImageGenerated={onImageGenerated} listingTitle={listingTitle} category={getDominantCategory(assets)} />
             </TabsContent>
             <TabsContent value="quickwins" className="mt-3">
               <QuickWinsTab items={data.quick_wins || []} />

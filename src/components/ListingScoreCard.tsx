@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { extractImageCategory, getDominantCategory } from '@/utils/imageCategory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -215,10 +216,7 @@ export function ListingScoreCard({ assets, listingTitle }: ListingScoreCardProps
       const images = await Promise.all(
         assets.slice(0, 9).map(async (asset) => {
           const base64 = await fileToBase64(asset.file);
-          // Use imageCategory from analysis or the full name token (not split on _)
-          const result = asset.analysisResult as any;
-          const category = result?.imageCategory
-            || (asset.name.includes('_') ? asset.name.replace(/\.[^.]+$/, '').toUpperCase() : 'UNKNOWN');
+          const category = extractImageCategory(asset);
           return {
             base64,
             type: asset.type,
@@ -231,7 +229,7 @@ export function ListingScoreCard({ assets, listingTitle }: ListingScoreCardProps
       );
 
       const { data: result, error: fnError } = await supabase.functions.invoke('listing-scorecard', {
-        body: { images, listingTitle },
+        body: { images, listingTitle, category: getDominantCategory(assets) },
       });
 
       if (fnError) throw new Error(fnError.message);
