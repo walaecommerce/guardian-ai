@@ -7,13 +7,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Map notification type to the notify_on key
+const typeToPreferenceKey: Record<string, string> = {
+  audit_complete: 'auditComplete',
+  critical_violation: 'criticalViolations',
+  score_dropped: 'scoreDropped',
+  fix_generated: 'fixGenerated',
+};
+
+// Map notification type to its implied severity level
+const typeToSeverity: Record<string, string> = {
+  critical_violation: 'critical',
+  score_dropped: 'warning',
+  audit_complete: 'info',
+  fix_generated: 'info',
+};
+
+// Severity ordering for min_severity gating
+const severityRank: Record<string, number> = {
+  info: 0,
+  warning: 1,
+  critical: 2,
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Auth guard — returns the authenticated user's claims
+    // Auth guard
     const authResult = await requireAuth(req, corsHeaders);
     if (isAuthError(authResult)) return authResult;
 
@@ -35,14 +58,14 @@ serve(async (req) => {
     const body = await req.json();
     const { type, title, status, score, violations, images, criticalCount, topViolation, oldScore, newScore } = body;
 
-    // Look up the user's stored webhook URL server-side
+    // Load full notification preferences server-side
     const adminClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
     const { data: prefs, error: prefsError } = await adminClient
       .from('notification_preferences')
-      .select('slack_webhook_url')
+      .select('slack_webhook_url, notify_on, min_severity')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -55,6 +78,31 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'No Slack webhook URL configured. Add one in Settings → Notifications.' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Server-side gating: skip test notifications from preference checks
+    if (type !== 'test') {
+      // Check notify_on preference
+      const notifyOn = (prefs?.notify_on || {}) as Record<string, boolean>;
+      const prefKey = typeToPreferenceKey[type];
+      if (prefKey && notifyOn[prefKey] === false) {
+        return new Response(JSON.stringify({ skipped: true, reason: `Notification type "${type}" is disabled in preferences.` }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Check min_severity preference
+      const minSeverity = prefs?.min_severity || 'any';
+      if (minSeverity !== 'any') {
+        const eventSeverity = typeToSeverity[type] || 'info';
+        const eventRank = severityRank[eventSeverity] ?? 0;
+        const minRank = severityRank[minSeverity] ?? 0;
+        if (eventRank < minRank) {
+          return new Response(JSON.stringify({ skipped: true, reason: `Event severity "${eventSeverity}" is below minimum "${minSeverity}".` }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
     }
 
     let blocks: unknown[];
