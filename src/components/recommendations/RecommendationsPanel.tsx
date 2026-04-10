@@ -63,7 +63,7 @@ export function RecommendationsPanel({ assets, listingTitle, onImageGenerated, o
         'Detail / Supporting Image': ['DETAIL', 'PACKAGING', 'SIZE_CHART', 'COMPARISON', 'INGREDIENTS', 'CLOSEUP'],
       };
 
-      const imageCategories = new Set(
+      const imageCategories = new Set<string>(
         assets.map(a => extractImageCategory(a))
       );
 
