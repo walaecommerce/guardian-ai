@@ -112,8 +112,8 @@ export function ReviewStep({
     return (
       <EmptyState
         icon={Search}
-        title="No Audit Results to Review"
-        description="Run a compliance audit first to generate reports and export results."
+        title="No Results to Review"
+        description="Complete a compliance audit first, then come here to save reports, export results, and compare with competitors."
         actionLabel={onGoToAudit ? "Go to Audit" : undefined}
         onAction={onGoToAudit}
       />
@@ -129,7 +129,7 @@ export function ReviewStep({
           <ClientReportGenerator assets={assets} listingTitle={listingTitle} productAsin={productAsin} competitorData={aiComparison} />
           <Button onClick={onSaveReport} variant="outline" size="sm">
             <Save className="h-4 w-4 mr-2" />
-            Save Report
+            Save to History
           </Button>
         </div>
       </div>

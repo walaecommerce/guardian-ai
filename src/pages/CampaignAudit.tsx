@@ -493,8 +493,8 @@ ${productPages}
           </div>
           {savedCampaigns.length > 0 && (
             <Select value={selectedCampaign} onValueChange={loadCampaign}>
-              <SelectTrigger className="w-[260px]">
-                <SelectValue placeholder="Load saved campaign..." />
+              <SelectTrigger className="w-[280px]">
+                <SelectValue placeholder="View a saved campaign…" />
               </SelectTrigger>
               <SelectContent>
                 {savedCampaigns.map(c => (
@@ -502,7 +502,7 @@ ${productPages}
                     <div className="flex flex-col">
                       <span className="text-sm font-medium">{c.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(c.date).toLocaleDateString()} • {c.products} products • {c.score}%
+                        {new Date(c.date).toLocaleDateString()} • {c.products} product{c.products !== 1 ? 's' : ''} • {c.score}% avg
                       </span>
                     </div>
                   </SelectItem>
@@ -553,23 +553,32 @@ ${productPages}
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">
-                    {isRunning ? `Processing product ${currentIndex + 1} of ${products.length}` : 'Audit stopped'}
+                    {isRunning
+                      ? `Auditing product ${currentIndex + 1} of ${products.length}…`
+                      : 'Campaign paused — you can resume or start over'}
                   </span>
                   <div className="flex items-center gap-3">
                     {cooldown > 0 && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> Next product in {cooldown}s...
+                        <Clock className="w-3 h-3" /> Rate limit cooldown: {cooldown}s
                       </span>
                     )}
                     <span className="text-sm font-semibold">{overallProgress}%</span>
                   </div>
                 </div>
                 <Progress value={overallProgress} className="h-2" />
-                {isRunning && (
-                  <Button variant="destructive" size="sm" className="mt-3" onClick={stopCampaign}>
-                    Stop Campaign
-                  </Button>
-                )}
+                <div className="flex items-center gap-2 mt-3">
+                  {isRunning && (
+                    <Button variant="destructive" size="sm" onClick={stopCampaign}>
+                      Stop Campaign
+                    </Button>
+                  )}
+                  {!isRunning && (
+                    <Button variant="outline" size="sm" onClick={() => { setProducts([]); }}>
+                      Clear & Start Over
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -620,23 +629,42 @@ ${productPages}
         {/* Campaign Summary */}
         {summary && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-primary" />
-                Campaign Summary — {summary.campaign_name}
+                Campaign Complete — {summary.campaign_name}
               </h3>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button variant="outline" size="sm" onClick={exportJSON}>
-                  <Download className="w-4 h-4 mr-1" /> JSON
+                  <Download className="w-4 h-4 mr-1" /> Export JSON
                 </Button>
                 <Button variant="outline" size="sm" onClick={exportPDF}>
-                  <FileText className="w-4 h-4 mr-1" /> PDF Report
+                  <FileText className="w-4 h-4 mr-1" /> Export PDF
                 </Button>
-                <Button size="sm" onClick={() => { setSummary(null); setProducts([]); setUrls(''); }}>
-                  New Campaign
+                <Button size="sm" onClick={() => { setSummary(null); setProducts([]); setUrls(''); setCampaignName(''); setClientName(''); setSelectedCampaign(''); }}>
+                  Start New Campaign
                 </Button>
               </div>
             </div>
+
+            {/* Action guidance based on results */}
+            {summary.needs_fixes > 0 && (
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-destructive/20 bg-destructive/5">
+                <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+                <p className="text-sm flex-1">
+                  <strong>{summary.needs_fixes} product{summary.needs_fixes > 1 ? 's' : ''}</strong> need compliance fixes.
+                  Open each product in the <strong>Single Audit</strong> tool to apply AI-powered corrections.
+                </p>
+              </div>
+            )}
+            {summary.needs_fixes === 0 && summary.total_products > 0 && (
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-green-500/20 bg-green-500/5">
+                <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <p className="text-sm flex-1">
+                  All {summary.total_products} products are fully compliant. Export the report to share with your team.
+                </p>
+              </div>
+            )}
 
             {/* Metric cards */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

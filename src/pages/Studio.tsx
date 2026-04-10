@@ -517,7 +517,8 @@ const Studio = () => {
               {results.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
                   <ImageIcon className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">Generated images will appear here</p>
+                  <p className="text-sm font-medium">No images yet</p>
+                  <p className="text-xs mt-1">Fill in the product details and click Generate to create a compliant image.</p>
                 </div>
               )}
 
@@ -580,16 +581,33 @@ const Studio = () => {
                         <RotateCcw className="w-3 h-3" /> Redo
                       </Button>
                     </div>
-                    {img.score !== null && img.score < 85 && (
+                    {img.status === 'analyzed' && img.score !== null && img.score < 85 && (
                       <Button
                         variant="default"
                         size="sm"
                         className="w-full text-xs h-7"
                         onClick={() => {
-                          toast({ title: 'Tip', description: 'Use the Single Audit page to fix this image with the AI auto-fixer' });
+                          // Download the image so user can upload it to the audit fixer
+                          downloadImage(img);
+                          toast({
+                            title: 'Image saved — open Audit to fix it',
+                            description: 'Upload this image on the Audit page and run Fix All to auto-correct compliance issues.',
+                          });
+                          // Navigate to audit page after short delay
+                          setTimeout(() => { window.location.href = '/'; }, 1500);
                         }}
                       >
-                        <Wand2 className="w-3 h-3" /> Auto-Fix
+                        <Wand2 className="w-3 h-3" /> Fix in Audit →
+                      </Button>
+                    )}
+                    {img.status === 'analyzed' && img.score !== null && img.score >= 85 && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full text-xs h-7"
+                        onClick={() => downloadImage(img)}
+                      >
+                        <Download className="w-3 h-3" /> Ready — Download
                       </Button>
                     )}
                   </CardContent>
@@ -603,7 +621,7 @@ const Studio = () => {
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">History</h4>
                   <div className="space-y-1.5">
                     {history.slice(0, 10).map((h, i) => (
-                      <div key={i} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 cursor-default">
+                      <div key={i} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 group">
                         <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {h.image ? (
                             <img src={h.image} alt={h.productName} className="w-full h-full object-cover" />
@@ -615,9 +633,16 @@ const Studio = () => {
                           <div className="text-xs font-medium text-foreground truncate">{h.productName}</div>
                           <div className="text-xs text-muted-foreground capitalize">{h.template.replace('_', ' ')}</div>
                         </div>
-                        {h.score !== null && (
-                          <Badge variant="outline" className="text-xs">{h.score}%</Badge>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {h.score !== null && (
+                            <Badge variant="outline" className={`text-xs ${h.score >= 85 ? 'border-green-500/30 text-green-600' : h.score >= 70 ? 'border-yellow-500/30 text-yellow-600' : 'border-destructive/30 text-destructive'}`}>{h.score}%</Badge>
+                          )}
+                          {h.image && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => downloadImage(h)}>
+                              <Download className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

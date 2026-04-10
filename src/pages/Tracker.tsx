@@ -473,8 +473,14 @@ const Tracker = () => {
               </CardHeader>
               <CardContent>
                 {chartData.length < 2 ? (
-                  <div className="text-center py-12 text-muted-foreground text-sm">
-                    Need at least 2 audits to show trend chart. Click "Audit Now" to add another data point.
+                  <div className="text-center py-12 space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      {detail.audits.length === 0 ? 'No audits yet.' : 'One audit recorded — run another to see trends.'}
+                    </p>
+                    <Button size="sm" variant="outline" onClick={() => runAudit(detail)} disabled={auditingAsin === detail.asin}>
+                      {auditingAsin === detail.asin ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                      {detail.audits.length === 0 ? 'Run First Audit' : 'Run Another Audit'}
+                    </Button>
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={340}>
@@ -557,9 +563,14 @@ const Tracker = () => {
           <Card>
             <CardContent className={products.length === 0 ? 'pt-6' : 'p-0 pt-0'}>
               {products.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Activity className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No tracked products yet. Add an Amazon URL above to start.</p>
+                <div className="text-center py-16 px-6">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-5">
+                    <Activity className="w-8 h-8 text-primary/30" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Products Tracked Yet</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                    Paste an Amazon product URL above to start monitoring its listing health over time.
+                  </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -585,7 +596,7 @@ const Tracker = () => {
                             <td className="px-4 py-3 max-w-[220px] truncate font-medium">{p.title || p.url.substring(0, 40)}</td>
                             <td className="px-4 py-3 font-mono text-xs text-center">{p.asin}</td>
                             <td className="px-4 py-3 text-xs text-muted-foreground text-center">
-                              {latest ? new Date(latest.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                              {latest ? new Date(latest.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : <span className="italic">Never audited</span>}
                             </td>
                             <td className="px-4 py-3 text-center">
                               {isAuditing ? (
@@ -608,8 +619,10 @@ const Tracker = () => {
                                   className="h-7 text-xs"
                                   disabled={isAuditing}
                                   onClick={() => runAudit(p)}
+                                  title={isAuditing ? 'Audit in progress…' : 'Run a compliance audit on this product now'}
                                 >
-                                  {isAuditing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                                  {isAuditing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                                  {!isAuditing && <span>Audit</span>}
                                 </Button>
                                 <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => removeProduct(p.id)}>
                                   <Trash2 className="w-3 h-3" />
