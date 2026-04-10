@@ -51,13 +51,14 @@ export function NotificationCenter() {
     }
   }
 
-  // Policy alerts
+  // Policy alerts — use new contract fields (summary, affectedArea)
   if (highImpactUpdates.length > 0) {
+    const first = highImpactUpdates[0];
     alerts.push({
       id: 'policy-update',
       type: 'warning',
       title: `${highImpactUpdates.length} Policy Update${highImpactUpdates.length > 1 ? 's' : ''}`,
-      description: highImpactUpdates[0].change_description,
+      description: first.summary || first.change_description || first.title || 'New Amazon policy change detected',
       icon: Shield,
     });
   }

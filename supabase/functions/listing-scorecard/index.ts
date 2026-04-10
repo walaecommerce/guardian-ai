@@ -148,7 +148,7 @@ serve(async (req) => {
     const sampleImages = images.slice(0, 6);
     const imageParts = sampleImages.map((img: any, i: number) => ([
       { type: "text", text: `Image ${i + 1} (${img.type}, ${img.category}):` },
-      { type: "image_url", url: `data:image/jpeg;base64,${img.base64}` },
+      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${img.base64}` } },
     ])).flat();
 
     const needsReadability = clientReadability === null;

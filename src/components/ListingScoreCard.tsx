@@ -215,8 +215,10 @@ export function ListingScoreCard({ assets, listingTitle }: ListingScoreCardProps
       const images = await Promise.all(
         assets.slice(0, 9).map(async (asset) => {
           const base64 = await fileToBase64(asset.file);
-          const category = asset.name.split('_')[0] || 'UNKNOWN';
+          // Use imageCategory from analysis or the full name token (not split on _)
           const result = asset.analysisResult as any;
+          const category = result?.imageCategory
+            || (asset.name.includes('_') ? asset.name.replace(/\.[^.]+$/, '').toUpperCase() : 'UNKNOWN');
           return {
             base64,
             type: asset.type,
