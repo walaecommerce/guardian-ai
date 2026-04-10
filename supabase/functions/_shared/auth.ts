@@ -31,9 +31,9 @@ export async function requireAuth(
   );
 
   const token = authHeader.replace("Bearer ", "");
-  const { data, error } = await supabaseAuth.auth.getClaims(token);
+  const { data: userData, error } = await supabaseAuth.auth.getUser(token);
 
-  if (error || !data?.claims?.sub) {
+  if (error || !userData?.user) {
     return new Response(
       JSON.stringify({ error: "Unauthorized" }),
       { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -41,8 +41,8 @@ export async function requireAuth(
   }
 
   return {
-    userId: data.claims.sub as string,
-    email: data.claims.email as string | undefined,
+    userId: userData.user.id,
+    email: userData.user.email,
   };
 }
 
