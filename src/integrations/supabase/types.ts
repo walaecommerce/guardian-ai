@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       campaign_audits: {
         Row: {
           client: string
@@ -172,6 +196,7 @@ export type Database = {
           created_at: string
           error: string | null
           id: string
+          idempotency_key: string | null
           message: string
           status: string
           type: string
@@ -181,6 +206,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           id?: string
+          idempotency_key?: string | null
           message: string
           status?: string
           type: string
@@ -190,6 +216,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           id?: string
+          idempotency_key?: string | null
           message?: string
           status?: string
           type?: string

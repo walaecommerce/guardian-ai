@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AnalysisResult } from '@/types';
+import { uploadImage, getImageUrl } from '@/services/imageStorage';
+import { logEvent } from '@/services/eventLog';
 
 // ── Template definitions ────────────────────────────────────
 
@@ -74,7 +76,7 @@ const Studio = () => {
   const [results, setResults] = useState<GeneratedImage[]>([]);
   const [history, setHistory] = useState<GeneratedImage[]>([]);
 
-  // Load history from Supabase on mount
+  // Load history from Supabase on mount — resolve signed URLs for stored images
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -84,16 +86,23 @@ const Studio = () => {
         .order('created_at', { ascending: false })
         .limit(20);
       if (data) {
-        setHistory(data.map(row => ({
-          id: row.id,
-          image: '', // Not stored in DB
-          prompt: row.prompt || '',
-          template: row.template,
-          productName: row.product_name,
-          score: row.score,
-          status: 'analyzed' as const,
-          date: row.created_at,
-        })));
+        const entries: GeneratedImage[] = await Promise.all(data.map(async row => {
+          let image = '';
+          if (row.image_url) {
+            try { image = await getImageUrl(row.image_url); } catch { /* fallback empty */ }
+          }
+          return {
+            id: row.id,
+            image,
+            prompt: row.prompt || '',
+            template: row.template,
+            productName: row.product_name,
+            score: row.score,
+            status: 'analyzed' as const,
+            date: row.created_at,
+          };
+        }));
+        setHistory(entries);
       }
     })();
   }, [user]);
@@ -137,6 +146,7 @@ const Studio = () => {
     }
 
     setIsGenerating(true);
+    logEvent('studio_generation_started', { template: selectedTemplate, productName });
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-studio-image', {
@@ -174,6 +184,7 @@ const Studio = () => {
       analyzeGenerated(newImage);
 
     } catch (e) {
+      logEvent('studio_generation_failed', { template: selectedTemplate, productName, error: e instanceof Error ? e.message : 'unknown' });
       toast({
         title: 'Generation failed',
         description: e instanceof Error ? e.message : 'Unknown error',
@@ -185,6 +196,8 @@ const Studio = () => {
   };
 
   // ── Auto-compliance check ─────────────────────────────────
+  const insertLockRef = useRef<Set<string>>(new Set());
+
   const analyzeGenerated = async (img: GeneratedImage) => {
     setResults(prev => prev.map(r => r.id === img.id ? { ...r, status: 'analyzing' as const } : r));
 
@@ -212,8 +225,17 @@ const Studio = () => {
         analysisResult: analysis,
       } : r));
 
-      // Save to DB history
-      if (user) {
+      // Idempotency guard: only insert once per generation ID
+      if (user && !insertLockRef.current.has(img.id)) {
+        insertLockRef.current.add(img.id);
+
+        // Upload image to durable storage
+        let storagePath: string | null = null;
+        try {
+          const uploaded = await uploadImage(img.image, `studio/${user.id}`, `${img.template}_${Date.now()}`);
+          if (uploaded) storagePath = uploaded.path;
+        } catch { /* storage upload failure is non-fatal */ }
+
         await supabase.from('studio_generations').insert([{
           user_id: user.id,
           template: img.template,
@@ -221,12 +243,25 @@ const Studio = () => {
           prompt: img.prompt,
           score: analysis.overallScore,
           status: 'analyzed',
-          image_url: null,
+          image_url: storagePath,
         }]);
-        // Update local history
+
+        logEvent('studio_generation_completed', {
+          template: img.template,
+          productName: img.productName,
+          score: analysis.overallScore,
+          storagePath,
+        });
+
+        // Resolve signed URL for history thumbnail
+        let historyImage = '';
+        if (storagePath) {
+          try { historyImage = await getImageUrl(storagePath); } catch { /* fallback */ }
+        }
+
         setHistory(prev => [{
           id: crypto.randomUUID(),
-          image: '',
+          image: historyImage,
           prompt: img.prompt,
           template: img.template,
           productName: img.productName,
@@ -569,8 +604,12 @@ const Studio = () => {
                   <div className="space-y-1.5">
                     {history.slice(0, 10).map((h, i) => (
                       <div key={i} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 cursor-default">
-                        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                          <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {h.image ? (
+                            <img src={h.image} alt={h.productName} className="w-full h-full object-cover" />
+                          ) : (
+                            <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-medium text-foreground truncate">{h.productName}</div>

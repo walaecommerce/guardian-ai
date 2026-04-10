@@ -21,6 +21,7 @@ import { classifyImage } from '@/services/imageClassifier';
 import { supabase } from '@/integrations/supabase/client';
 import { ImageAsset, AnalysisResult, ImageCategory } from '@/types';
 import { RATE_LIMITS } from '@/config/models';
+import { logEvent } from '@/services/eventLog';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -110,6 +111,7 @@ const CampaignAudit = () => {
   const [savedCampaigns, setSavedCampaigns] = useState<SavedCampaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const abortRef = useRef(false);
+  const submittingRef = useRef(false);
   const { toast } = useToast();
 
   // Load saved campaigns from Supabase
@@ -329,8 +331,9 @@ const CampaignAudit = () => {
     setIsRunning(false);
     setCurrentIndex(-1);
 
-    // Save to Supabase
-    if (user) {
+    // Save to Supabase (with idempotency guard)
+    if (user && !submittingRef.current) {
+      submittingRef.current = true;
       // Strip large base64 image data before storing
       const strippedProducts = completedProducts.map(p => ({
         ...p,
@@ -365,6 +368,7 @@ const CampaignAudit = () => {
           summary: strippedSummary as any,
         }, ...prev].slice(0, 20));
       }
+      submittingRef.current = false;
     }
 
     toast({ title: 'Campaign Complete', description: `Audited ${completedProducts.length} products with ${avgScore}% average score` });

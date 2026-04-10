@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
 import { MODELS } from "../_shared/models.ts";
 import { requireAuth, isAuthError } from "../_shared/auth.ts";
+import { parseJsonBody, errorResponse, successResponse } from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,9 +17,11 @@ serve(async (req) => {
     if (isAuthError(authResult)) return authResult;
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+    if (!GEMINI_API_KEY) return errorResponse(500, "GEMINI_API_KEY not configured", {}, corsHeaders);
 
-    const { listingTitle, auditResults, imageCount, titleRuleViolations, missingCoverageTypes } = await req.json();
+    const bodyOrError = await parseJsonBody(req);
+    if (bodyOrError instanceof Response) return bodyOrError;
+    const { listingTitle, auditResults, imageCount, titleRuleViolations, missingCoverageTypes } = bodyOrError as Record<string, any>;
 
     // Build context-rich prompt with deterministic findings
     const titleViolationsContext = titleRuleViolations?.length > 0

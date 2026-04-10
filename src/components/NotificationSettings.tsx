@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Settings, Send, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { logEvent } from '@/services/eventLog';
 
 export interface NotificationPrefs {
   slackWebhookUrl: string;
@@ -122,7 +123,10 @@ async function getNotificationLog(): Promise<NotificationLogEntry[]> {
 /**
  * Add a notification log entry to Supabase.
  */
-export async function addNotificationLog(entry: Omit<NotificationLogEntry, 'id' | 'timestamp'>) {
+export async function addNotificationLog(
+  entry: Omit<NotificationLogEntry, 'id' | 'timestamp'>,
+  idempotencyKey?: string,
+) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -133,7 +137,8 @@ export async function addNotificationLog(entry: Omit<NotificationLogEntry, 'id' 
       message: entry.message,
       status: entry.status,
       error: entry.error || null,
-    });
+      idempotency_key: idempotencyKey || null,
+    } as any);
   } catch {
     // silent
   }
@@ -172,11 +177,13 @@ export async function sendSlackNotification(payload: {
 
     if (error) throw error;
 
+    const idempotencyKey = `${payload.type}_${Math.floor(Date.now() / 60000)}`;
     await addNotificationLog({
       type: payload.type,
       message: `${payload.type.replace(/_/g, ' ')} — ${payload.title || 'Unknown'}`,
       status: 'sent',
-    });
+    }, idempotencyKey);
+    logEvent('notification_sent', { type: payload.type, title: payload.title });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     await addNotificationLog({
@@ -185,6 +192,7 @@ export async function sendSlackNotification(payload: {
       status: 'failed',
       error: msg,
     });
+    logEvent('notification_failed', { type: payload.type, title: payload.title, error: msg });
   }
 }
 
