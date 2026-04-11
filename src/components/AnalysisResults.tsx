@@ -376,9 +376,27 @@ function AssetResultCard({
                 );
               })()}
             </div>
+            {result.policyStatus && (
+              <PolicyStatusBadge status={result.policyStatus} />
+            )}
           </div>
           <ScoreGauge score={result.overallScore} size={60} />
         </div>
+
+        {/* Quality Score vs Policy Status summary */}
+        {(result.policyStatus || result.qualityScore !== undefined) && (
+          <div className="flex items-center gap-3 text-xs">
+            {result.qualityScore !== undefined && (
+              <span className="text-muted-foreground">
+                Quality: <span className={`font-bold ${result.qualityScore >= 85 ? 'text-green-400' : result.qualityScore >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>{result.qualityScore}</span>/100
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Deterministic Pre-check Findings */}
+        {result.deterministicFindings && result.deterministicFindings.length > 0 && (
+          <DeterministicFindingsPanel findings={result.deterministicFindings} />
 
         {/* Scoring Rationale */}
         {result.scoringRationale && (
