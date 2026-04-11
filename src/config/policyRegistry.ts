@@ -5,6 +5,7 @@
 //             'hybrid'        = deterministic pre-check + LLM confirmation
 
 import type { ProductCategory } from './categoryRules';
+import { getCategoryPolicyRules } from './categoryPolicyRules';
 
 export type PolicyCategory = 'universal' | ProductCategory;
 
@@ -124,34 +125,17 @@ export function getPolicyRule(ruleId: string): PolicyRule | undefined {
   return POLICY_REGISTRY.find(r => r.rule_id === ruleId);
 }
 
-/** Get all rules applicable to a given image type */
+/** Get all rules applicable to a given image type (universal only) */
 export function getRulesForImageType(imageType: 'main' | 'secondary'): PolicyRule[] {
   return POLICY_REGISTRY.filter(
     r => r.applies_to === 'all' || r.applies_to === imageType
   );
 }
 
-/** Get all rules for a given category (universal + category-specific).
- *  NOTE: This is synchronous; it imports the category rules eagerly. */
+/** Get all rules for a given category (universal + category-specific) */
 export function getRulesForCategory(category: ProductCategory): PolicyRule[] {
-  // Import inline to keep policyRegistry as the "base" module
-  // categoryPolicyRules imports from policyRegistry (version/type), not the other way around at module level
-  const { getCategoryPolicyRules } = await_import_categoryPolicyRules();
-  return [...POLICY_REGISTRY, ...getCategoryPolicyRules(category)];
-}
-
-// Eagerly resolved reference — no circular issue because categoryPolicyRules
-// only imports POLICY_VERSION and PolicyRule (type) from this file.
-let _categoryModule: typeof import('./categoryPolicyRules') | null = null;
-function await_import_categoryPolicyRules() {
-  if (!_categoryModule) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    _categoryModule = (() => {
-      // Dynamic require replaced with direct import for Vite compatibility
-      return null as any;
-    })();
-  }
-  return _categoryModule!;
+  const categoryRules: PolicyRule[] = getCategoryPolicyRules(category);
+  return [...POLICY_REGISTRY, ...categoryRules];
 }
 
 /** Get applicable rules filtered by both image type and category */
