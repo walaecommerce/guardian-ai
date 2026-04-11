@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ImageAsset, AnalysisResult, FixMethod } from '@/types';
+import { ImageAsset, AnalysisResult, FixMethod, DeterministicFindingSummary } from '@/types';
 
 const getFixMethodConfig = (method: FixMethod) => {
   switch (method) {
