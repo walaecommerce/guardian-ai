@@ -513,13 +513,17 @@ const CATEGORY_RULES_MAP: Record<string, string> = {
   'BEAUTY_PERSONAL_CARE': BEAUTY_RULES,
   'ELECTRONICS': ELECTRONICS_RULES,
   'GENERAL_MERCHANDISE': GENERAL_RULES,
+  'APPAREL': APPAREL_RULES,
+  'FOOTWEAR': FOOTWEAR_RULES_TEXT,
+  'JEWELRY': JEWELRY_RULES_TEXT,
+  'HANDBAGS_LUGGAGE': HANDBAGS_LUGGAGE_RULES,
+  'HARDLINES': HARDLINES_RULES,
 };
 
 const buildAnalysisPrompt = (isMain: boolean, listingTitle: string, forcedCategory?: string): string => {
   const universalRules = isMain ? MAIN_IMAGE_RULES : SECONDARY_IMAGE_RULES;
 
   if (forcedCategory && CATEGORY_RULES_MAP[forcedCategory]) {
-    // When category is forced, send ONLY that category's rules
     return [
       SYSTEM_PROMPT,
       universalRules,
@@ -529,17 +533,13 @@ const buildAnalysisPrompt = (isMain: boolean, listingTitle: string, forcedCatego
     ].join('\n\n');
   }
 
-  // When auto-detecting: send all category rules but instruct model to apply only the detected one
+  // When auto-detecting: send all category rules
+  const allCategoryRules = Object.values(CATEGORY_RULES_MAP).join('\n\n');
   return [
     SYSTEM_PROMPT,
     universalRules,
     `--- CATEGORY-SPECIFIC RULES (after detecting the category in STEP 1, apply ONLY the matching rule set below — ignore all others) ---`,
-    FOOD_RULES,
-    PET_RULES,
-    SUPPLEMENT_RULES,
-    GENERAL_RULES,
-    BEAUTY_RULES,
-    ELECTRONICS_RULES,
+    allCategoryRules,
     OUTPUT_SCHEMA,
   ].join('\n\n');
 };
