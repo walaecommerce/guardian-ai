@@ -237,7 +237,7 @@ export const HARDLINES_RULES: CategoryPolicyRule[] = [
   },
 ];
 
-// ── FOOD_BEVERAGE category-specific extras ──────────────────────
+// ── FOOD_BEVERAGE category-specific rules ───────────────────────
 
 export const FOOD_BEVERAGE_RULES: CategoryPolicyRule[] = [
   {
@@ -251,9 +251,54 @@ export const FOOD_BEVERAGE_RULES: CategoryPolicyRule[] = [
     description: 'Main image must not show serving suggestions, prepared food, or the product being consumed.',
     fix_guidance: 'Show only the sealed package on white background. Move serving suggestion images to secondary slots.',
   },
+  {
+    rule_id: 'FOOD_NO_HANDS',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'FOOD_BEVERAGE',
+    severity: 'warning',
+    check_type: 'llm',
+    source: 'Amazon Food Image Requirements',
+    description: 'Main image must not show hands holding the product.',
+    fix_guidance: 'Remove hands from the main image. Place the product directly on white background.',
+  },
+  {
+    rule_id: 'FOOD_LABEL_FORWARD',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'FOOD_BEVERAGE',
+    severity: 'critical',
+    check_type: 'llm',
+    source: 'Amazon Food Image Requirements',
+    source_url: 'https://sellercentral.amazon.com/help/hub/reference/G1881',
+    description: 'Product label must face forward and be fully readable on the main image.',
+    fix_guidance: 'Rotate the product so the front label faces the camera directly and is fully legible.',
+  },
+  {
+    rule_id: 'FOOD_NO_EXPIRY_VISIBLE',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'FOOD_BEVERAGE',
+    severity: 'info',
+    check_type: 'llm',
+    source: 'Amazon Food Image Requirements',
+    description: 'Expiry dates, lot codes, or date stamps should not be visible on the main image.',
+    fix_guidance: 'Angle the product or obscure date stamps. These should not be readable in the hero shot.',
+  },
+  {
+    rule_id: 'FOOD_NUTRITION_LEGIBLE',
+    version: POLICY_VERSION,
+    applies_to: 'secondary',
+    category: 'FOOD_BEVERAGE',
+    severity: 'warning',
+    check_type: 'llm',
+    source: 'Amazon Food Image Requirements',
+    description: 'If nutrition facts panel is shown in secondary images, it must be legible at thumbnail size.',
+    fix_guidance: 'Enlarge the nutrition facts panel or use a dedicated close-up secondary image for it.',
+  },
 ];
 
-// ── SUPPLEMENTS extras ──────────────────────────────────────────
+// ── SUPPLEMENTS rules ───────────────────────────────────────────
 
 export const SUPPLEMENTS_RULES: CategoryPolicyRule[] = [
   {
@@ -267,9 +312,43 @@ export const SUPPLEMENTS_RULES: CategoryPolicyRule[] = [
     description: 'Main image must not show loose pills, scattered capsules, or spilled powder outside packaging.',
     fix_guidance: 'Show only the sealed container/bottle. Move ingredient display images to secondary slots.',
   },
+  {
+    rule_id: 'SUPPLEMENTS_NO_BEFORE_AFTER',
+    version: POLICY_VERSION,
+    applies_to: 'all',
+    category: 'SUPPLEMENTS',
+    severity: 'critical',
+    check_type: 'llm',
+    source: 'Amazon Supplement Image Requirements',
+    source_url: 'https://sellercentral.amazon.com/help/hub/reference/G1881',
+    description: 'Before/after imagery is prohibited on all supplement images (Amazon policy).',
+    fix_guidance: 'Remove all before/after comparisons. Use ingredient callouts and benefit highlights instead.',
+  },
+  {
+    rule_id: 'SUPPLEMENTS_FACTS_PANEL',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'SUPPLEMENTS',
+    severity: 'info',
+    check_type: 'llm',
+    source: 'Amazon Supplement Image Requirements',
+    description: 'Supplement facts panel should NOT be the primary visible face on the main image — front label preferred.',
+    fix_guidance: 'Rotate the bottle/container so the brand and product name face the camera. Show supplement facts in secondary images.',
+  },
+  {
+    rule_id: 'SUPPLEMENTS_NO_MEDICAL_CLAIMS',
+    version: POLICY_VERSION,
+    applies_to: 'all',
+    category: 'SUPPLEMENTS',
+    severity: 'critical',
+    check_type: 'llm',
+    source: 'Amazon Supplement Image Requirements',
+    description: 'Images must not contain medical claims, disease treatment references, or cure claims without proper disclaimers.',
+    fix_guidance: 'Remove all medical/disease claims from image overlays. Use structure/function claims only with appropriate disclaimers.',
+  },
 ];
 
-// ── BEAUTY_PERSONAL_CARE extras ─────────────────────────────────
+// ── BEAUTY_PERSONAL_CARE rules ──────────────────────────────────
 
 export const BEAUTY_PERSONAL_CARE_RULES: CategoryPolicyRule[] = [
   {
@@ -283,9 +362,43 @@ export const BEAUTY_PERSONAL_CARE_RULES: CategoryPolicyRule[] = [
     description: 'Before/after imagery is prohibited on all images for beauty products.',
     fix_guidance: 'Remove all before/after comparisons. Use ingredient callouts or texture shots instead.',
   },
+  {
+    rule_id: 'BEAUTY_NO_MODEL_MAIN',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'BEAUTY_PERSONAL_CARE',
+    severity: 'warning',
+    check_type: 'llm',
+    source: 'Amazon Beauty Image Requirements',
+    description: 'Main image should not show a model wearing or using the product.',
+    fix_guidance: 'Show only the product (bottle, tube, jar) on white background. Model usage goes in secondary images.',
+  },
+  {
+    rule_id: 'BEAUTY_LABEL_FORWARD',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'BEAUTY_PERSONAL_CARE',
+    severity: 'critical',
+    check_type: 'llm',
+    source: 'Amazon Beauty Image Requirements',
+    source_url: 'https://sellercentral.amazon.com/help/hub/reference/G1881',
+    description: 'Product label must face forward and be readable on the main image.',
+    fix_guidance: 'Rotate the product so the brand name and product name face the camera directly.',
+  },
+  {
+    rule_id: 'BEAUTY_SPF_CLAIMS',
+    version: POLICY_VERSION,
+    applies_to: 'all',
+    category: 'BEAUTY_PERSONAL_CARE',
+    severity: 'critical',
+    check_type: 'llm',
+    source: 'Amazon Beauty Image Requirements',
+    description: 'SPF or sun protection claims must match the packaging and listing. Unverifiable SPF claims are a critical violation.',
+    fix_guidance: 'Ensure SPF rating on the image matches the listing title and packaging exactly. Remove unsubstantiated SPF claims.',
+  },
 ];
 
-// ── ELECTRONICS extras ──────────────────────────────────────────
+// ── ELECTRONICS rules ───────────────────────────────────────────
 
 export const ELECTRONICS_RULES: CategoryPolicyRule[] = [
   {
@@ -299,9 +412,53 @@ export const ELECTRONICS_RULES: CategoryPolicyRule[] = [
     description: 'Secondary images should show all ports, buttons, and connectivity features.',
     fix_guidance: 'Add secondary images showing each side of the product with ports and controls visible.',
   },
+  {
+    rule_id: 'ELECTRONICS_OUT_OF_BOX',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'ELECTRONICS',
+    severity: 'warning',
+    check_type: 'llm',
+    source: 'Amazon Electronics Image Requirements',
+    description: 'Main image should show the product out of box/packaging.',
+    fix_guidance: 'Remove the product from its retail packaging for the main image. Show the device only.',
+  },
+  {
+    rule_id: 'ELECTRONICS_NO_EXTRA_ACCESSORIES',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'ELECTRONICS',
+    severity: 'warning',
+    check_type: 'llm',
+    source: 'Amazon Electronics Image Requirements',
+    description: 'Main image must not show accessories not included in the listing.',
+    fix_guidance: 'Remove any accessories that are not included in the purchase. Show only what the customer receives.',
+  },
+  {
+    rule_id: 'ELECTRONICS_BRANDING_VISIBLE',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'ELECTRONICS',
+    severity: 'warning',
+    check_type: 'llm',
+    source: 'Amazon Electronics Image Requirements',
+    description: 'Product branding and model identifier should be visible on the main image.',
+    fix_guidance: 'Angle the product so the brand name and model number are visible to the camera.',
+  },
+  {
+    rule_id: 'ELECTRONICS_FAKE_CERTS',
+    version: POLICY_VERSION,
+    applies_to: 'all',
+    category: 'ELECTRONICS',
+    severity: 'critical',
+    check_type: 'llm',
+    source: 'Amazon Electronics Image Requirements',
+    description: 'Safety certification badges (UL, CE, FCC) shown in images must be legitimate and not fabricated.',
+    fix_guidance: 'Remove any certification badges that are not officially held. Only display verified certifications.',
+  },
 ];
 
-// ── PET_SUPPLIES extras ─────────────────────────────────────────
+// ── PET_SUPPLIES rules ──────────────────────────────────────────
 
 export const PET_SUPPLIES_RULES: CategoryPolicyRule[] = [
   {
@@ -314,6 +471,28 @@ export const PET_SUPPLIES_RULES: CategoryPolicyRule[] = [
     source: 'Amazon Pet Supplies Image Requirements',
     description: 'Main image must not show raw meat or unprocessed ingredients.',
     fix_guidance: 'Show the sealed product package only. Move ingredient/content images to secondary slots.',
+  },
+  {
+    rule_id: 'PET_NO_HANDS',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'PET_SUPPLIES',
+    severity: 'warning',
+    check_type: 'llm',
+    source: 'Amazon Pet Supplies Image Requirements',
+    description: 'Main image must not show hands holding the pet product.',
+    fix_guidance: 'Remove hands from the main image. Place the product directly on white background.',
+  },
+  {
+    rule_id: 'PET_LABEL_FORWARD',
+    version: POLICY_VERSION,
+    applies_to: 'main',
+    category: 'PET_SUPPLIES',
+    severity: 'critical',
+    check_type: 'llm',
+    source: 'Amazon Pet Supplies Image Requirements',
+    description: 'Product label must face forward and be readable on the main image.',
+    fix_guidance: 'Rotate the product so the brand name and product info face the camera directly.',
   },
 ];
 
