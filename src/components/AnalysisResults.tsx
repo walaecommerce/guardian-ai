@@ -397,7 +397,7 @@ function AssetResultCard({
         {/* Deterministic Pre-check Findings */}
         {result.deterministicFindings && result.deterministicFindings.length > 0 && (
           <DeterministicFindingsPanel findings={result.deterministicFindings} />
-
+        )}
         {/* Scoring Rationale */}
         {result.scoringRationale && (
           <p className="text-xs text-muted-foreground italic leading-relaxed border-l-2 border-primary/30 pl-2">
