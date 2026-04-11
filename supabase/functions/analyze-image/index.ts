@@ -601,7 +601,7 @@ ${passedFindings.length > 0 ? `PASSED checks:\n${passedFindings.map((f: any) => 
 IMPORTANT: If a deterministic check FAILED with severity "critical", your overall score MUST reflect this. Do not override deterministic failures with a passing score.`;
     }
 
-    const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}${deterministicContext}`;
+    const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/APPAREL/FOOTWEAR/JEWELRY/HANDBAGS_LUGGAGE/HARDLINES/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}${deterministicContext}`;
 
     const response = await fetchGemini({
       model: MODELS.analysis,
