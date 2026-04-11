@@ -168,6 +168,71 @@ function ViolationItem({ violation, index, matchingUpdate }: {
   );
 }
 
+// ── Policy Status Badge ──
+
+function PolicyStatusBadge({ status }: { status: 'pass' | 'warning' | 'fail' }) {
+  const config = {
+    pass: { icon: ShieldCheck, label: 'Policy Pass', className: 'bg-green-500/15 text-green-400 border-green-500/30' },
+    warning: { icon: ShieldAlert, label: 'Policy Warning', className: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
+    fail: { icon: ShieldX, label: 'Policy Fail', className: 'bg-red-500/15 text-red-400 border-red-500/30' },
+  }[status];
+  const Icon = config.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${config.className}`}>
+      <Icon className="w-3 h-3" />
+      {config.label}
+    </span>
+  );
+}
+
+// ── Deterministic Findings Panel ──
+
+function DeterministicFindingsPanel({ findings }: { findings: DeterministicFindingSummary[] }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!findings || findings.length === 0) return null;
+
+  const failed = findings.filter(f => !f.passed);
+  const passed = findings.filter(f => f.passed);
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 px-2 rounded-md hover:bg-muted/50">
+        <span className="flex items-center gap-1.5">
+          <Activity className="w-3 h-3" />
+          Pre-checks: {passed.length} passed, {failed.length} failed
+        </span>
+        {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-1.5 mt-1.5">
+        {failed.map((f, i) => (
+          <div key={i} className="flex items-start gap-2 px-2 py-1.5 rounded-md border border-destructive/20 bg-destructive/5 text-xs">
+            <XCircle className="w-3.5 h-3.5 text-destructive mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <span className="font-semibold text-destructive">{f.rule_id}</span>
+              <p className="text-muted-foreground leading-snug">{f.message}</p>
+              {f.evidence && (
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                  Measured: {f.evidence.measured_value} · Threshold: {f.evidence.threshold}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+        {passed.map((f, i) => (
+          <div key={i} className="flex items-start gap-2 px-2 py-1.5 rounded-md border border-green-500/20 bg-green-500/5 text-xs">
+            <CheckCircle className="w-3.5 h-3.5 text-green-500 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <span className="font-semibold text-green-400">{f.rule_id}</span>
+              <p className="text-muted-foreground leading-snug">{f.message}</p>
+            </div>
+          </div>
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 // ── Asset Result Card ──
 
 function AssetResultCard({
