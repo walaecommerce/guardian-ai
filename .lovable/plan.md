@@ -1,40 +1,32 @@
 
+I cannot comply with the requested shell-command output in this message because this session is currently in read-only plan mode: command execution and file edits are disabled.
 
-## Polish QA Checklist
+What I verified with read-only file inspection:
+- `src/config/policyRegistry.ts` is present and contains a versioned policy registry with `rule_id`, `version`, `applies_to`, `severity`, `check_type`, `source`, `source_url`, and `description`.
+- `src/utils/deterministicAudit.ts` is present and includes deterministic checks for dimensions, white background, occupancy, sharpness, edge crop, and overlay heuristic, plus structured evidence and `policy_status`.
+- `src/utils/__tests__/policyEngine.test.ts` is present.
+- `src/hooks/useAuditSession.ts` runs `runDeterministicAudit(...)` before invoking `analyze-image` and passes `deterministicFindings`.
+- `supabase/functions/analyze-image/index.ts` accepts `deterministicFindings` and maps `policyStatus`, `qualityScore`, `rule_id`, and `evidence`.
+- `src/types.ts` includes `policyStatus`, `qualityScore`, `deterministicFindings`, and `Violation.rule_id` / `Violation.evidence`.
+- `package.json` already includes `test` and `typecheck` scripts.
 
-### What's already done
-The file has no Slack references, no unused imports, and all 5 existing scenarios read cleanly. Only one change is needed.
-
-### Changes
-
-**File: `src/pages/TestChecklist.tsx`**
-
-1. Add `Bell` back to the lucide-react import (it was removed as "unused" but is now needed for the new scenario)
-2. Add a 6th test case to `TEST_CASES` array after the Export scenario:
-
-```
-{
-  id: 'notification-settings',
-  title: 'Notification Settings',
-  icon: Bell,
-  description: 'Configure notification preferences and verify they persist correctly.',
-  steps: [
-    { id: 'ns-1', instruction: 'Navigate to Settings → Notifications tab.', expected: 'The Notifications panel loads showing email address, notification triggers, and minimum severity fields.' },
-    { id: 'ns-2', instruction: 'Enter or change the email address field.', expected: 'The input accepts a valid email and the Save button becomes active.' },
-    { id: 'ns-3', instruction: 'Toggle each notification trigger (Audit Complete, Critical Violations, Score Dropped, Fix Generated).', expected: 'Each toggle switches on/off smoothly. No console errors.' },
-    { id: 'ns-4', instruction: 'Change the Minimum Severity dropdown to a different value.', expected: 'Dropdown updates to the selected severity level (Any, Low, Medium, High, Critical).' },
-    { id: 'ns-5', instruction: 'Click Save and reload the page, then return to Settings → Notifications.', expected: 'All previously saved values (email, toggles, severity) persist correctly after reload.' },
-    { id: 'ns-6', instruction: 'Check the Notification History section.', expected: 'If past notifications exist, they appear in a log list with type, message, and timestamp. If none exist, an empty state message is shown.' },
-  ],
-}
-```
-
-### Files changed
-1. `src/pages/TestChecklist.tsx` -- add Bell import, add notification settings test scenario
-
-### Migrations
-None.
-
-### Residual risks
-None.
-
+If you want the exact shell proof you requested, the next step is to switch back to default mode. Then I will:
+1. Run these exact commands in repo root, in the exact order you listed:
+   - `pwd`
+   - `git rev-parse --show-toplevel`
+   - `git rev-parse HEAD`
+   - `ls src/config`
+   - `ls src/utils`
+   - `ls src/utils/__tests__ || echo "no __tests__ dir"`
+   - `rg --files src supabase/functions | rg "policyRegistry|deterministicAudit|policyEngine.test|useAuditSession.ts|types.ts|analyze-image/index.ts"`
+   - `sed -n '1,240p' src/config/policyRegistry.ts`
+   - `sed -n '1,320p' src/utils/deterministicAudit.ts`
+   - `sed -n '470,650p' supabase/functions/analyze-image/index.ts`
+   - `sed -n '470,530p' src/hooks/useAuditSession.ts`
+   - `sed -n '73,170p' src/types.ts`
+   - `cat package.json`
+   - `npm run test`
+   - `npm run typecheck`
+2. Return only the exact raw stdout/stderr for each command, in order.
+3. Include exact shell errors and exit codes for any failures.
+4. Make no claims beyond what those command outputs prove.
