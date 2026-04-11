@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
-import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Scissors, AlertOctagon, Sparkles } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Scissors, AlertOctagon, Sparkles, Shield, ShieldCheck, ShieldAlert, ShieldX, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ImageAsset, AnalysisResult, FixMethod } from '@/types';
+import { ImageAsset, AnalysisResult, FixMethod, DeterministicFindingSummary } from '@/types';
 
 const getFixMethodConfig = (method: FixMethod) => {
   switch (method) {
@@ -168,6 +168,71 @@ function ViolationItem({ violation, index, matchingUpdate }: {
   );
 }
 
+// ── Policy Status Badge ──
+
+function PolicyStatusBadge({ status }: { status: 'pass' | 'warning' | 'fail' }) {
+  const config = {
+    pass: { icon: ShieldCheck, label: 'Policy Pass', className: 'bg-green-500/15 text-green-400 border-green-500/30' },
+    warning: { icon: ShieldAlert, label: 'Policy Warning', className: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
+    fail: { icon: ShieldX, label: 'Policy Fail', className: 'bg-red-500/15 text-red-400 border-red-500/30' },
+  }[status];
+  const Icon = config.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${config.className}`}>
+      <Icon className="w-3 h-3" />
+      {config.label}
+    </span>
+  );
+}
+
+// ── Deterministic Findings Panel ──
+
+function DeterministicFindingsPanel({ findings }: { findings: DeterministicFindingSummary[] }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!findings || findings.length === 0) return null;
+
+  const failed = findings.filter(f => !f.passed);
+  const passed = findings.filter(f => f.passed);
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 px-2 rounded-md hover:bg-muted/50">
+        <span className="flex items-center gap-1.5">
+          <Activity className="w-3 h-3" />
+          Pre-checks: {passed.length} passed, {failed.length} failed
+        </span>
+        {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-1.5 mt-1.5">
+        {failed.map((f, i) => (
+          <div key={i} className="flex items-start gap-2 px-2 py-1.5 rounded-md border border-destructive/20 bg-destructive/5 text-xs">
+            <XCircle className="w-3.5 h-3.5 text-destructive mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <span className="font-semibold text-destructive">{f.rule_id}</span>
+              <p className="text-muted-foreground leading-snug">{f.message}</p>
+              {f.evidence && (
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                  Measured: {f.evidence.measured_value} · Threshold: {f.evidence.threshold}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+        {passed.map((f, i) => (
+          <div key={i} className="flex items-start gap-2 px-2 py-1.5 rounded-md border border-green-500/20 bg-green-500/5 text-xs">
+            <CheckCircle className="w-3.5 h-3.5 text-green-500 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <span className="font-semibold text-green-400">{f.rule_id}</span>
+              <p className="text-muted-foreground leading-snug">{f.message}</p>
+            </div>
+          </div>
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 // ── Asset Result Card ──
 
 function AssetResultCard({
@@ -311,10 +376,28 @@ function AssetResultCard({
                 );
               })()}
             </div>
+            {result.policyStatus && (
+              <PolicyStatusBadge status={result.policyStatus} />
+            )}
           </div>
           <ScoreGauge score={result.overallScore} size={60} />
         </div>
 
+        {/* Quality Score vs Policy Status summary */}
+        {(result.policyStatus || result.qualityScore !== undefined) && (
+          <div className="flex items-center gap-3 text-xs">
+            {result.qualityScore !== undefined && (
+              <span className="text-muted-foreground">
+                Quality: <span className={`font-bold ${result.qualityScore >= 85 ? 'text-green-400' : result.qualityScore >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>{result.qualityScore}</span>/100
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Deterministic Pre-check Findings */}
+        {result.deterministicFindings && result.deterministicFindings.length > 0 && (
+          <DeterministicFindingsPanel findings={result.deterministicFindings} />
+        )}
         {/* Scoring Rationale */}
         {result.scoringRationale && (
           <p className="text-xs text-muted-foreground italic leading-relaxed border-l-2 border-primary/30 pl-2">
