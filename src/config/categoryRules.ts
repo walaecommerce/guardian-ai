@@ -8,7 +8,12 @@ export type ProductCategory =
   | 'PET_SUPPLIES'
   | 'BEAUTY_PERSONAL_CARE'
   | 'ELECTRONICS'
-  | 'GENERAL_MERCHANDISE';
+  | 'GENERAL_MERCHANDISE'
+  | 'APPAREL'
+  | 'FOOTWEAR'
+  | 'JEWELRY'
+  | 'HANDBAGS_LUGGAGE'
+  | 'HARDLINES';
 
 export interface CategoryRuleSet {
   name: string;
@@ -212,16 +217,188 @@ export const CATEGORY_RULES: Record<ProductCategory, CategoryRuleSet> = {
       'Listing title consistency with visible product attributes confirmed.',
     ],
   },
+
+  // ── New Phase 2 categories ──────────────────────────────────
+
+  APPAREL: {
+    name: 'Apparel',
+    icon: '👕',
+    keywords: ['shirt', 'dress', 'jacket', 'pants', 'jeans', 'sweater', 'hoodie', 'blouse', 'skirt', 'coat', 'vest', 'tshirt', 't-shirt', 'polo', 'suit', 'blazer', 'cardigan', 'legging', 'shorts', 'romper', 'jumpsuit', 'underwear', 'socks', 'apparel', 'clothing', 'garment', 'top', 'bottom', 'pajama'],
+    main_image_rules: [
+      'Adult apparel should be shown on a model or ghost mannequin',
+      'Kids/baby apparel may use flat lay presentation',
+      'Full garment must be visible — no cropping at sleeves, hem, or collar',
+      'No visible hangers on main image',
+      'Pure white background with product filling 85%+ of frame',
+    ],
+    secondary_rules: [
+      'Model showing fit from multiple angles ALLOWED',
+      'Size chart / measurement guide ALLOWED and POSITIVE',
+      'Fabric detail close-ups ALLOWED',
+      'Lifestyle / styled outfit shots ALLOWED',
+    ],
+    ocr_fields: ['size', 'material', 'care_instructions', 'brand', 'style', 'color'],
+    prohibited: [
+      'Cropped garments on main image',
+      'Visible hangers on main image (ghost mannequin preferred)',
+      'Misleading fit or sizing claims',
+      'Competitor brand references',
+    ],
+    report_notes: [
+      'Garment presentation style validated (model/mannequin/flat lay).',
+      'Full garment visibility confirmed — no edge cropping.',
+      'Size and fit representation accuracy reviewed.',
+      'Material and care claims consistency checked.',
+    ],
+  },
+
+  FOOTWEAR: {
+    name: 'Footwear',
+    icon: '👟',
+    keywords: ['shoe', 'boot', 'sandal', 'sneaker', 'heel', 'loafer', 'slipper', 'flip-flop', 'mule', 'clog', 'oxford', 'pump', 'flat', 'wedge', 'espadrille', 'footwear', 'moccasin', 'trainer'],
+    main_image_rules: [
+      'Single left shoe at approximately 45-degree angle, facing left',
+      'No shoe box or packaging visible',
+      'Pure white background with shoe filling 85%+ of frame',
+      'No socks, feet, or leg models on main image',
+    ],
+    secondary_rules: [
+      'Pair of shoes shown together ALLOWED',
+      'Sole/bottom view ALLOWED and POSITIVE',
+      'On-foot model shots ALLOWED',
+      'Size/fit reference images ALLOWED',
+    ],
+    ocr_fields: ['brand', 'model', 'size_range', 'material', 'sole_type', 'color'],
+    prohibited: [
+      'Shoe box as main image',
+      'Multiple shoe styles in one listing image',
+      'Misleading color representation',
+    ],
+    report_notes: [
+      'Single-shoe hero presentation verified.',
+      'Shoe angle and orientation checked (left shoe, 45° angle).',
+      'Sole visibility in secondary images assessed.',
+      'Material and construction claims reviewed.',
+    ],
+  },
+
+  JEWELRY: {
+    name: 'Jewelry',
+    icon: '💎',
+    keywords: ['ring', 'necklace', 'bracelet', 'earring', 'pendant', 'chain', 'bangle', 'brooch', 'anklet', 'cufflink', 'jewelry', 'jewellery', 'gold', 'silver', 'diamond', 'gemstone', 'pearl', 'watch', 'charm'],
+    main_image_rules: [
+      'No mannequin, model, or body part on main image',
+      'No gift boxes, pouches, or packaging visible',
+      'Close-up framing — jewelry should fill at least 80% of frame',
+      'Pure white background',
+    ],
+    secondary_rules: [
+      'On-model/on-body shots ALLOWED',
+      'Scale reference with common object ALLOWED',
+      'Detail/macro shots of craftsmanship ALLOWED and POSITIVE',
+      'Gift packaging shots ALLOWED in secondary only',
+    ],
+    ocr_fields: ['metal_type', 'stone_type', 'carat', 'size', 'certification', 'brand'],
+    prohibited: [
+      'Mannequin or body part on main image',
+      'Gift packaging on main image',
+      'Misleading stone or metal claims',
+      'Stock photography',
+    ],
+    report_notes: [
+      'Mannequin/model absence on main image verified.',
+      'Packaging exclusion from main image confirmed.',
+      'Jewelry occupancy and framing assessed (close-up expected).',
+      'Material and certification claims reviewed.',
+    ],
+  },
+
+  HANDBAGS_LUGGAGE: {
+    name: 'Handbags & Luggage',
+    icon: '👜',
+    keywords: ['handbag', 'purse', 'tote', 'clutch', 'wallet', 'luggage', 'suitcase', 'backpack', 'duffel', 'messenger', 'crossbody', 'shoulder bag', 'travel bag', 'carry-on', 'briefcase', 'weekender', 'fanny pack'],
+    main_image_rules: [
+      'Full product visible — no cropping of handles, zippers, straps, or base',
+      'No distracting props or styling accessories',
+      'Bag should be upright, front-facing, handles/straps visible',
+      'Pure white background with product filling 85%+ of frame',
+    ],
+    secondary_rules: [
+      'Interior compartment shots ALLOWED and POSITIVE',
+      'On-model / lifestyle shots ALLOWED',
+      'Size comparison images ALLOWED',
+      'Multiple angle views ALLOWED and POSITIVE',
+    ],
+    ocr_fields: ['brand', 'material', 'dimensions', 'capacity', 'color', 'style'],
+    prohibited: [
+      'Cropped handles or straps on main image',
+      'Distracting props inside or around the bag',
+      'Misleading size representations',
+    ],
+    report_notes: [
+      'Full product visibility confirmed — handles, straps, base visible.',
+      'Prop-free main image presentation verified.',
+      'Interior shot availability assessed.',
+      'Material and dimension claims reviewed.',
+    ],
+  },
+
+  HARDLINES: {
+    name: 'Hardlines',
+    icon: '🔧',
+    keywords: ['tool', 'hardware', 'appliance', 'furniture', 'kitchenware', 'cookware', 'storage', 'shelf', 'organizer', 'fixture', 'faucet', 'lock', 'drill', 'wrench', 'screwdriver', 'paint', 'garden', 'outdoor', 'grill', 'lawn', 'mower', 'vacuum', 'iron', 'blender', 'mixer'],
+    main_image_rules: [
+      'Strict pure white background required',
+      'Product must be out of packaging, fully assembled',
+      'No environmental or styled backgrounds',
+      'Pure white background with product filling 85%+ of frame',
+    ],
+    secondary_rules: [
+      'Environment/lifestyle shots showing product in use ALLOWED',
+      'Size-fit reference images ALLOWED and POSITIVE',
+      'Feature callout infographics ALLOWED',
+      'What\'s in the box / included items layout ALLOWED',
+    ],
+    ocr_fields: ['brand', 'model', 'dimensions', 'weight', 'material', 'power_specs', 'certifications'],
+    prohibited: [
+      'Product in packaging on main image',
+      'Missing safety certifications where required',
+      'Misleading size representations',
+    ],
+    report_notes: [
+      'White background strictness verified for hardline product.',
+      'Out-of-box presentation confirmed.',
+      'Image mix assessed (lifestyle + size reference expected).',
+      'Safety certification visibility checked where applicable.',
+    ],
+  },
 };
 
 // ── Category detection helper ────────────────────────────────
+// Order matters: more specific categories are checked first to avoid
+// overlap (e.g., "bag" matching HANDBAGS before GENERAL).
+
+const CATEGORY_DETECTION_ORDER: ProductCategory[] = [
+  'FOOTWEAR',
+  'JEWELRY',
+  'HANDBAGS_LUGGAGE',
+  'APPAREL',
+  'FOOD_BEVERAGE',
+  'SUPPLEMENTS',
+  'PET_SUPPLIES',
+  'BEAUTY_PERSONAL_CARE',
+  'ELECTRONICS',
+  'HARDLINES',
+  'GENERAL_MERCHANDISE',
+];
 
 export function detectCategoryFromTitle(title: string): ProductCategory {
   const lower = title.toLowerCase();
-  for (const [key, rules] of Object.entries(CATEGORY_RULES)) {
+  for (const key of CATEGORY_DETECTION_ORDER) {
+    const rules = CATEGORY_RULES[key];
     if (rules.keywords.length === 0) continue;
     if (rules.keywords.some(kw => lower.includes(kw))) {
-      return key as ProductCategory;
+      return key;
     }
   }
   return 'GENERAL_MERCHANDISE';
@@ -235,6 +412,11 @@ export const CATEGORY_OPTIONS: { value: ProductCategory | 'AUTO'; label: string;
   { value: 'PET_SUPPLIES', label: 'Pet Supplies', icon: '🐾' },
   { value: 'BEAUTY_PERSONAL_CARE', label: 'Beauty & Personal Care', icon: '✨' },
   { value: 'ELECTRONICS', label: 'Electronics', icon: '🔌' },
+  { value: 'APPAREL', label: 'Apparel', icon: '👕' },
+  { value: 'FOOTWEAR', label: 'Footwear', icon: '👟' },
+  { value: 'JEWELRY', label: 'Jewelry', icon: '💎' },
+  { value: 'HANDBAGS_LUGGAGE', label: 'Handbags & Luggage', icon: '👜' },
+  { value: 'HARDLINES', label: 'Hardlines', icon: '🔧' },
   { value: 'GENERAL_MERCHANDISE', label: 'General Merchandise', icon: '📦' },
 ];
 
@@ -251,4 +433,16 @@ export const GEMINI_CATEGORY_MAP: Record<string, ProductCategory> = {
   'ELECTRONICS': 'ELECTRONICS',
   'GENERAL': 'GENERAL_MERCHANDISE',
   'GENERAL_MERCHANDISE': 'GENERAL_MERCHANDISE',
+  'APPAREL': 'APPAREL',
+  'CLOTHING': 'APPAREL',
+  'FOOTWEAR': 'FOOTWEAR',
+  'SHOES': 'FOOTWEAR',
+  'JEWELRY': 'JEWELRY',
+  'JEWELLERY': 'JEWELRY',
+  'HANDBAGS': 'HANDBAGS_LUGGAGE',
+  'HANDBAGS_LUGGAGE': 'HANDBAGS_LUGGAGE',
+  'LUGGAGE': 'HANDBAGS_LUGGAGE',
+  'HARDLINES': 'HARDLINES',
+  'HOME': 'HARDLINES',
+  'TOOLS': 'HARDLINES',
 };

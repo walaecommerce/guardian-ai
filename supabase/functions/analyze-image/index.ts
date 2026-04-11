@@ -20,7 +20,12 @@ Examine the product image and determine the category:
 - SUPPLEMENTS: dietary supplements, vitamins, protein powders, health capsules
 - BEAUTY_PERSONAL_CARE: skincare, haircare, cosmetics, personal hygiene products
 - ELECTRONICS: devices, gadgets, cables, chargers, tech accessories
-- GENERAL_MERCHANDISE: everything else (home goods, tools, toys, clothing, etc.)
+- APPAREL: shirts, dresses, jackets, pants, sweaters, hoodies, clothing, garments
+- FOOTWEAR: shoes, boots, sandals, sneakers, heels, slippers
+- JEWELRY: rings, necklaces, bracelets, earrings, watches, pendants, chains
+- HANDBAGS_LUGGAGE: handbags, purses, totes, luggage, suitcases, backpacks, wallets
+- HARDLINES: tools, hardware, appliances, furniture, kitchenware, garden equipment
+- GENERAL_MERCHANDISE: everything else (home goods, toys, etc.)
 
 STEP 2 — APPLY ONLY the matching category-specific rules below (ignore all other categories).
 
@@ -234,6 +239,109 @@ CONTENT CONSISTENCY CHECKS for electronics:
 - Compatibility claims must be accurate = HIGH if unverifiable
 - Safety certifications must be legitimate = CRITICAL if fake/misleading`;
 
+const APPAREL_RULES = `APPAREL RULES (apply when category is APPAREL):
+
+MAIN IMAGE:
+- Adult apparel should be shown on a model or ghost mannequin = HIGH violation if flat lay for adult clothing
+- Kids/baby apparel may use flat lay presentation = ALLOWED
+- Full garment must be visible — no cropping at sleeves, hem, collar = CRITICAL violation
+- No visible hangers on main image = MEDIUM violation (ghost mannequin or model preferred)
+- Pure white background with product filling 85%+ of frame
+
+SECONDARY IMAGES:
+- Model showing fit from multiple angles = ALLOWED and POSITIVE
+- Size chart / measurement guide = ALLOWED and POSITIVE
+- Fabric detail close-ups = ALLOWED
+- Lifestyle / styled outfit shots = ALLOWED
+
+OCR EXTRACTION for apparel — extract if visible:
+1. Brand name
+2. Size/size range
+3. Material composition
+4. Care instructions
+5. Color name`;
+
+const FOOTWEAR_RULES_TEXT = `FOOTWEAR RULES (apply when category is FOOTWEAR):
+
+MAIN IMAGE:
+- Single left shoe at approximately 45-degree angle, facing left = HIGH violation if pair shown or wrong angle
+- No shoe box or packaging visible = MEDIUM violation
+- No socks, feet, or leg models on main image = MEDIUM violation
+- Pure white background with shoe filling 85%+ of frame
+
+SECONDARY IMAGES:
+- Pair of shoes shown together = ALLOWED
+- Sole/bottom view = ALLOWED and POSITIVE
+- On-foot model shots = ALLOWED
+- Size/fit reference images = ALLOWED
+
+OCR EXTRACTION for footwear — extract if visible:
+1. Brand and model name
+2. Size range
+3. Material (upper and sole)
+4. Color name`;
+
+const JEWELRY_RULES_TEXT = `JEWELRY RULES (apply when category is JEWELRY):
+
+MAIN IMAGE:
+- No mannequin, model, or body part on main image = CRITICAL violation
+- No gift boxes, pouches, or packaging materials = MEDIUM violation
+- Close-up framing — jewelry should fill at least 80% of frame = HIGH violation if too small
+- Pure white background
+
+SECONDARY IMAGES:
+- On-model/on-body shots = ALLOWED
+- Scale reference with common object = ALLOWED
+- Detail/macro shots of craftsmanship = ALLOWED and POSITIVE
+- Gift packaging shots = ALLOWED in secondary only
+
+OCR EXTRACTION for jewelry — extract if visible:
+1. Metal type (gold, silver, platinum, etc.)
+2. Stone type and carat weight
+3. Ring/bracelet/chain size
+4. Certification marks`;
+
+const HANDBAGS_LUGGAGE_RULES = `HANDBAGS & LUGGAGE RULES (apply when category is HANDBAGS_LUGGAGE):
+
+MAIN IMAGE:
+- Full product visible — no cropping of handles, zippers, straps, or base = CRITICAL violation
+- No distracting props or styling accessories inside/around the bag = MEDIUM violation
+- Bag should be upright, front-facing, with handles/straps visible = HIGH violation if not
+- Pure white background with product filling 85%+ of frame
+
+SECONDARY IMAGES:
+- Interior compartment shots = ALLOWED and POSITIVE
+- On-model / lifestyle shots = ALLOWED
+- Size comparison images = ALLOWED
+- Multiple angle views = ALLOWED and POSITIVE
+
+OCR EXTRACTION for handbags/luggage — extract if visible:
+1. Brand name
+2. Material type
+3. Dimensions
+4. Color name`;
+
+const HARDLINES_RULES = `HARDLINES RULES (apply when category is HARDLINES):
+
+MAIN IMAGE:
+- Strict pure white background required = CRITICAL violation if not pure white
+- Product must be out of packaging, fully assembled = MEDIUM violation if in box
+- No environmental or styled backgrounds on main image = HIGH violation
+- Pure white background with product filling 85%+ of frame
+
+SECONDARY IMAGES:
+- Environment/lifestyle shots showing product in use = ALLOWED and POSITIVE
+- Size-fit reference images = ALLOWED and POSITIVE
+- Feature callout infographics = ALLOWED
+- What's in the box / included items layout = ALLOWED
+
+OCR EXTRACTION for hardlines — extract if visible:
+1. Brand and model name
+2. Dimensions and weight
+3. Material type
+4. Power specs / certifications
+5. Safety certifications (UL, CE, FCC)`;
+
 const OUTPUT_SCHEMA = `
 Return this EXACT JSON structure:
 {
@@ -241,7 +349,7 @@ Return this EXACT JSON structure:
   "status": "PASS" | "WARNING" | "FAIL",
   "severity": "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
   "scoring_rationale": "<2-3 sentence explanation of why this specific score was given, listing the top 2-3 factors that affected the score most>",
-  "product_category": "FOOD_BEVERAGE" | "PET_SUPPLIES" | "SUPPLEMENTS" | "BEAUTY_PERSONAL_CARE" | "ELECTRONICS" | "GENERAL_MERCHANDISE",
+  "product_category": "FOOD_BEVERAGE" | "PET_SUPPLIES" | "SUPPLEMENTS" | "BEAUTY_PERSONAL_CARE" | "ELECTRONICS" | "GENERAL_MERCHANDISE" | "APPAREL" | "FOOTWEAR" | "JEWELRY" | "HANDBAGS_LUGGAGE" | "HARDLINES",
   "text_readability_score": <0-100 — for SECONDARY images only, rate how readable any text/infographic content would be on a mobile phone screen. Consider font size, contrast, text density, legibility. For MAIN images return null>,
   "emotional_appeal_score": <0-100 — for SECONDARY images only, rate the emotional appeal and aspirational quality. Consider: appetizing food, happy people, active lifestyle, professional photography, warm lighting. For MAIN images return null>,
   "violations": [
@@ -405,13 +513,17 @@ const CATEGORY_RULES_MAP: Record<string, string> = {
   'BEAUTY_PERSONAL_CARE': BEAUTY_RULES,
   'ELECTRONICS': ELECTRONICS_RULES,
   'GENERAL_MERCHANDISE': GENERAL_RULES,
+  'APPAREL': APPAREL_RULES,
+  'FOOTWEAR': FOOTWEAR_RULES_TEXT,
+  'JEWELRY': JEWELRY_RULES_TEXT,
+  'HANDBAGS_LUGGAGE': HANDBAGS_LUGGAGE_RULES,
+  'HARDLINES': HARDLINES_RULES,
 };
 
 const buildAnalysisPrompt = (isMain: boolean, listingTitle: string, forcedCategory?: string): string => {
   const universalRules = isMain ? MAIN_IMAGE_RULES : SECONDARY_IMAGE_RULES;
 
   if (forcedCategory && CATEGORY_RULES_MAP[forcedCategory]) {
-    // When category is forced, send ONLY that category's rules
     return [
       SYSTEM_PROMPT,
       universalRules,
@@ -421,17 +533,13 @@ const buildAnalysisPrompt = (isMain: boolean, listingTitle: string, forcedCatego
     ].join('\n\n');
   }
 
-  // When auto-detecting: send all category rules but instruct model to apply only the detected one
+  // When auto-detecting: send all category rules
+  const allCategoryRules = Object.values(CATEGORY_RULES_MAP).join('\n\n');
   return [
     SYSTEM_PROMPT,
     universalRules,
     `--- CATEGORY-SPECIFIC RULES (after detecting the category in STEP 1, apply ONLY the matching rule set below — ignore all others) ---`,
-    FOOD_RULES,
-    PET_RULES,
-    SUPPLEMENT_RULES,
-    GENERAL_RULES,
-    BEAUTY_RULES,
-    ELECTRONICS_RULES,
+    allCategoryRules,
     OUTPUT_SCHEMA,
   ].join('\n\n');
 };
@@ -493,7 +601,7 @@ ${passedFindings.length > 0 ? `PASSED checks:\n${passedFindings.map((f: any) => 
 IMPORTANT: If a deterministic check FAILED with severity "critical", your overall score MUST reflect this. Do not override deterministic failures with a passing score.`;
     }
 
-    const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}${deterministicContext}`;
+    const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/APPAREL/FOOTWEAR/JEWELRY/HANDBAGS_LUGGAGE/HARDLINES/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}${deterministicContext}`;
 
     const response = await fetchGemini({
       model: MODELS.analysis,

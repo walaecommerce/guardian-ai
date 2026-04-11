@@ -3,6 +3,7 @@
 // to the AI model. They produce structured evidence objects.
 
 import { POLICY_REGISTRY, type PolicyRule } from '@/config/policyRegistry';
+import type { ProductCategory } from '@/config/categoryRules';
 
 // ── Evidence Types ──────────────────────────────────────────────
 
@@ -12,6 +13,7 @@ export interface DeterministicEvidence {
   why_triggered: string;
   measured_value: string | number;
   threshold: string | number;
+  category?: string;
   bounding_box?: { top: number; left: number; width: number; height: number };
   ocr_snippet?: string;
 }
@@ -27,6 +29,7 @@ export interface DeterministicFinding {
 export interface DeterministicAuditResult {
   policy_status: 'pass' | 'warning' | 'fail';
   findings: DeterministicFinding[];
+  detectedCategory?: ProductCategory;
   quality_indicators: {
     dimensions: { width: number; height: number };
     estimated_sharpness: number;     // 0-100
@@ -184,9 +187,6 @@ function checkOccupancy(
   }
 
   const pct = Math.round((nonWhite / total) * 100);
-  // Heuristic: if product is on white bg, non-white ≈ product area
-  // But 85% occupancy means product fills the frame, so a lower non-white %
-  // suggests the product is small in frame. We flag if < 50% non-white.
   const passed = pct >= 50;
 
   return {
@@ -238,7 +238,6 @@ function checkSharpness(
   }
 
   const variance = count > 0 ? sum / count : 0;
-  // Normalize: typical sharp images > 500 variance, blurry < 100
   const score = Math.min(100, Math.round(variance / 10));
   const passed = score >= 15;
 
@@ -267,7 +266,8 @@ function checkSharpness(
 function checkEdgeCrop(
   data: Uint8ClampedArray,
   width: number,
-  height: number
+  height: number,
+  threshold = 30
 ): DeterministicFinding {
   const rule = getRule('IMAGE_EDGE_CROP');
 
@@ -291,7 +291,7 @@ function checkEdgeCrop(
   }
 
   const edgePct = edgeTotal > 0 ? Math.round((edgeNonWhite / edgeTotal) * 100) : 0;
-  const risk = edgePct > 30;
+  const risk = edgePct > threshold;
 
   return {
     rule_id: rule.rule_id,
@@ -305,7 +305,7 @@ function checkEdgeCrop(
       source: rule.source,
       why_triggered: risk ? 'Product appears to extend to image edges' : 'Clean edges',
       measured_value: edgePct,
-      threshold: '30% edge contact',
+      threshold: `${threshold}% edge contact`,
     },
   };
 }
@@ -337,7 +337,6 @@ function checkOverlayHeuristic(
         cornerTotal++;
         const idx = (y * width + x) * 4;
         const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-        // Non-white AND saturated = likely overlay/badge
         const isWhite = r >= 240 && g >= 240 && b >= 240;
         const maxC = Math.max(r, g, b);
         const minC = Math.min(r, g, b);
@@ -370,6 +369,110 @@ function checkOverlayHeuristic(
   };
 }
 
+// ── Category-Specific Deterministic Checks ─────────────────────
+
+function runCategoryDeterministicChecks(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  imageType: 'MAIN' | 'SECONDARY',
+  category: ProductCategory
+): DeterministicFinding[] {
+  const findings: DeterministicFinding[] = [];
+
+  if (imageType === 'MAIN') {
+    // APPAREL: tighter edge-crop threshold (20% instead of 30%)
+    if (category === 'APPAREL') {
+      const cropFinding = checkEdgeCrop(data, width, height, 20);
+      if (!cropFinding.passed) {
+        findings.push({
+          ...cropFinding,
+          rule_id: 'APPAREL_NO_CROP',
+          severity: 'critical',
+          message: `Apparel crop risk: ${cropFinding.evidence.measured_value}% edge contact (stricter 20% threshold for garments).`,
+          evidence: {
+            ...cropFinding.evidence,
+            rule_id: 'APPAREL_NO_CROP',
+            category: 'APPAREL',
+            why_triggered: 'Garment edges may be cropped — full garment visibility required',
+            threshold: '20% edge contact (apparel-strict)',
+          },
+        });
+      }
+    }
+
+    // JEWELRY: lower occupancy threshold (product is small by nature)
+    if (category === 'JEWELRY') {
+      // Jewelry items are tiny; use a more lenient non-white threshold of 30%
+      let nonWhite = 0;
+      const total = width * height;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i] < 240 || data[i + 1] < 240 || data[i + 2] < 240) nonWhite++;
+      }
+      const pct = Math.round((nonWhite / total) * 100);
+      const passed = pct >= 30;
+
+      findings.push({
+        rule_id: 'JEWELRY_OCCUPANCY',
+        severity: 'warning',
+        passed,
+        message: passed
+          ? `Jewelry occupancy: ${pct}% frame fill — acceptable for small items.`
+          : `Jewelry occupancy: ${pct}% frame fill — use macro photography for better framing.`,
+        evidence: {
+          rule_id: 'JEWELRY_OCCUPANCY',
+          source: 'Amazon Jewelry Image Requirements',
+          category: 'JEWELRY',
+          why_triggered: passed ? 'Adequate frame fill for jewelry' : 'Jewelry item too small in frame',
+          measured_value: pct,
+          threshold: '30% non-white pixels (jewelry-adjusted)',
+        },
+      });
+    }
+
+    // HARDLINES: recheck white bg with stricter threshold
+    if (category === 'HARDLINES') {
+      const bandX = Math.max(1, Math.round(width * 0.1));
+      const bandY = Math.max(1, Math.round(height * 0.1));
+      let whiteCount = 0;
+      let totalBorder = 0;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const isBorder = x < bandX || x >= width - bandX || y < bandY || y >= height - bandY;
+          if (!isBorder) continue;
+          totalBorder++;
+          const idx = (y * width + x) * 4;
+          // Stricter: channels >= 245 (near-perfect white)
+          if (data[idx] >= 245 && data[idx + 1] >= 245 && data[idx + 2] >= 245) whiteCount++;
+        }
+      }
+
+      const pct = totalBorder > 0 ? Math.round((whiteCount / totalBorder) * 100) : 0;
+      const passed = pct >= 90;
+
+      if (!passed) {
+        findings.push({
+          rule_id: 'HARDLINES_WHITE_BG',
+          severity: 'critical',
+          passed: false,
+          message: `Hardlines strict white BG: ${pct}% (need 90%+ near-perfect white for hardline products).`,
+          evidence: {
+            rule_id: 'HARDLINES_WHITE_BG',
+            source: 'Amazon Product Image Requirements',
+            category: 'HARDLINES',
+            why_triggered: 'Hardline products require stricter white background compliance',
+            measured_value: pct,
+            threshold: '90% near-perfect white (RGB ≥ 245)',
+          },
+        });
+      }
+    }
+  }
+
+  return findings;
+}
+
 // ── Compute Policy Status ──────────────────────────────────────
 
 export function computePolicyStatus(findings: DeterministicFinding[]): 'pass' | 'warning' | 'fail' {
@@ -387,6 +490,7 @@ export async function runDeterministicAudit(
   imageType: 'MAIN' | 'SECONDARY',
   naturalWidth?: number,
   naturalHeight?: number,
+  productCategory?: ProductCategory,
 ): Promise<DeterministicAuditResult> {
   const { data, width, height } = await loadImagePixels(imageSource);
 
@@ -425,9 +529,16 @@ export async function runDeterministicAudit(
     overlayRisk = overlay.risk;
   }
 
+  // Category-specific deterministic checks
+  if (productCategory) {
+    const categoryFindings = runCategoryDeterministicChecks(data, width, height, imageType, productCategory);
+    findings.push(...categoryFindings);
+  }
+
   return {
     policy_status: computePolicyStatus(findings),
     findings,
+    detectedCategory: productCategory,
     quality_indicators: {
       dimensions: { width: realW, height: realH },
       estimated_sharpness: sharpness.score,

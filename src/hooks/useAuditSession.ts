@@ -475,7 +475,8 @@ export function useAuditSession() {
       // Run deterministic checks first
       let deterministicFindings: any[] | undefined;
       try {
-        const detResult = await runDeterministicAudit(asset.preview, asset.type);
+        const categoryForAudit = selectedCategory !== 'AUTO' ? selectedCategory : undefined;
+        const detResult = await runDeterministicAudit(asset.preview, asset.type, undefined, undefined, categoryForAudit as any);
         deterministicFindings = detResult.findings;
         const failCount = detResult.findings.filter(f => !f.passed).length;
         if (failCount > 0) {
