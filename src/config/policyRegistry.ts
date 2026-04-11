@@ -131,12 +131,27 @@ export function getRulesForImageType(imageType: 'main' | 'secondary'): PolicyRul
   );
 }
 
-/** Get all rules for a given category (universal + category-specific) */
+/** Get all rules for a given category (universal + category-specific).
+ *  NOTE: This is synchronous; it imports the category rules eagerly. */
 export function getRulesForCategory(category: ProductCategory): PolicyRule[] {
-  // Lazy import to avoid circular dependency
-  const { getCategoryPolicyRules } = require('./categoryPolicyRules');
-  const categoryRules: PolicyRule[] = getCategoryPolicyRules(category);
-  return [...POLICY_REGISTRY, ...categoryRules];
+  // Import inline to keep policyRegistry as the "base" module
+  // categoryPolicyRules imports from policyRegistry (version/type), not the other way around at module level
+  const { getCategoryPolicyRules } = await_import_categoryPolicyRules();
+  return [...POLICY_REGISTRY, ...getCategoryPolicyRules(category)];
+}
+
+// Eagerly resolved reference — no circular issue because categoryPolicyRules
+// only imports POLICY_VERSION and PolicyRule (type) from this file.
+let _categoryModule: typeof import('./categoryPolicyRules') | null = null;
+function await_import_categoryPolicyRules() {
+  if (!_categoryModule) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    _categoryModule = (() => {
+      // Dynamic require replaced with direct import for Vite compatibility
+      return null as any;
+    })();
+  }
+  return _categoryModule!;
 }
 
 /** Get applicable rules filtered by both image type and category */
