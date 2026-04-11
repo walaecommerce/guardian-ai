@@ -20,7 +20,12 @@ Examine the product image and determine the category:
 - SUPPLEMENTS: dietary supplements, vitamins, protein powders, health capsules
 - BEAUTY_PERSONAL_CARE: skincare, haircare, cosmetics, personal hygiene products
 - ELECTRONICS: devices, gadgets, cables, chargers, tech accessories
-- GENERAL_MERCHANDISE: everything else (home goods, tools, toys, clothing, etc.)
+- APPAREL: shirts, dresses, jackets, pants, sweaters, hoodies, clothing, garments
+- FOOTWEAR: shoes, boots, sandals, sneakers, heels, slippers
+- JEWELRY: rings, necklaces, bracelets, earrings, watches, pendants, chains
+- HANDBAGS_LUGGAGE: handbags, purses, totes, luggage, suitcases, backpacks, wallets
+- HARDLINES: tools, hardware, appliances, furniture, kitchenware, garden equipment
+- GENERAL_MERCHANDISE: everything else (home goods, toys, etc.)
 
 STEP 2 — APPLY ONLY the matching category-specific rules below (ignore all other categories).
 
@@ -241,7 +246,7 @@ Return this EXACT JSON structure:
   "status": "PASS" | "WARNING" | "FAIL",
   "severity": "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
   "scoring_rationale": "<2-3 sentence explanation of why this specific score was given, listing the top 2-3 factors that affected the score most>",
-  "product_category": "FOOD_BEVERAGE" | "PET_SUPPLIES" | "SUPPLEMENTS" | "BEAUTY_PERSONAL_CARE" | "ELECTRONICS" | "GENERAL_MERCHANDISE",
+  "product_category": "FOOD_BEVERAGE" | "PET_SUPPLIES" | "SUPPLEMENTS" | "BEAUTY_PERSONAL_CARE" | "ELECTRONICS" | "GENERAL_MERCHANDISE" | "APPAREL" | "FOOTWEAR" | "JEWELRY" | "HANDBAGS_LUGGAGE" | "HARDLINES",
   "text_readability_score": <0-100 — for SECONDARY images only, rate how readable any text/infographic content would be on a mobile phone screen. Consider font size, contrast, text density, legibility. For MAIN images return null>,
   "emotional_appeal_score": <0-100 — for SECONDARY images only, rate the emotional appeal and aspirational quality. Consider: appetizing food, happy people, active lifestyle, professional photography, warm lighting. For MAIN images return null>,
   "violations": [
