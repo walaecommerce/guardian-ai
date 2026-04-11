@@ -3,7 +3,10 @@
 // Each rule includes fix_guidance for category-aware recommendations.
 
 import type { PolicyRule } from './policyRegistry';
-import { POLICY_VERSION } from './policyRegistry';
+import type { ProductCategory } from './categoryRules';
+
+// Duplicated here to break circular dependency with policyRegistry.ts
+const CATEGORY_POLICY_VERSION = '1.1.0';
 import type { ProductCategory } from './categoryRules';
 
 type CategoryPolicyRule = PolicyRule & { fix_guidance: string };
