@@ -3,8 +3,10 @@
 // Each rule includes fix_guidance for category-aware recommendations.
 
 import type { PolicyRule } from './policyRegistry';
-import { POLICY_VERSION } from './policyRegistry';
 import type { ProductCategory } from './categoryRules';
+
+// Duplicated here to break circular dependency with policyRegistry.ts
+const CATEGORY_POLICY_VERSION = '1.1.0';
 
 type CategoryPolicyRule = PolicyRule & { fix_guidance: string };
 
@@ -13,7 +15,7 @@ type CategoryPolicyRule = PolicyRule & { fix_guidance: string };
 export const APPAREL_RULES: CategoryPolicyRule[] = [
   {
     rule_id: 'APPAREL_MAIN_MODEL',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'APPAREL',
     severity: 'warning',
@@ -25,7 +27,7 @@ export const APPAREL_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'APPAREL_KIDS_OFF_MODEL',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'APPAREL',
     severity: 'info',
@@ -36,7 +38,7 @@ export const APPAREL_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'APPAREL_NO_CROP',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'APPAREL',
     severity: 'critical',
@@ -48,7 +50,7 @@ export const APPAREL_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'APPAREL_NO_HANGER',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'APPAREL',
     severity: 'warning',
@@ -64,7 +66,7 @@ export const APPAREL_RULES: CategoryPolicyRule[] = [
 export const FOOTWEAR_RULES: CategoryPolicyRule[] = [
   {
     rule_id: 'FOOTWEAR_SINGLE_SHOE',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'FOOTWEAR',
     severity: 'warning',
@@ -76,7 +78,7 @@ export const FOOTWEAR_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'FOOTWEAR_SOLE_VISIBLE',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'secondary',
     category: 'FOOTWEAR',
     severity: 'info',
@@ -87,7 +89,7 @@ export const FOOTWEAR_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'FOOTWEAR_NO_BOX',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'FOOTWEAR',
     severity: 'warning',
@@ -103,7 +105,7 @@ export const FOOTWEAR_RULES: CategoryPolicyRule[] = [
 export const JEWELRY_RULES: CategoryPolicyRule[] = [
   {
     rule_id: 'JEWELRY_NO_MANNEQUIN',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'JEWELRY',
     severity: 'critical',
@@ -115,7 +117,7 @@ export const JEWELRY_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'JEWELRY_NO_PACKAGING',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'JEWELRY',
     severity: 'warning',
@@ -126,7 +128,7 @@ export const JEWELRY_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'JEWELRY_OCCUPANCY',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'JEWELRY',
     severity: 'warning',
@@ -137,7 +139,7 @@ export const JEWELRY_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'JEWELRY_DETAIL_SHOT',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'secondary',
     category: 'JEWELRY',
     severity: 'info',
@@ -153,7 +155,7 @@ export const JEWELRY_RULES: CategoryPolicyRule[] = [
 export const HANDBAGS_LUGGAGE_RULES: CategoryPolicyRule[] = [
   {
     rule_id: 'HANDBAGS_FULL_PRODUCT',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'HANDBAGS_LUGGAGE',
     severity: 'critical',
@@ -165,7 +167,7 @@ export const HANDBAGS_LUGGAGE_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'HANDBAGS_NO_PROPS',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'HANDBAGS_LUGGAGE',
     severity: 'warning',
@@ -176,7 +178,7 @@ export const HANDBAGS_LUGGAGE_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'HANDBAGS_MAIN_PRESENTATION',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'HANDBAGS_LUGGAGE',
     severity: 'warning',
@@ -187,7 +189,7 @@ export const HANDBAGS_LUGGAGE_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'HANDBAGS_INTERIOR_SHOT',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'secondary',
     category: 'HANDBAGS_LUGGAGE',
     severity: 'info',
@@ -203,7 +205,7 @@ export const HANDBAGS_LUGGAGE_RULES: CategoryPolicyRule[] = [
 export const HARDLINES_RULES: CategoryPolicyRule[] = [
   {
     rule_id: 'HARDLINES_WHITE_BG',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'HARDLINES',
     severity: 'critical',
@@ -215,7 +217,7 @@ export const HARDLINES_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'HARDLINES_IMAGE_MIX',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'secondary',
     category: 'HARDLINES',
     severity: 'info',
@@ -226,7 +228,7 @@ export const HARDLINES_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'HARDLINES_OUT_OF_BOX',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'HARDLINES',
     severity: 'warning',
@@ -242,7 +244,7 @@ export const HARDLINES_RULES: CategoryPolicyRule[] = [
 export const FOOD_BEVERAGE_RULES: CategoryPolicyRule[] = [
   {
     rule_id: 'FOOD_NO_SERVING_SUGGESTION',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'FOOD_BEVERAGE',
     severity: 'warning',
@@ -253,7 +255,7 @@ export const FOOD_BEVERAGE_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'FOOD_NO_HANDS',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'FOOD_BEVERAGE',
     severity: 'warning',
@@ -264,7 +266,7 @@ export const FOOD_BEVERAGE_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'FOOD_LABEL_FORWARD',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'FOOD_BEVERAGE',
     severity: 'critical',
@@ -276,7 +278,7 @@ export const FOOD_BEVERAGE_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'FOOD_NO_EXPIRY_VISIBLE',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'FOOD_BEVERAGE',
     severity: 'info',
@@ -287,7 +289,7 @@ export const FOOD_BEVERAGE_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'FOOD_NUTRITION_LEGIBLE',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'secondary',
     category: 'FOOD_BEVERAGE',
     severity: 'warning',
@@ -303,7 +305,7 @@ export const FOOD_BEVERAGE_RULES: CategoryPolicyRule[] = [
 export const SUPPLEMENTS_RULES: CategoryPolicyRule[] = [
   {
     rule_id: 'SUPPLEMENTS_NO_LOOSE_PILLS',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'SUPPLEMENTS',
     severity: 'warning',
@@ -314,7 +316,7 @@ export const SUPPLEMENTS_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'SUPPLEMENTS_NO_BEFORE_AFTER',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'all',
     category: 'SUPPLEMENTS',
     severity: 'critical',
@@ -326,7 +328,7 @@ export const SUPPLEMENTS_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'SUPPLEMENTS_FACTS_PANEL',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'SUPPLEMENTS',
     severity: 'info',
@@ -337,7 +339,7 @@ export const SUPPLEMENTS_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'SUPPLEMENTS_NO_MEDICAL_CLAIMS',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'all',
     category: 'SUPPLEMENTS',
     severity: 'critical',
@@ -353,7 +355,7 @@ export const SUPPLEMENTS_RULES: CategoryPolicyRule[] = [
 export const BEAUTY_PERSONAL_CARE_RULES: CategoryPolicyRule[] = [
   {
     rule_id: 'BEAUTY_NO_BEFORE_AFTER',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'all',
     category: 'BEAUTY_PERSONAL_CARE',
     severity: 'critical',
@@ -364,7 +366,7 @@ export const BEAUTY_PERSONAL_CARE_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'BEAUTY_NO_MODEL_MAIN',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'BEAUTY_PERSONAL_CARE',
     severity: 'warning',
@@ -375,7 +377,7 @@ export const BEAUTY_PERSONAL_CARE_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'BEAUTY_LABEL_FORWARD',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'BEAUTY_PERSONAL_CARE',
     severity: 'critical',
@@ -387,7 +389,7 @@ export const BEAUTY_PERSONAL_CARE_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'BEAUTY_SPF_CLAIMS',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'all',
     category: 'BEAUTY_PERSONAL_CARE',
     severity: 'critical',
@@ -403,7 +405,7 @@ export const BEAUTY_PERSONAL_CARE_RULES: CategoryPolicyRule[] = [
 export const ELECTRONICS_RULES: CategoryPolicyRule[] = [
   {
     rule_id: 'ELECTRONICS_SHOW_PORTS',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'secondary',
     category: 'ELECTRONICS',
     severity: 'info',
@@ -414,7 +416,7 @@ export const ELECTRONICS_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'ELECTRONICS_OUT_OF_BOX',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'ELECTRONICS',
     severity: 'warning',
@@ -425,7 +427,7 @@ export const ELECTRONICS_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'ELECTRONICS_NO_EXTRA_ACCESSORIES',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'ELECTRONICS',
     severity: 'warning',
@@ -436,7 +438,7 @@ export const ELECTRONICS_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'ELECTRONICS_BRANDING_VISIBLE',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'ELECTRONICS',
     severity: 'warning',
@@ -447,7 +449,7 @@ export const ELECTRONICS_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'ELECTRONICS_FAKE_CERTS',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'all',
     category: 'ELECTRONICS',
     severity: 'critical',
@@ -463,7 +465,7 @@ export const ELECTRONICS_RULES: CategoryPolicyRule[] = [
 export const PET_SUPPLIES_RULES: CategoryPolicyRule[] = [
   {
     rule_id: 'PET_NO_RAW_MEAT_MAIN',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'PET_SUPPLIES',
     severity: 'warning',
@@ -474,7 +476,7 @@ export const PET_SUPPLIES_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'PET_NO_HANDS',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'PET_SUPPLIES',
     severity: 'warning',
@@ -485,7 +487,7 @@ export const PET_SUPPLIES_RULES: CategoryPolicyRule[] = [
   },
   {
     rule_id: 'PET_LABEL_FORWARD',
-    version: POLICY_VERSION,
+    version: CATEGORY_POLICY_VERSION,
     applies_to: 'main',
     category: 'PET_SUPPLIES',
     severity: 'critical',
