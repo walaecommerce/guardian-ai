@@ -16,6 +16,9 @@ import {
   buildDeterministicRuleIdSet,
   getSourceBadgeLabel,
   getSourceBadgeClass,
+  getSourceTierLabel,
+  getSourceTierBadgeClass,
+  getSurfaceLabels,
 } from '@/utils/evidenceHelpers';
 import { POLICY_VERSION } from '@/config/policyRegistry';
 import { GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
@@ -197,6 +200,16 @@ export function ImageDetailDrawer({
                                 <span className={`inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-medium border ${getSourceBadgeClass(ev.findingSource)}`}>
                                   {getSourceBadgeLabel(ev.findingSource)}
                                 </span>
+                                {ev.sourceTier && (
+                                  <span className={`inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-medium border ${getSourceTierBadgeClass(ev.sourceTier)}`}>
+                                    {getSourceTierLabel(ev.sourceTier)}
+                                  </span>
+                                )}
+                                {ev.surfaces && ev.surfaces.length > 0 && (
+                                  <span className="text-[9px] text-muted-foreground/70">
+                                    {getSurfaceLabels(ev.surfaces).join(' · ')}
+                                  </span>
+                                )}
                               </div>
                               <p className="text-sm mt-1">{v.message}</p>
                               {/* Evidence details */}
