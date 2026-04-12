@@ -299,6 +299,7 @@ export interface AppState {
   selectedAssetId: string | null;
   showFixModal: boolean;
   productIdentity?: ProductIdentityCard; // Extracted from MAIN image
+  identityProfile?: import('@/utils/identityProfile').MultiImageIdentityProfile;
 }
 
 // Failed Download Types
