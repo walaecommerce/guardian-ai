@@ -778,7 +778,7 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
               )}
 
               {/* Post-fix actions */}
-              {(hasFixedImage || (fixProgress?.attempts.length && fixProgress.attempts.length > 0)) && !isGenerating && (
+              {(hasFixedImage || reviewAttempts.length > 0) && !isGenerating && (
                 <>
                   <Button
                     variant="outline"
