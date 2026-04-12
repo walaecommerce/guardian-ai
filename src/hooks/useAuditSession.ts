@@ -1012,7 +1012,7 @@ export function useAuditSession() {
       let retryInstructions: string[] = [];
       const retryDecisions: import('@/utils/retryPlanner').RetryDecision[] = [];
       const maxAttempts = 3;
-      const assetContentType = extractImageCategory(asset);
+      const assetContentType = extractImageCategory(asset) as import('@/types').ImageCategory;
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         addLog('processing', `🖼️ Generation attempt ${attempt}/${maxAttempts}...`);
