@@ -451,6 +451,11 @@ Return this EXACT JSON structure:
         quality: checks.quality_acceptable ? 90 : 50,
         textLayout: checks.label_text_legible ? 90 : 50,
         noAdditions: checks.no_new_elements ? 90 : 40,
+        // Content-type-specific bonus scores for richer retry feedback
+        contextPreservation: (!isMain && (contentType === 'LIFESTYLE' || contentType === 'PRODUCT_IN_USE'))
+          ? (checks.background_compliant !== false ? 90 : 30) : undefined,
+        labelFidelity: (!isMain && (contentType === 'PACKAGING' || contentType === 'INFOGRAPHIC'))
+          ? (checks.label_text_legible ? 90 : 30) : undefined,
       },
     };
 
