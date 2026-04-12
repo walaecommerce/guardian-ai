@@ -16,6 +16,7 @@ interface AuditStepProps {
   listingTitle: string;
   isAnalyzing: boolean;
   onRequestFix: (id: string) => void;
+  onRequestEnhance?: (id: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
   onReverify: (id: string) => void;
   onBatchFix: () => void;
@@ -36,7 +37,7 @@ interface AuditStepProps {
 
 export function AuditStep({
   assets, listingTitle, isAnalyzing,
-  onRequestFix, onViewDetails, onReverify, onBatchFix,
+  onRequestFix, onRequestEnhance, onViewDetails, onReverify, onBatchFix,
   isBatchFixing, batchFixProgress, productAsin, competitorData,
   getMatchingPolicyUpdate, onGoToFix, onGoToImport, onRunAudit, onSelectAsset,
   onRetryFailedAnalysis, aiCreditsExhausted, productIdentity, identityProfile,
@@ -231,6 +232,7 @@ export function AuditStep({
         assets={assets}
         listingTitle={listingTitle}
         onRequestFix={onRequestFix}
+        onRequestEnhance={onRequestEnhance}
         onViewDetails={(asset) => { onSelectAsset(asset); }}
         onReverify={onReverify}
         onBatchFix={onBatchFix}

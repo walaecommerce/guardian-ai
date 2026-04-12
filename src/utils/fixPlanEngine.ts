@@ -101,9 +101,32 @@ function selectMainStrategy(
   return 'bg-cleanup';
 }
 
-function selectSecondaryStrategy(violations: Violation[]): FixStrategy {
+function selectSecondaryStrategy(
+  violations: Violation[],
+  contentType?: string,
+): FixStrategy {
+  // Content types that should never be auto-fixed
+  if (contentType === 'SIZE_CHART' || contentType === 'COMPARISON') {
+    return 'skip';
+  }
+
   const hasOverlay = hasViolationCategory(violations, 'badge', 'overlay', 'watermark', 'promotional');
+
+  // Infographics: only allow overlay removal, nothing else
+  if (contentType === 'INFOGRAPHIC') {
+    return hasOverlay ? 'overlay-removal' : 'skip';
+  }
+
   if (hasOverlay) return 'overlay-removal';
+
+  // For lifestyle/product-in-use, prefer lighter edits
+  const hasBg = hasViolationCategory(violations, 'background', 'white bg', 'rgb(255');
+  const hasOccupancy = hasViolationCategory(violations, 'occupancy', 'occupies', 'frame', 'crop');
+
+  if (hasBg && !hasOccupancy) return 'bg-cleanup';
+  if (hasOccupancy && !hasBg) return 'crop-reframe';
+  if (hasBg || hasOccupancy) return 'inpaint-edit';
+
   return 'inpaint-edit';
 }
 
@@ -150,12 +173,13 @@ export function buildFixPlan(
   violations: Violation[],
   deterministicFindings: DeterministicFindingSummary[],
   productIdentity?: ProductIdentityCard | null,
+  contentType?: string,
 ): FixPlan {
   const cat = category || 'GENERAL';
 
   const strategy = imageType === 'MAIN'
     ? selectMainStrategy(violations, deterministicFindings)
-    : selectSecondaryStrategy(violations);
+    : selectSecondaryStrategy(violations, contentType);
 
   // Collect target rule_ids from violations + failed deterministic findings
   const targetRuleIds = [

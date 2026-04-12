@@ -45,6 +45,7 @@ interface AnalysisResultsProps {
   assets: ImageAsset[];
   listingTitle: string;
   onRequestFix: (assetId: string) => void;
+  onRequestEnhance?: (assetId: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
   onReverify?: (assetId: string) => void;
   onBatchFix?: () => void;
@@ -315,12 +316,14 @@ function DeterministicFindingsPanel({ findings }: { findings: DeterministicFindi
 function AssetResultCard({
   asset,
   onRequestFix,
+  onRequestEnhance,
   onViewDetails,
   onReverify,
   getMatchingPolicyUpdate,
 }: {
   asset: ImageAsset;
   onRequestFix: (id: string) => void;
+  onRequestEnhance?: (id: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
   onReverify?: (assetId: string) => void;
   getMatchingPolicyUpdate?: (message: string, category: string) => PolicyUpdate | null;
@@ -518,8 +521,8 @@ function AssetResultCard({
               {asset.isGeneratingFix ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Wand2 className="w-4 h-4 mr-1" />Fix</>}
             </Button>
           ) : (
-            <Button variant="secondary" size="sm" className="flex-1" onClick={() => onViewDetails(asset)} disabled={asset.isGeneratingFix}>
-              {asset.isGeneratingFix ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Wand2 className="w-4 h-4 mr-1" />Enhance</>}
+            <Button variant="secondary" size="sm" className="flex-1" onClick={() => { onViewDetails(asset); onRequestEnhance?.(asset.id); }} disabled={asset.isGeneratingFix}>
+              {asset.isGeneratingFix ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Sparkles className="w-4 h-4 mr-1" />Enhance</>}
             </Button>
           )}
         </div>
@@ -574,6 +577,7 @@ export function AnalysisResults({
   assets,
   listingTitle,
   onRequestFix,
+  onRequestEnhance,
   onViewDetails,
   onReverify,
   onBatchFix,
@@ -731,7 +735,7 @@ export function AnalysisResults({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {analyzedAssets.map((asset) => (
-          <AssetResultCard key={asset.id} asset={asset} onRequestFix={onRequestFix} onViewDetails={onViewDetails} onReverify={onReverify} getMatchingPolicyUpdate={getMatchingPolicyUpdate} />
+          <AssetResultCard key={asset.id} asset={asset} onRequestFix={onRequestFix} onRequestEnhance={onRequestEnhance} onViewDetails={onViewDetails} onReverify={onReverify} getMatchingPolicyUpdate={getMatchingPolicyUpdate} />
         ))}
       </div>
     </div>

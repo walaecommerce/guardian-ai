@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import { ImageAsset } from '@/types';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, XCircle, Clock, Image as ImageIcon } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Clock, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { formatContentType } from '@/utils/sessionResume';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -18,6 +18,7 @@ const STATUS_CONFIG = {
   processing: { label: 'Processing', icon: Loader2, className: 'border-primary bg-primary/10 ring-2 ring-primary/30', iconClass: 'animate-spin text-primary', badgeVariant: 'default' as const },
   fixed: { label: 'Fixed', icon: CheckCircle, className: 'border-success/50 bg-success/5', iconClass: 'text-success', badgeVariant: 'default' as const },
   failed: { label: 'Needs Review', icon: XCircle, className: 'border-destructive/50 bg-destructive/5', iconClass: 'text-destructive', badgeVariant: 'destructive' as const },
+  skipped: { label: 'Skipped', icon: AlertCircle, className: 'border-yellow-500/50 bg-yellow-500/5', iconClass: 'text-yellow-500', badgeVariant: 'secondary' as const },
   pending: { label: 'Pending', icon: Clock, className: 'border-muted-foreground/20 bg-muted/30 opacity-60', iconClass: 'text-muted-foreground', badgeVariant: 'secondary' as const },
 };
 
@@ -26,6 +27,7 @@ export function FixQueuePanel({ queue, activeAssetId, progress }: FixQueuePanelP
 
   const fixedCount = queue.filter(a => a.batchFixStatus === 'fixed').length;
   const failedCount = queue.filter(a => a.batchFixStatus === 'failed').length;
+  const skippedCount = queue.filter(a => a.batchFixStatus === 'skipped').length;
   const pendingCount = queue.filter(a => a.batchFixStatus === 'pending').length;
   const processingAsset = queue.find(a => a.batchFixStatus === 'processing');
 
@@ -51,6 +53,11 @@ export function FixQueuePanel({ queue, activeAssetId, progress }: FixQueuePanelP
           {failedCount > 0 && (
             <Badge variant="destructive" className="text-[10px] h-5">
               {failedCount} Review
+            </Badge>
+          )}
+          {skippedCount > 0 && (
+            <Badge variant="secondary" className="text-[10px] h-5 bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
+              {skippedCount} Skipped
             </Badge>
           )}
           {pendingCount > 0 && (
@@ -99,7 +106,7 @@ export function FixQueuePanel({ queue, activeAssetId, progress }: FixQueuePanelP
                 config.className,
                 isActive && 'scale-105'
               )}
-              title={`${idx + 1}. ${asset.name} — ${config.label}`}
+              title={`${idx + 1}. ${asset.name} — ${config.label}${asset.batchSkipReason ? `: ${asset.batchSkipReason}` : ''}`}
             >
               {status === 'pending' ? (
                 <Skeleton className="w-full h-full" />
@@ -111,6 +118,7 @@ export function FixQueuePanel({ queue, activeAssetId, progress }: FixQueuePanelP
                 'absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center shadow-sm',
                 status === 'fixed' && 'bg-success',
                 status === 'failed' && 'bg-destructive',
+                status === 'skipped' && 'bg-yellow-500',
                 status === 'processing' && 'bg-primary',
                 status === 'pending' && 'bg-muted',
               )}>

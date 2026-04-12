@@ -225,6 +225,7 @@ const Index = () => {
             listingTitle={session.listingTitle}
             isAnalyzing={session.isAnalyzing}
             onRequestFix={(id) => session.handleRequestFix(id)}
+            onRequestEnhance={(id) => session.handleRequestEnhance(id)}
             onViewDetails={session.handleViewDetails}
             onReverify={session.handleReverify}
             onBatchFix={session.handleBatchFix}
