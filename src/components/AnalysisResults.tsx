@@ -17,6 +17,7 @@ import {
   type EvidenceDisplay,
   type FindingGroup,
 } from '@/utils/evidenceHelpers';
+import { getPolicySummary, type PolicySummary } from '@/utils/policySummary';
 
 const getFixMethodConfig = (method: FixMethod) => {
   switch (method) {
@@ -623,6 +624,13 @@ export function AnalysisResults({
           </div>
         </CardHeader>
         <CardContent>
+          {/* Policy context banner */}
+          {completedAssets.length > 0 && (() => {
+            const detectedCat = completedAssets[0]?.analysisResult?.productCategory;
+            const catKey = detectedCat ? (GEMINI_CATEGORY_MAP[detectedCat] || detectedCat) as ProductCategory : 'GENERAL_MERCHANDISE' as ProductCategory;
+            const summary = getPolicySummary('main', catKey);
+            return <PolicyContextBanner summary={summary} />;
+          })()}
           <div className="flex items-center justify-between">
             <div className="flex gap-6">
               <div className="text-center">
