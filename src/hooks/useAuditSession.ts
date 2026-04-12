@@ -1027,7 +1027,7 @@ export function useAuditSession() {
 
           // Build fix plan before generation
           const { buildFixPlan } = await import('@/utils/fixPlanEngine');
-          const localContentType = assetContentType;
+          // assetContentType is declared outside the loop for reuse in best-attempt selection
           let fixPlan = buildFixPlan(
             asset.type as 'MAIN' | 'SECONDARY',
             asset.analysisResult?.productCategory || 'GENERAL',
