@@ -17,6 +17,9 @@ import {
   getSourceBadgeLabel,
   getSourceBadgeClass,
 } from '@/utils/evidenceHelpers';
+import { POLICY_VERSION } from '@/config/policyRegistry';
+import { GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
+import { getPolicySummary } from '@/utils/policySummary';
 
 const FIX_METHOD_CONFIG: Record<FixMethod, { label: string; icon: React.ElementType; className: string }> = {
   'bg-segmentation': { label: 'A1 · BG Seg', icon: Layers, className: 'bg-cyan-500/90 text-white' },
@@ -138,6 +141,26 @@ export function ImageDetailDrawer({
                 )}
               </div>
             )}
+
+            {/* Policy version + context */}
+            {result && (() => {
+              const detectedCat = result.productCategory;
+              const catKey = detectedCat ? (GEMINI_CATEGORY_MAP[detectedCat] || detectedCat) as ProductCategory : 'GENERAL_MERCHANDISE' as ProductCategory;
+              const imgType = asset.type === 'MAIN' ? 'main' as const : 'secondary' as const;
+              const summary = getPolicySummary(imgType, catKey);
+              return (
+                <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">
+                  <span className="font-mono font-semibold text-foreground/60">Policy v{summary.policyVersion}</span>
+                  <span>{summary.categoryIcon} {summary.categoryLabel}</span>
+                  <span>{summary.totalApplicableRules} rules</span>
+                  {summary.sources[0]?.url && (
+                    <a href={summary.sources[0].url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-primary/70 hover:text-primary">
+                      <ExternalLink className="w-2.5 h-2.5" /> Source
+                    </a>
+                  )}
+                </div>
+              );
+            })()}
 
             <Separator />
 
