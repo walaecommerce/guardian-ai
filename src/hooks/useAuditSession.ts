@@ -1423,7 +1423,6 @@ export function useAuditSession() {
     addLog('success', `✅ Fixes complete — ${fixedCount} images corrected`);
     toast({ title: 'Fix Complete', description: `${fixedCount} images corrected` });
   };
-  };
 
   // --- Batch Enhance ---
   const [isBatchEnhancing, setIsBatchEnhancing] = useState(false);
