@@ -32,9 +32,16 @@ export function FixAttemptHistory({
       <div className="space-y-3">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground font-medium">
-            {reviewMode ? 'Fix Attempts' : 'Attempts'} ({attempts.length})
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground font-medium">
+              {reviewMode ? 'Fix Trace' : 'Attempts'} ({attempts.length})
+            </span>
+            {reviewMode && (
+              <Badge variant="outline" className="text-[9px] h-4 px-1.5 text-muted-foreground border-muted">
+                Saved review
+              </Badge>
+            )}
+          </div>
           <span className="text-[10px] text-muted-foreground">
             Up to 3 AI attempts — best result auto-selected
           </span>
@@ -77,6 +84,11 @@ export function FixAttemptHistory({
                             alt={`Attempt ${attempt.attempt}`}
                             className="w-full h-full object-cover"
                           />
+                        ) : reviewMode ? (
+                          <div className="w-full h-full bg-muted/50 flex flex-col items-center justify-center gap-0.5">
+                            <span className="text-lg font-bold text-muted-foreground/60">#{attempt.attempt}</span>
+                            <span className="text-[7px] text-muted-foreground/40 uppercase tracking-wider">metadata</span>
+                          </div>
                         ) : (
                           <div className="w-full h-full bg-muted flex items-center justify-center">
                             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
