@@ -6,7 +6,7 @@ import type { PolicyRule } from './policyRegistry';
 import type { ProductCategory } from './categoryRules';
 
 // Duplicated here to break circular dependency with policyRegistry.ts
-const CATEGORY_POLICY_VERSION = '1.1.0';
+const CATEGORY_POLICY_VERSION = '1.2.0';
 
 type CategoryPolicyRule = PolicyRule & { fix_guidance: string };
 
