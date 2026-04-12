@@ -1288,7 +1288,37 @@ export function useAuditSession() {
         if (sessionImageId && currentSessionId) {
           const uploaded = await uploadImage(finalImage, currentSessionId, `fixed_${asset.name}`);
           if (uploaded) {
-            await supabase.from('session_images').update({ fixed_image_url: uploaded.url, status: 'fixed' }).eq('id', sessionImageId);
+            // Persist fix attempt history alongside the fixed image URL
+            const fixReviewData = {
+              attempts: persistedAttempts.map(a => ({
+                attempt: a.attempt,
+                status: a.status,
+                strategyUsed: a.strategyUsed,
+                isBestAttempt: a.isBestAttempt,
+                verification: a.verification ? {
+                  score: a.verification.score,
+                  isSatisfactory: a.verification.isSatisfactory,
+                  productMatch: a.verification.productMatch,
+                  critique: a.verification.critique,
+                  passedChecks: a.verification.passedChecks,
+                  failedChecks: a.verification.failedChecks,
+                  componentScores: a.verification.componentScores,
+                } : undefined,
+                retryDecision: a.retryDecision ? {
+                  rationale: a.retryDecision.rationale,
+                  nextStrategy: a.retryDecision.nextStrategy,
+                  stopReason: a.retryDecision.stopReason,
+                } : undefined,
+              })),
+              bestAttemptSelection: bestSel,
+              stopReason: stopR,
+              lastFixStrategy: lastStrategy,
+            };
+            await supabase.from('session_images').update({
+              fixed_image_url: uploaded.url,
+              status: 'fixed',
+              fix_attempts: fixReviewData as any,
+            }).eq('id', sessionImageId);
             await supabase.from('enhancement_sessions').update({ 
               fixed_count: assets.filter(a => a.fixedImage || a.id === assetId).length
             }).eq('id', currentSessionId);
