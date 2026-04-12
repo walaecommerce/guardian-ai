@@ -577,6 +577,7 @@ export function AnalysisResults({
   assets,
   listingTitle,
   onRequestFix,
+  onRequestEnhance,
   onViewDetails,
   onReverify,
   onBatchFix,
@@ -734,7 +735,7 @@ export function AnalysisResults({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {analyzedAssets.map((asset) => (
-          <AssetResultCard key={asset.id} asset={asset} onRequestFix={onRequestFix} onViewDetails={onViewDetails} onReverify={onReverify} getMatchingPolicyUpdate={getMatchingPolicyUpdate} />
+          <AssetResultCard key={asset.id} asset={asset} onRequestFix={onRequestFix} onRequestEnhance={onRequestEnhance} onViewDetails={onViewDetails} onReverify={onReverify} getMatchingPolicyUpdate={getMatchingPolicyUpdate} />
         ))}
       </div>
     </div>
