@@ -10,6 +10,8 @@ import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonic
 import { classifyImage } from '@/services/imageClassifier';
 import { extractImageCategory } from '@/utils/imageCategory';
 import { buildAssetFromDownload } from '@/utils/sessionAssetHelpers';
+import { useSessionLoader } from '@/hooks/useSessionLoader';
+import { inferCurrentStep } from '@/utils/sessionResume';
 import {
   ImportMetadata,
   buildImportMetadata,
@@ -34,6 +36,7 @@ export type AuditStep = 'import' | 'audit' | 'fix' | 'review';
 
 export function useAuditSession() {
   const { guard: creditGate } = useCreditGate();
+  const { loadSession: loadSessionData, isLoading: isHydrating } = useSessionLoader();
   const { refresh: refreshCredits } = useCredits();
   const { user } = useAuth();
   const [assets, setAssets] = useState<ImageAsset[]>([]);
