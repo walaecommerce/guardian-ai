@@ -98,8 +98,8 @@ describe('selectBestAttempt', () => {
   describe('content-type-aware selection', () => {
     it('LIFESTYLE: prefers context-preserved attempt over higher raw score', () => {
       const attempts = [
-        makeAttempt(0, { score: 75, identity: 85, contextPreservation: 90 }),
-        makeAttempt(1, { score: 90, identity: 85, contextPreservation: 40 }),
+        makeAttempt(0, { score: 65, identity: 75, compliance: 70, quality: 65, contextPreservation: 90 }),
+        makeAttempt(1, { score: 95, identity: 95, compliance: 95, quality: 95, contextPreservation: 40 }),
       ];
       const result = selectBestAttempt(attempts, 'SECONDARY', 'LIFESTYLE');
       expect(result.selectedAttemptIndex).toBe(0);
@@ -109,8 +109,8 @@ describe('selectBestAttempt', () => {
 
     it('INFOGRAPHIC: prefers layout-preserved attempt', () => {
       const attempts = [
-        makeAttempt(0, { score: 72, layoutPreservation: 90 }),
-        makeAttempt(1, { score: 88, layoutPreservation: 50 }),
+        makeAttempt(0, { score: 60, identity: 70, compliance: 65, quality: 65, layoutPreservation: 90 }),
+        makeAttempt(1, { score: 95, identity: 95, compliance: 95, quality: 95, layoutPreservation: 50 }),
       ];
       const result = selectBestAttempt(attempts, 'SECONDARY', 'INFOGRAPHIC');
       expect(result.selectedAttemptIndex).toBe(0);
@@ -120,8 +120,8 @@ describe('selectBestAttempt', () => {
 
     it('PACKAGING: prefers label-fidelity-preserved attempt', () => {
       const attempts = [
-        makeAttempt(0, { score: 70, identity: 85, labelFidelity: 85 }),
-        makeAttempt(1, { score: 88, identity: 85, labelFidelity: 50 }),
+        makeAttempt(0, { score: 60, identity: 75, compliance: 65, quality: 65, labelFidelity: 85 }),
+        makeAttempt(1, { score: 95, identity: 95, compliance: 95, quality: 95, labelFidelity: 50 }),
       ];
       const result = selectBestAttempt(attempts, 'SECONDARY', 'PACKAGING');
       expect(result.selectedAttemptIndex).toBe(0);
