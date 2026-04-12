@@ -1696,6 +1696,7 @@ export function useAuditSession() {
     isRetrying,
     bulkProgress,
     productIdentity,
+    identityProfile,
     styleConsistency,
     isAnalyzingStyle,
     competitorData,
