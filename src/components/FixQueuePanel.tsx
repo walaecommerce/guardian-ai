@@ -55,6 +55,11 @@ export function FixQueuePanel({ queue, activeAssetId, progress }: FixQueuePanelP
               {failedCount} Review
             </Badge>
           )}
+          {skippedCount > 0 && (
+            <Badge variant="secondary" className="text-[10px] h-5 bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
+              {skippedCount} Skipped
+            </Badge>
+          )}
           {pendingCount > 0 && (
             <Badge variant="secondary" className="text-[10px] h-5">
               {pendingCount} Pending
