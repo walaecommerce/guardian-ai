@@ -1,95 +1,134 @@
 
 
-## Phase 2: Category-Specific Policy Expansion
+## Phase 3: Category-Aware Safe Fix Generation
 
 ### Overview
-Expand the Phase 1 universal policy registry and deterministic audit engine to support category-specific rules with structured evidence, category-aware fix guidance, and layered rule selection.
+Refactor the fix generation pipeline to default to edit-preserving fixes for MAIN images (not full regeneration), add a structured fix plan layer that selects safe fix modes based on category + violations + image role, strengthen identity preservation constraints per category, and improve verification to check for new violations.
 
 ### Files Changed
 
 **New files:**
-- `src/config/categoryPolicyRules.ts` — Category-specific policy rules for APPAREL, FOOTWEAR, JEWELRY, HANDBAGS_LUGGAGE, HARDLINES (plus existing categories)
+- `src/utils/fixPlanEngine.ts` — Fix plan builder: given image type, category, violations, and deterministic findings, produces a structured `FixPlan` with strategy, preservation constraints, permitted changes, and prohibited modifications
+- `src/utils/__tests__/fixPlanEngine.test.ts` — Tests for fix strategy selection, category-aware planning, main-image safe mode
 
 **Updated files:**
-- `src/config/policyRegistry.ts` — Widen `category` type from `'universal'` to include all category strings; add `getRulesForCategory()` and `getApplicableRules()` helpers; add `fix_guidance` field to `PolicyRule`
-- `src/config/categoryRules.ts` — Add APPAREL, FOOTWEAR, JEWELRY, HANDBAGS_LUGGAGE, HARDLINES to `ProductCategory` type, `CATEGORY_RULES`, `CATEGORY_OPTIONS`, and `GEMINI_CATEGORY_MAP`
-- `src/utils/deterministicAudit.ts` — Accept `productCategory` parameter; run category-specific deterministic checks after universal checks; attach category to findings
-- `src/hooks/useAuditSession.ts` — Pass detected/forced category into `runDeterministicAudit`
-- `supabase/functions/analyze-image/index.ts` — Add APPAREL/FOOTWEAR/JEWELRY/HANDBAGS_LUGGAGE/HARDLINES rule strings to the LLM prompt; add them to `CATEGORY_RULES_MAP` and category detection prompt; include category in violation mapping
-- `src/utils/__tests__/policyEngine.test.ts` — Add tests for category rule selection, override behavior, category-specific rules, and `getApplicableRules` helper
+- `supabase/functions/generate-fix/index.ts` — Receives fix plan from client; uses it to build structured prompts with explicit preserve/change/remove/rule sections; adds category-specific preservation constraints; defaults MAIN to Pattern A1 more aggressively
+- `supabase/functions/verify-image/index.ts` — Adds "no new violations" check and category-aware identity verification; checks fix actually addressed the target rule_id
+- `src/hooks/useAuditSession.ts` — Calls `buildFixPlan()` before invoking generate-fix; passes plan in request body
+- `src/types.ts` — Add `FixPlan` and `FixStrategy` types
 
 ### Implementation Details
 
-**1. PolicyRule type expansion** (`policyRegistry.ts`):
+**1. FixPlan types** (`src/types.ts`):
 ```typescript
-// category widens from 'universal' to:
-category: 'universal' | 'APPAREL' | 'FOOTWEAR' | 'JEWELRY' | 'HANDBAGS_LUGGAGE' | 'HARDLINES' | 'FOOD_BEVERAGE' | 'SUPPLEMENTS' | 'PET_SUPPLIES' | 'BEAUTY_PERSONAL_CARE' | 'ELECTRONICS' | 'GENERAL_MERCHANDISE';
-fix_guidance?: string; // category-aware fix recommendation
+export type FixStrategy = 'bg-cleanup' | 'crop-reframe' | 'overlay-removal' | 'inpaint-edit' | 'full-regeneration';
+
+export interface FixPlan {
+  strategy: FixStrategy;
+  targetRuleIds: string[];
+  category: string;
+  imageType: 'MAIN' | 'SECONDARY';
+  preserve: string[];      // what must not change
+  permitted: string[];      // what may be modified
+  remove: string[];         // what must be removed
+  prohibited: string[];     // modifications that are forbidden
+  categoryConstraints: string[]; // category-specific instructions
+}
 ```
 
-Add helpers:
-- `getRulesForCategory(category)` — returns universal + category-specific rules
-- `getApplicableRules(imageType, category)` — filters by both image type and category
+**2. Fix plan engine** (`src/utils/fixPlanEngine.ts`):
 
-**2. Category-specific policy rules** (`categoryPolicyRules.ts`):
+Core function `buildFixPlan(imageType, category, violations, deterministicFindings, productIdentity)`:
 
-APPAREL rules (example):
-- `APPAREL_MAIN_MODEL` (llm) — Adult apparel main image should show product on model or ghost mannequin
-- `APPAREL_KIDS_OFF_MODEL` (llm) — Kids/baby apparel should be flat lay or off-model
-- `APPAREL_NO_CROP` (hybrid) — No cropping of garment edges
+- For MAIN images, selects strategy based on violation types:
+  - Background violations → `bg-cleanup`
+  - Occupancy violations → `crop-reframe`
+  - Text/badge overlay violations → `overlay-removal`
+  - Multiple issues → `inpaint-edit`
+  - No original image available → `full-regeneration` (only fallback)
+- For SECONDARY images, defaults to `overlay-removal` or `inpaint-edit`
+- Populates `preserve[]` from category:
+  - APPAREL: garment shape, cut, fabric texture, color, stitching
+  - FOOTWEAR: shoe shape, material, color, sole pattern
+  - JEWELRY: metal/stone arrangement, settings, finish
+  - HANDBAGS_LUGGAGE: handles, straps, hardware, silhouette
+  - HARDLINES/ELECTRONICS: ports, controls, safety labels, dimensions
+  - FOOD/SUPPLEMENTS/BEAUTY/PET: all packaging text, label claims, regulated info
+- Populates `prohibited[]` from category (e.g., "Do not change label text" for FOOD)
+- Populates `remove[]` from violation list (badges, non-white background pixels, etc.)
 
-FOOTWEAR rules:
-- `FOOTWEAR_SINGLE_SHOE` (llm) — Main image: single left shoe at 45-degree angle facing left
-- `FOOTWEAR_SOLE_VISIBLE` (llm) — Secondary should include sole view
+**3. generate-fix refactor** (`supabase/functions/generate-fix/index.ts`):
 
-JEWELRY rules:
-- `JEWELRY_NO_MANNEQUIN` (llm) — No mannequin or model on main image
-- `JEWELRY_NO_PACKAGING` (llm) — No gift boxes or packaging on main image
-- `JEWELRY_OCCUPANCY` (hybrid) — Higher occupancy expectation (product small by nature)
+- Accept `fixPlan` in request body
+- New prompt builder `buildPlanAwarePrompt(fixPlan, title, identity)` that structures the prompt as:
+  ```
+  FIX OBJECTIVE: [strategy description]
+  TARGET RULES: [rule_ids being fixed]
+  
+  MUST PRESERVE:
+  - [preserve items]
+  
+  MAY CHANGE:
+  - [permitted items]
+  
+  MUST REMOVE:
+  - [remove items]
+  
+  PROHIBITED MODIFICATIONS:
+  - [prohibited items]
+  
+  CATEGORY CONSTRAINTS:
+  - [category-specific instructions]
+  ```
+- When `fixPlan.strategy !== 'full-regeneration'`, always use Pattern A1 (edit-only) with the original image
+- Only fall back to Pattern A2 when strategy is explicitly `full-regeneration` or A1 fails with identity mismatch
+- Keep existing `buildBackgroundReplacementPrompt` and `buildMainImagePrompt` as inner helpers, but wrap them with the plan-aware structure
 
-HANDBAGS_LUGGAGE rules:
-- `HANDBAGS_FULL_PRODUCT` (llm) — Full product visible, no cropping
-- `HANDBAGS_NO_PROPS` (llm) — No distracting props or styling accessories
-- `HANDBAGS_MAIN_PRESENTATION` (llm) — Upright, front-facing, handles visible
+**4. verify-image improvements** (`supabase/functions/verify-image/index.ts`):
 
-HARDLINES rules:
-- `HARDLINES_WHITE_BG` (hybrid) — White background strictly enforced
-- `HARDLINES_IMAGE_MIX` (llm) — Should include environment/size-fit images in secondary set
+- Add `targetRuleIds` to request body (from fix plan)
+- Add to rubric: "Target rule violations fixed" check — verify the specific rules that were supposed to be fixed are now passing
+- Add "No new violations introduced" as explicit check
+- Add category-aware identity section that lists category-specific preservation requirements
 
-Each rule includes `fix_guidance` for category-aware recommendations.
+**5. useAuditSession.ts integration** (around line 832):
 
-**3. Deterministic audit expansion** (`deterministicAudit.ts`):
-- `runDeterministicAudit` gains optional `productCategory` param
-- After universal checks, runs category-specific deterministic/hybrid checks (e.g., APPAREL crop detection reuses edge-crop logic with tighter thresholds)
-- Each finding gets `category` field in evidence
+- Import `buildFixPlan` from `src/utils/fixPlanEngine`
+- Before calling `generate-fix`, build a fix plan:
+  ```typescript
+  const fixPlan = buildFixPlan(
+    asset.type,
+    asset.analysisResult?.productCategory || selectedCategory || 'GENERAL',
+    asset.analysisResult?.violations || [],
+    asset.analysisResult?.deterministicFindings || [],
+    productIdentity
+  );
+  ```
+- Pass `fixPlan` in the edge function invocation body
+- Pass `fixPlan.targetRuleIds` to verify-image
 
-**4. Edge function expansion** (`analyze-image/index.ts`):
-- Add APPAREL_RULES, FOOTWEAR_RULES, JEWELRY_RULES, HANDBAGS_LUGGAGE_RULES, HARDLINES_RULES prompt strings
-- Add these to `CATEGORY_RULES_MAP` and SYSTEM_PROMPT category list
-- Add to `product_category` enum in OUTPUT_SCHEMA
-- Violation mapping preserves `rule_id` and `category` from AI response
+**6. Tests** (`src/utils/__tests__/fixPlanEngine.test.ts`):
 
-**5. categoryRules.ts expansion**:
-- Add 5 new ProductCategory values: APPAREL, FOOTWEAR, JEWELRY, HANDBAGS_LUGGAGE, HARDLINES
-- Add corresponding `CategoryRuleSet` entries with keywords, main/secondary rules, ocr_fields, prohibited, report_notes
-- Add to CATEGORY_OPTIONS and GEMINI_CATEGORY_MAP
-
-**6. Tests** (`policyEngine.test.ts`):
-- `getRulesForCategory` returns universal + category rules
-- `getApplicableRules` filters by image type AND category
-- Category rules don't break universal rule selection
-- At least one rule per new category exists
-- `computePolicyStatus` works with category-tagged findings
+- MAIN image with bg violation → strategy `bg-cleanup`, not `full-regeneration`
+- MAIN image with overlay violation → strategy `overlay-removal`
+- SECONDARY image → never `full-regeneration` unless no original
+- APPAREL category → preserve includes "garment shape", prohibited includes "do not alter fabric texture"
+- FOOD category → preserve includes "packaging text", "label claims"
+- JEWELRY category → preserve includes "metal/stone arrangement"
+- Plan includes target rule_ids from violations
+- Plan with no violations → strategy `bg-cleanup` (safest default for MAIN)
 
 ### Residual Risks
-- LLM category detection may misclassify edge cases (e.g., jewelry vs accessories) — mitigated by existing `forcedCategory` override
-- Some category rules are inherently subjective (model vs flat lay) — marked as `llm` check_type, not `deterministic`
-- New category keywords in `categoryRules.ts` may overlap (e.g., "bag" matches both HANDBAGS and GENERAL) — ordering matters, first match wins
+
+- LLM may still alter product despite explicit preservation instructions — mitigated by verification loop with identity checks
+- `full-regeneration` fallback still exists but is no longer the default path for MAIN images
+- Edge function prompt length increases slightly due to structured plan sections — within model context limits
+- Fix plan is built client-side; a malicious client could override it — but verification still runs server-side with identity checks
 
 ### Verification
 Will run and return exact output of:
-- `rg -n "APPAREL|FOOTWEAR|JEWELRY|HANDBAGS|LUGGAGE|HARDLINES|category" src supabase -S`
-- `rg -n "rule_id|policyStatus|qualityScore|deterministicFindings|applicableRules|detectedCategory" src supabase -S`
+- `rg -n "fix plan|fix strategy|preserve|inpaint|regenerate|policy|rule_id|deterministicFindings|identity" src supabase -S`
+- `rg -n "APPAREL|FOOTWEAR|JEWELRY|HANDBAGS|LUGGAGE|HARDLINES|FOOD_BEVERAGE|SUPPLEMENTS|BEAUTY|PET_SUPPLIES|ELECTRONICS" src supabase/functions/generate-fix -S`
 - `rg -n "describe\\(|it\\(|test\\(" src supabase -S`
 - `npm run test`
 - `npm run typecheck`
