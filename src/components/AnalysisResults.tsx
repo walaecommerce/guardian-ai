@@ -521,8 +521,8 @@ function AssetResultCard({
               {asset.isGeneratingFix ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Wand2 className="w-4 h-4 mr-1" />Fix</>}
             </Button>
           ) : (
-            <Button variant="secondary" size="sm" className="flex-1" onClick={() => onViewDetails(asset)} disabled={asset.isGeneratingFix}>
-              {asset.isGeneratingFix ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Wand2 className="w-4 h-4 mr-1" />Enhance</>}
+            <Button variant="secondary" size="sm" className="flex-1" onClick={() => { onViewDetails(asset); onRequestEnhance?.(asset.id); }} disabled={asset.isGeneratingFix}>
+              {asset.isGeneratingFix ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Sparkles className="w-4 h-4 mr-1" />Enhance</>}
             </Button>
           )}
         </div>
