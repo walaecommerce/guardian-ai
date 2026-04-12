@@ -338,6 +338,7 @@ export function useAuditSession() {
 
         // Auto-advance to audit step
         setCurrentStep('audit');
+        refreshCredits();
       } else {
         throw new Error('No images could be downloaded');
       }
