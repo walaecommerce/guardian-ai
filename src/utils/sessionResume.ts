@@ -47,5 +47,5 @@ export function formatContentType(category: string | null | undefined): string {
     SWATCH: 'Swatch',
     UNKNOWN: 'Unknown',
   };
-  return map[category] || category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return map[category] || category.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
