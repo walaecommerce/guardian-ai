@@ -1,4 +1,4 @@
-import type { FixStrategy, VerificationResult } from '@/types';
+import type { FixStrategy, VerificationResult, ImageCategory } from '@/types';
 
 export interface RetryDecision {
   shouldContinue: boolean;
@@ -19,6 +19,7 @@ export interface RetryPlannerInput {
   verification: VerificationResult;
   targetRuleIds: string[];
   previousDecisions: RetryDecision[];
+  contentType?: ImageCategory;
 }
 
 // MAIN images follow this strict escalation path — never reaches full-regeneration
@@ -68,10 +69,134 @@ function detectComplianceFailure(verification: VerificationResult): boolean {
   ) ?? false;
 }
 
+// ── Content-type-specific failure detectors ───────────────────
+
+function detectContextPreservationFailure(verification: VerificationResult): boolean {
+  if (verification.componentScores?.contextPreservation !== undefined && verification.componentScores.contextPreservation < 70) return true;
+  if (verification.failedChecks?.some(c => c.toLowerCase().includes('context') || c.toLowerCase().includes('scene'))) return true;
+  return false;
+}
+
+function detectLabelFidelityFailure(verification: VerificationResult): boolean {
+  if (verification.componentScores?.labelFidelity !== undefined && verification.componentScores.labelFidelity < 70) return true;
+  if (verification.failedChecks?.some(c => c.toLowerCase().includes('label') || c.toLowerCase().includes('text drift'))) return true;
+  return false;
+}
+
+function detectLayoutPreservationFailure(verification: VerificationResult): boolean {
+  if (verification.componentScores?.layoutPreservation !== undefined && verification.componentScores.layoutPreservation < 70) return true;
+  if (verification.failedChecks?.some(c => c.toLowerCase().includes('layout') || c.toLowerCase().includes('text changed'))) return true;
+  return false;
+}
+
+// ── Content-type-specific retry adjustments ───────────────────
+
+function applyContentTypeConstraints(
+  contentType: ImageCategory | undefined,
+  verification: VerificationResult,
+  previousDecisions: RetryDecision[],
+  tightenedPreserve: string[],
+  tightenedProhibited: string[],
+  additionalInstructions: string[],
+  rationale: string[],
+): { shouldStop: boolean; stopReason?: string } {
+  if (!contentType) return { shouldStop: false };
+
+  switch (contentType) {
+    case 'LIFESTYLE':
+    case 'PRODUCT_IN_USE': {
+      if (detectContextPreservationFailure(verification)) {
+        tightenedPreserve.push(
+          'Scene composition, background environment, and lighting',
+          'Person/hand positioning and use-context',
+        );
+        tightenedProhibited.push(
+          'DO NOT alter background scene or environment',
+          'DO NOT remove or reposition people, hands, or contextual elements',
+        );
+        additionalInstructions.push(
+          'CRITICAL: Previous attempt altered the scene context. Preserve the lifestyle/use-context scene EXACTLY.',
+        );
+        rationale.push('Context preservation failure — tightening scene constraints.');
+
+        if (hasRepeatedFailure(previousDecisions, 'context') || hasRepeatedFailure(previousDecisions, 'scene')) {
+          return { shouldStop: true, stopReason: 'repeated context preservation failure on lifestyle image' };
+        }
+      }
+      break;
+    }
+
+    case 'INFOGRAPHIC': {
+      if (detectLayoutPreservationFailure(verification)) {
+        tightenedPreserve.push(
+          'All informational text, callouts, and annotations',
+          'Layout structure and text positioning',
+        );
+        tightenedProhibited.push(
+          'DO NOT modify, move, or remove any informational text or callout',
+          'DO NOT rearrange layout elements',
+        );
+        additionalInstructions.push(
+          'CRITICAL: Previous attempt altered infographic text/layout. Preserve ALL text and layout EXACTLY.',
+        );
+        rationale.push('Layout/text preservation failure — tightening infographic constraints.');
+
+        if (hasRepeatedFailure(previousDecisions, 'layout') || hasRepeatedFailure(previousDecisions, 'text')) {
+          return { shouldStop: true, stopReason: 'repeated layout/text preservation failure on infographic' };
+        }
+      }
+      break;
+    }
+
+    case 'PACKAGING': {
+      if (detectLabelFidelityFailure(verification)) {
+        tightenedPreserve.push(
+          'All printed label text, ingredients, and brand markings',
+          'Packaging structure and label positioning',
+        );
+        tightenedProhibited.push(
+          'DO NOT alter, hallucinate, or rewrite any printed text on packaging',
+          'DO NOT change label colors, fonts, or placement',
+        );
+        additionalInstructions.push(
+          'CRITICAL: Previous attempt introduced label text drift. Preserve ALL packaging text EXACTLY as printed.',
+        );
+        rationale.push('Label fidelity failure — tightening packaging constraints.');
+
+        if (hasRepeatedFailure(previousDecisions, 'label') || hasRepeatedFailure(previousDecisions, 'text drift')) {
+          return { shouldStop: true, stopReason: 'repeated label fidelity failure on packaging image' };
+        }
+      }
+      break;
+    }
+
+    case 'DETAIL': {
+      const overEdited = verification.failedChecks?.some(c =>
+        c.toLowerCase().includes('over-edit') || c.toLowerCase().includes('detail')
+      );
+      if (overEdited) {
+        tightenedPreserve.push('Product texture, surface details, and close-up features');
+        tightenedProhibited.push('DO NOT smooth, blur, or alter product surface details');
+        additionalInstructions.push(
+          'Previous attempt over-edited product details. Make MINIMAL changes only.',
+        );
+        rationale.push('Detail over-editing detected — constraining edits.');
+      }
+      break;
+    }
+
+    // PRODUCT_SHOT secondary — normal compliance retries, no special constraints
+    default:
+      break;
+  }
+
+  return { shouldStop: false };
+}
+
 export function planRetry(input: RetryPlannerInput): RetryDecision {
   const {
     imageType, currentStrategy, attempt, maxAttempts,
-    verification, targetRuleIds, previousDecisions,
+    verification, targetRuleIds, previousDecisions, contentType,
   } = input;
 
   const isMain = imageType === 'MAIN';
@@ -140,6 +265,25 @@ export function planRetry(input: RetryPlannerInput): RetryDecision {
       'WARNING: The previous attempt introduced new violations. Only modify what is explicitly listed in MUST REMOVE. Do not add anything new.',
     );
     rationale.push('New violations detected — tightening prohibited list.');
+  }
+
+  // ── Content-type-specific constraints (SECONDARY only) ────────
+  if (!isMain && contentType) {
+    const ctResult = applyContentTypeConstraints(
+      contentType, verification, previousDecisions,
+      tightenedPreserve, tightenedProhibited, additionalInstructions, rationale,
+    );
+    if (ctResult.shouldStop) {
+      return {
+        shouldContinue: false,
+        nextStrategy: currentStrategy,
+        rationale: rationale.join(' ') || ctResult.stopReason || 'Content-type safety stop.',
+        tightenedPreserve: [],
+        tightenedProhibited: [],
+        additionalInstructions: [],
+        stopReason: ctResult.stopReason,
+      };
+    }
   }
 
   // ── Target rules still failing ────────────────────────────────
