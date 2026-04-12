@@ -230,6 +230,15 @@ export interface FixAttempt {
   fixTier?: FixTier; // Which AI tier was used
   logs?: LogEntry[]; // Logs specific to this attempt
   retryDecision?: RetryDecision; // Retry planner output for this attempt
+  strategyUsed?: FixStrategy; // Which strategy was used for this attempt
+  isBestAttempt?: boolean; // Whether this was selected as the best attempt
+}
+
+// Best attempt selection result
+export interface BestAttemptSelection {
+  selectedAttemptIndex: number;
+  selectedReason: string;
+  selectionType: 'score-driven' | 'safety-driven';
 }
 
 // Fix Progress with intermediate state
@@ -242,6 +251,8 @@ export interface FixProgressState {
   thinkingSteps: string[]; // Live AI reasoning
   lastCritique?: string;
   customPrompt?: string; // User's custom prompt override
+  bestAttemptSelection?: BestAttemptSelection; // Which attempt was chosen as best
+  stopReason?: string; // Why retries stopped early
 }
 
 // Mode for optimize modal
