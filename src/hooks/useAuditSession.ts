@@ -1346,6 +1346,12 @@ export function useAuditSession() {
     setBatchFixProgress({ current: 0, total: failedAssets.length });
     addLog('processing', `🔧 Starting Fix All for ${failedAssets.length} failed images...`);
     
+    // Mark all queue items with their batch status
+    setAssets(prev => prev.map(a => {
+      const inQueue = failedAssets.some(f => f.id === a.id);
+      return inQueue ? { ...a, batchFixStatus: 'pending' as const } : a;
+    }));
+
     let fixedCount = 0;
 
     for (let i = 0; i < failedAssets.length; i++) {
@@ -1360,8 +1366,18 @@ export function useAuditSession() {
         break;
       }
 
+      // Mark current as processing
+      setAssets(prev => prev.map(a => a.id === failedAssets[i].id ? { ...a, batchFixStatus: 'processing' as const } : a));
+
       setBatchFixProgress({ current: i + 1, total: failedAssets.length });
       await handleRequestFix(failedAssets[i].id);
+      
+      // After fix, mark as fixed or failed based on result
+      setAssets(prev => prev.map(a => {
+        if (a.id !== failedAssets[i].id) return a;
+        return { ...a, batchFixStatus: a.fixedImage ? 'fixed' as const : 'failed' as const };
+      }));
+      
       fixedCount++;
 
       if (i < failedAssets.length - 1) {
@@ -1378,8 +1394,13 @@ export function useAuditSession() {
     
     setIsBatchFixing(false);
     setBatchFixProgress(null);
+    // Clear batch status after a short delay so user sees final state
+    setTimeout(() => {
+      setAssets(prev => prev.map(a => ({ ...a, batchFixStatus: undefined })));
+    }, 3000);
     addLog('success', `✅ Fixes complete — ${fixedCount} images corrected`);
     toast({ title: 'Fix Complete', description: `${fixedCount} images corrected` });
+  };
   };
 
   // --- Batch Enhance ---
