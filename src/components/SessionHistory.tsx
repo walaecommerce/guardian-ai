@@ -238,11 +238,14 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                         </p>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                           <span>{session.total_images} images</span>
-                          <span className="text-green-500">✓ {session.passed_count}</span>
-                          <span className="text-red-500">✗ {session.failed_count}</span>
+                          <span className="text-success">✓ {session.passed_count}</span>
+                          <span className="text-destructive">✗ {session.failed_count}</span>
                           {session.fixed_count > 0 && (
-                            <span className="text-blue-500">⚡ {session.fixed_count} fixed</span>
+                            <span className="text-primary">⚡ {session.fixed_count} fixed</span>
                           )}
+                          <Badge variant="outline" className="text-[10px] h-4 px-1 capitalize">
+                            {inferCurrentStep(session)} step
+                          </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {formatDistanceToNow(new Date(session.created_at), { addSuffix: true })}
