@@ -534,16 +534,17 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
               </Collapsible>
             )}
 
-            {/* Attempt History Strip */}
-            {fixProgress && fixProgress.attempts.length > 0 && (
+            {/* Attempt History Strip — works for both live and review mode */}
+            {reviewAttempts.length > 0 && (
               <FixAttemptHistory
-                attempts={fixProgress.attempts}
-                currentAttempt={fixProgress.attempt}
+                attempts={reviewAttempts}
+                currentAttempt={fixProgress?.attempt ?? reviewAttempts.length}
                 selectedAttemptIndex={selectedAttemptIndex}
-                bestAttemptSelection={fixProgress.bestAttemptSelection}
-                stopReason={fixProgress.stopReason}
+                bestAttemptSelection={reviewBestSelection}
+                stopReason={reviewStopReason}
+                reviewMode={isReviewMode}
                 onSelectAttempt={(attempt) => {
-                  const idx = fixProgress.attempts.findIndex(a => a.attempt === attempt.attempt);
+                  const idx = reviewAttempts.findIndex(a => a.attempt === attempt.attempt);
                   setSelectedAttemptIndex(idx);
                 }}
               />
