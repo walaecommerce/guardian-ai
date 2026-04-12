@@ -380,7 +380,7 @@ function AssetResultCard({
             ? 'bg-[hsl(33,100%,50%)] text-white hover:bg-[hsl(33,100%,45%)]'
             : 'bg-[hsl(213,27%,23%)]/60 text-white/80 hover:bg-[hsl(213,27%,20%)]/70'
         }`}>
-          {asset.type === 'MAIN' ? '★ MAIN' : `#${assets.indexOf(asset) + 1}`}
+          {asset.type === 'MAIN' ? '★ MAIN' : 'SEC'}
         </Badge>
 
         {/* Product Category Badge (from analysis) */}
