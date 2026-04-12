@@ -1023,7 +1023,7 @@ export function useAuditSession() {
               imageType: asset.type,
               mainImageBase64,
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
-              productIdentity: productIdentity || undefined,
+              productIdentity: (identityProfile?.identity || productIdentity) || undefined,
               targetRuleIds: fixPlan.targetRuleIds,
               fixCategory: fixPlan.category,
             }
