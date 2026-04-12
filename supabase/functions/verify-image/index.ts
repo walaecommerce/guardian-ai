@@ -186,13 +186,85 @@ Verify that these specific rule violations are now resolved in the generated ima
       }
     }
 
-    const outputSchema = `
-WEIGHTED SCORING RUBRIC:
+    // Build content-type-aware rubric for secondary images
+    let rubricDescription: string;
+    let contentTypeContext = '';
+
+    if (isMain) {
+      rubricDescription = `WEIGHTED SCORING RUBRIC (MAIN IMAGE):
 - Product Identity (35%): Does the generated image show the EXACT same product? Same brand, labels, colors, shape.
-- Background Compliance (25%): ${isMain ? 'Pure white RGB(255,255,255) background' : 'Appropriate lifestyle/infographic context preserved'}.
+- Background Compliance (25%): Pure white RGB(255,255,255) background.
 - Badge/Text Removal (20%): Are prohibited badges removed while legitimate text is preserved?
 - Image Quality (10%): Sharp, professional, no artifacts, proper lighting.
-- No New Issues (10%): No new elements added, no hallucinated features, no cropping errors.
+- No New Issues (10%): No new elements added, no hallucinated features, no cropping errors.`;
+    } else {
+      // Content-type-specific rubrics for secondary images
+      switch (contentType) {
+        case 'LIFESTYLE':
+        case 'PRODUCT_IN_USE':
+          rubricDescription = `WEIGHTED SCORING RUBRIC (${contentType} IMAGE):
+- Product Identity (30%): Does the product in the scene match the original exactly?
+- Scene/Context Preservation (30%): Is the lifestyle scene, setting, people, and props preserved intact? The background should NOT be whitened.
+- Badge/Overlay Removal (15%): Are prohibited promotional badges removed? (NOT lifestyle props or context elements)
+- Image Quality (15%): Sharp, professional, no artifacts from inpainting.
+- No New Issues (10%): No new elements added, no scene elements removed that should be kept.`;
+          contentTypeContext = `\nCONTENT TYPE: ${contentType} — This is a lifestyle/usage image. The scene, people, props, and background are INTENTIONAL. Do NOT penalize for non-white backgrounds. Do NOT expect main-image white-background compliance. Judge whether the scene/context was preserved intact.`;
+          break;
+
+        case 'INFOGRAPHIC':
+          rubricDescription = `WEIGHTED SCORING RUBRIC (INFOGRAPHIC IMAGE):
+- Product Identity (20%): Does the product portion match the original?
+- Text/Layout Preservation (35%): Are ALL legitimate infographic texts, callouts, icons, and layout elements preserved EXACTLY? Any text modification, removal, or repositioning is a critical failure.
+- Badge Removal (15%): Were prohibited promotional overlays (Best Seller, Amazon's Choice) removed WITHOUT touching legitimate content?
+- Design Integrity (15%): Is the infographic layout, color scheme, and visual flow unchanged?
+- No New Issues (15%): No new text added, no text rewritten, no layout shifted.`;
+          contentTypeContext = `\nCONTENT TYPE: INFOGRAPHIC — This image contains intentional text, callouts, and informational design. Legitimate text must NOT be modified. Only clearly-added marketplace promotional badges should be removed. Penalize heavily if any feature text, specifications, or callout content was altered.`;
+          break;
+
+        case 'PACKAGING':
+          rubricDescription = `WEIGHTED SCORING RUBRIC (PACKAGING/LABEL IMAGE):
+- Label Text Fidelity (35%): Is ALL printed packaging text preserved exactly? Brand name, ingredients, claims, barcodes, certifications — any drift or hallucination is a critical failure.
+- Product Identity (25%): Same packaging, colors, materials, structure.
+- Badge Removal (15%): Were prohibited overlays removed without touching physical packaging elements?
+- Image Quality (15%): Clean, professional, no inpainting artifacts.
+- No New Issues (10%): No text hallucinated, no label copy rewritten, no packaging redesigned.`;
+          contentTypeContext = `\nCONTENT TYPE: PACKAGING — This image shows product packaging with printed text. ALL printed copy (ingredients, brand name, claims, directions) must remain pixel-identical. Penalize heavily for any label text changes, hallucinated copy, or packaging color drift.`;
+          break;
+
+        case 'DETAIL':
+          rubricDescription = `WEIGHTED SCORING RUBRIC (DETAIL/CLOSE-UP IMAGE):
+- Detail Preservation (35%): Are the specific product details (texture, material, mechanism, stitching) preserved exactly as in the original?
+- Product Identity (25%): Same product, colors, materials.
+- Badge Removal (15%): Were prohibited overlays removed cleanly?
+- Image Quality (15%): No smoothing, over-sharpening, or texture alteration.
+- No Over-Editing (10%): Was the edit truly minimal? No unnecessary changes to the detail view.`;
+          contentTypeContext = `\nCONTENT TYPE: DETAIL — This is a close-up shot highlighting specific product features. The zoomed detail, texture, and fine features must be preserved exactly. Penalize any over-editing, smoothing, or texture alteration.`;
+          break;
+
+        case 'PRODUCT_SHOT':
+          rubricDescription = `WEIGHTED SCORING RUBRIC (SECONDARY PRODUCT SHOT):
+- Product Identity (35%): Does the generated image show the EXACT same product?
+- Background Compliance (20%): Clean background appropriate for secondary listing image.
+- Badge/Text Removal (20%): Are prohibited badges removed while product labels are preserved?
+- Image Quality (15%): Sharp, professional, no artifacts.
+- No New Issues (10%): No new elements added, no hallucinated features.`;
+          contentTypeContext = `\nCONTENT TYPE: PRODUCT_SHOT — Secondary product image showing an alternate angle or variant.`;
+          break;
+
+        default:
+          rubricDescription = `WEIGHTED SCORING RUBRIC (SECONDARY IMAGE):
+- Product Identity (35%): Does the generated image show the EXACT same product?
+- Background/Context (20%): Appropriate background preserved or cleaned appropriately.
+- Badge/Text Removal (20%): Are prohibited badges removed while legitimate text is preserved?
+- Image Quality (15%): Sharp, professional, no artifacts.
+- No New Issues (10%): No new elements added, no hallucinated features.`;
+          break;
+      }
+    }
+
+    const outputSchema = `
+${rubricDescription}
+${contentTypeContext}
 ${identitySection}${spatialContext}${targetRulesSection}${categoryIdentitySection}
 
 ADDITIONAL CHECKS:
