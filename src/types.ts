@@ -46,6 +46,14 @@ export interface ImageAsset {
   fixMethod?: FixMethod;   // Which AI pattern was used to fix
   isAnalyzing?: boolean;
   isGeneratingFix?: boolean;
+  // Persisted fix review data — survives after fixProgress is cleared
+  fixAttempts?: FixAttempt[];
+  bestAttemptSelection?: BestAttemptSelection;
+  selectedAttemptIndex?: number;
+  fixStopReason?: string;
+  lastFixStrategy?: FixStrategy;
+  /** Batch fix queue status for UI rendering */
+  batchFixStatus?: 'pending' | 'processing' | 'fixed' | 'failed';
 }
 
 // Analysis Types
