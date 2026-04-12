@@ -531,6 +531,8 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                 attempts={fixProgress.attempts}
                 currentAttempt={fixProgress.attempt}
                 selectedAttemptIndex={selectedAttemptIndex}
+                bestAttemptSelection={fixProgress.bestAttemptSelection}
+                stopReason={fixProgress.stopReason}
                 onSelectAttempt={(attempt) => {
                   const idx = fixProgress.attempts.findIndex(a => a.attempt === attempt.attempt);
                   setSelectedAttemptIndex(idx);
