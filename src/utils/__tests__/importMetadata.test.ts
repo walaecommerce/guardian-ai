@@ -3,6 +3,7 @@ import {
   buildImportMetadata,
   needsHeroConfirmation,
   autoConfirmSingleImage,
+  autoConfirmAmazonHero,
   confirmHeroImage,
   applyHeroSelection,
   isAuditGated,
@@ -87,6 +88,35 @@ describe('importMetadata', () => {
     });
   });
 
+  describe('autoConfirmAmazonHero', () => {
+    it('auto-confirms the MAIN asset as hero for multi-image Amazon imports', () => {
+      const meta = makeMeta();
+      const assets = [makeAsset('a', 'MAIN'), makeAsset('b'), makeAsset('c')];
+      const result = autoConfirmAmazonHero(assets, meta);
+      expect(result).not.toBeNull();
+      expect(result!.heroConfirmed).toBe(true);
+      expect(result!.confirmedHeroAssetId).toBe('a');
+    });
+
+    it('returns null if already confirmed', () => {
+      const meta = makeMeta({ heroConfirmed: true, confirmedHeroAssetId: 'a' });
+      const assets = [makeAsset('a', 'MAIN'), makeAsset('b')];
+      expect(autoConfirmAmazonHero(assets, meta)).toBeNull();
+    });
+
+    it('returns null for empty assets', () => {
+      const meta = makeMeta();
+      expect(autoConfirmAmazonHero([], meta)).toBeNull();
+    });
+
+    it('falls back to first asset if no MAIN type exists', () => {
+      const meta = makeMeta();
+      const assets = [makeAsset('x'), makeAsset('y')];
+      const result = autoConfirmAmazonHero(assets, meta);
+      expect(result!.confirmedHeroAssetId).toBe('x');
+    });
+  });
+
   describe('confirmHeroImage', () => {
     it('marks hero as confirmed', () => {
       const meta = makeMeta();
@@ -114,9 +144,9 @@ describe('importMetadata', () => {
   });
 
   describe('isAuditGated', () => {
-    it('returns true when hero not confirmed with multiple images', () => {
-      const meta = makeMeta();
-      expect(isAuditGated([makeAsset('a'), makeAsset('b')], meta)).toBe(true);
+    it('returns false after Amazon auto-confirm (hero already confirmed)', () => {
+      const meta = makeMeta({ heroConfirmed: true, confirmedHeroAssetId: 'a' });
+      expect(isAuditGated([makeAsset('a', 'MAIN'), makeAsset('b')], meta)).toBe(false);
     });
 
     it('returns false after hero confirmation', () => {
@@ -131,6 +161,32 @@ describe('importMetadata', () => {
     it('returns false for single image', () => {
       const meta = makeMeta();
       expect(isAuditGated([makeAsset('a')], meta)).toBe(false);
+    });
+
+    it('returns true for manual upload with multiple images and no confirmation', () => {
+      const meta = makeMeta();
+      expect(isAuditGated([makeAsset('a'), makeAsset('b')], meta)).toBe(true);
+    });
+  });
+
+  describe('role vs content type separation', () => {
+    it('image type (MAIN/SECONDARY) is separate from image name (content type)', () => {
+      const asset = makeAsset('a', 'MAIN');
+      asset.name = 'LIFESTYLE_photo.jpg';
+      expect(asset.type).toBe('MAIN');
+      expect(asset.name).toContain('LIFESTYLE');
+    });
+
+    it('changing hero updates role but not content classification', () => {
+      const assets = [
+        { ...makeAsset('a', 'MAIN'), name: 'PRODUCT_SHOT_main.jpg' },
+        { ...makeAsset('b'), name: 'LIFESTYLE_side.jpg' },
+      ];
+      const result = applyHeroSelection(assets, 'b');
+      expect(result[0].type).toBe('MAIN');
+      expect(result[0].name).toContain('LIFESTYLE');
+      expect(result[1].type).toBe('SECONDARY');
+      expect(result[1].name).toContain('PRODUCT_SHOT');
     });
   });
 });

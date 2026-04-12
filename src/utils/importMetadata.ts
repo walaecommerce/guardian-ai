@@ -35,7 +35,7 @@ export function buildImportMetadata(
 
 /**
  * Returns true if hero confirmation is needed.
- * Single-image imports are auto-confirmed.
+ * Single-image imports and confident Amazon imports are auto-confirmed.
  */
 export function needsHeroConfirmation(assets: ImageAsset[], meta: ImportMetadata | null): boolean {
   if (!meta) return false;
@@ -61,6 +61,26 @@ export function autoConfirmSingleImage(
     };
   }
   return null;
+}
+
+/**
+ * Auto-confirm hero for Amazon imports where the first image is confidently
+ * identified as the hero (it was the first image from the listing).
+ * Returns updated metadata or null if no change needed.
+ */
+export function autoConfirmAmazonHero(
+  assets: ImageAsset[],
+  meta: ImportMetadata,
+): ImportMetadata | null {
+  if (meta.heroConfirmed) return null;
+  if (assets.length === 0) return null;
+  // Amazon imports: first image is the listing hero — auto-confirm
+  const heroAsset = assets.find(a => a.type === 'MAIN') || assets[0];
+  return {
+    ...meta,
+    heroConfirmed: true,
+    confirmedHeroAssetId: heroAsset.id,
+  };
 }
 
 /**
