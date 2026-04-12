@@ -173,12 +173,13 @@ export function buildFixPlan(
   violations: Violation[],
   deterministicFindings: DeterministicFindingSummary[],
   productIdentity?: ProductIdentityCard | null,
+  contentType?: string,
 ): FixPlan {
   const cat = category || 'GENERAL';
 
   const strategy = imageType === 'MAIN'
     ? selectMainStrategy(violations, deterministicFindings)
-    : selectSecondaryStrategy(violations);
+    : selectSecondaryStrategy(violations, contentType);
 
   // Collect target rule_ids from violations + failed deterministic findings
   const targetRuleIds = [
