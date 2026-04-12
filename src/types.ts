@@ -17,7 +17,7 @@ export interface ProductIdentityCard {
 export type FixMethod = 'bg-segmentation' | 'full-regeneration' | 'surgical-edit' | 'enhancement';
 
 // Fix strategy selected by the fix plan engine
-export type FixStrategy = 'bg-cleanup' | 'crop-reframe' | 'overlay-removal' | 'inpaint-edit' | 'full-regeneration';
+export type FixStrategy = 'bg-cleanup' | 'crop-reframe' | 'overlay-removal' | 'inpaint-edit' | 'full-regeneration' | 'skip';
 
 // Structured fix plan produced before generation
 export interface FixPlan {
@@ -53,7 +53,9 @@ export interface ImageAsset {
   fixStopReason?: string;
   lastFixStrategy?: FixStrategy;
   /** Batch fix queue status for UI rendering */
-  batchFixStatus?: 'pending' | 'processing' | 'fixed' | 'failed';
+  batchFixStatus?: 'pending' | 'processing' | 'fixed' | 'failed' | 'skipped';
+  /** Why this asset was skipped in batch fix */
+  batchSkipReason?: string;
 }
 
 // Analysis Types
