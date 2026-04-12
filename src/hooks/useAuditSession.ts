@@ -992,6 +992,7 @@ export function useAuditSession() {
       let previousCritique: string | undefined;
       let lastGeneratedImage: string | undefined = previousGeneratedImage;
       let lastFixMethod: ImageAsset['fixMethod'];
+      let lastStrategy: import('@/types').FixStrategy | undefined;
       let finalImage: string | undefined;
       let retryInstructions: string[] = [];
       const retryDecisions: import('@/utils/retryPlanner').RetryDecision[] = [];
@@ -1018,6 +1019,7 @@ export function useAuditSession() {
             (identityProfile?.identity || productIdentity) || undefined,
           );
 
+          lastStrategy = fixPlan.strategy;
           addLog('info', `📋 Fix plan: strategy=${fixPlan.strategy}, rules=${fixPlan.targetRuleIds.join(',') || 'general'}`);
 
           const { data: genData, error: genError } = await supabase.functions.invoke('generate-fix', {
@@ -1257,8 +1259,28 @@ export function useAuditSession() {
       }
 
       if (finalImage) {
+        // Persist attempt history on asset for post-fix review
+        const persistedAttempts = allAttempts.length > 0 ? allAttempts : undefined;
+        const bestSel = allAttempts.length > 0 ? (() => {
+          let sel: import('@/types').BestAttemptSelection | undefined;
+          setFixProgress(prev => { sel = prev?.bestAttemptSelection; return prev; });
+          return sel;
+        })() : undefined;
+        let stopR: string | undefined;
+        setFixProgress(prev => { stopR = prev?.stopReason; return prev; });
+        
         setAssets(prev => prev.map(a => 
-          a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: finalImage, fixMethod: lastFixMethod } : a
+          a.id === assetId ? { 
+            ...a, 
+            isGeneratingFix: false, 
+            fixedImage: finalImage, 
+            fixMethod: lastFixMethod,
+            fixAttempts: persistedAttempts,
+            bestAttemptSelection: bestSel,
+            selectedAttemptIndex: bestSel?.selectedAttemptIndex,
+            fixStopReason: stopR,
+            lastFixStrategy: lastStrategy,
+          } : a
         ));
         setFixProgress(null);
         
@@ -1346,6 +1368,12 @@ export function useAuditSession() {
     setBatchFixProgress({ current: 0, total: failedAssets.length });
     addLog('processing', `🔧 Starting Fix All for ${failedAssets.length} failed images...`);
     
+    // Mark all queue items with their batch status
+    setAssets(prev => prev.map(a => {
+      const inQueue = failedAssets.some(f => f.id === a.id);
+      return inQueue ? { ...a, batchFixStatus: 'pending' as const } : a;
+    }));
+
     let fixedCount = 0;
 
     for (let i = 0; i < failedAssets.length; i++) {
@@ -1360,8 +1388,18 @@ export function useAuditSession() {
         break;
       }
 
+      // Mark current as processing
+      setAssets(prev => prev.map(a => a.id === failedAssets[i].id ? { ...a, batchFixStatus: 'processing' as const } : a));
+
       setBatchFixProgress({ current: i + 1, total: failedAssets.length });
       await handleRequestFix(failedAssets[i].id);
+      
+      // After fix, mark as fixed or failed based on result
+      setAssets(prev => prev.map(a => {
+        if (a.id !== failedAssets[i].id) return a;
+        return { ...a, batchFixStatus: a.fixedImage ? 'fixed' as const : 'failed' as const };
+      }));
+      
       fixedCount++;
 
       if (i < failedAssets.length - 1) {
@@ -1378,8 +1416,13 @@ export function useAuditSession() {
     
     setIsBatchFixing(false);
     setBatchFixProgress(null);
+    // Clear batch status after a short delay so user sees final state
+    setTimeout(() => {
+      setAssets(prev => prev.map(a => ({ ...a, batchFixStatus: undefined })));
+    }, 3000);
     addLog('success', `✅ Fixes complete — ${fixedCount} images corrected`);
     toast({ title: 'Fix Complete', description: `${fixedCount} images corrected` });
+  };
   };
 
   // --- Batch Enhance ---

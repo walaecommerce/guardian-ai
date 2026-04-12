@@ -168,12 +168,15 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
     }
   }, [asset?.id]);
 
-  // Reset selected attempt when progress changes
+  // Reset selected attempt when progress or persisted attempts change
   useEffect(() => {
-    if (fixProgress?.attempts.length) {
-      setSelectedAttemptIndex(fixProgress.attempts.length - 1);
+    const attempts = fixProgress?.attempts ?? asset?.fixAttempts ?? [];
+    if (attempts.length) {
+      // In review mode, default to the best attempt if available
+      const bestIdx = asset?.selectedAttemptIndex ?? (attempts.length - 1);
+      setSelectedAttemptIndex(bestIdx);
     }
-  }, [fixProgress?.attempts.length]);
+  }, [fixProgress?.attempts.length, asset?.fixAttempts?.length, asset?.selectedAttemptIndex]);
 
   if (!asset) return null;
 
@@ -231,12 +234,18 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
     }
   };
 
-  const selectedAttempt = selectedAttemptIndex !== undefined && fixProgress?.attempts[selectedAttemptIndex];
+  // Use persisted attempts from asset if fixProgress is gone (review mode)
+  const reviewAttempts = fixProgress?.attempts ?? asset.fixAttempts ?? [];
+  const reviewBestSelection = fixProgress?.bestAttemptSelection ?? asset.bestAttemptSelection;
+  const reviewStopReason = fixProgress?.stopReason ?? asset.fixStopReason;
+  const isReviewMode = !fixProgress && reviewAttempts.length > 0;
+  
+  const selectedAttempt = selectedAttemptIndex !== undefined && reviewAttempts[selectedAttemptIndex];
   const displayImage = selectedAttempt?.generatedImage || fixProgress?.intermediateImage || asset.fixedImage;
 
   // Component scores for display
   const componentScores = selectedAttempt?.verification?.componentScores || 
-    fixProgress?.attempts[fixProgress.attempts.length - 1]?.verification?.componentScores;
+    reviewAttempts[reviewAttempts.length - 1]?.verification?.componentScores;
 
   // Get current progress info
   const currentStepInfo = fixProgress?.currentStep && 
@@ -525,16 +534,17 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
               </Collapsible>
             )}
 
-            {/* Attempt History Strip */}
-            {fixProgress && fixProgress.attempts.length > 0 && (
+            {/* Attempt History Strip — works for both live and review mode */}
+            {reviewAttempts.length > 0 && (
               <FixAttemptHistory
-                attempts={fixProgress.attempts}
-                currentAttempt={fixProgress.attempt}
+                attempts={reviewAttempts}
+                currentAttempt={fixProgress?.attempt ?? reviewAttempts.length}
                 selectedAttemptIndex={selectedAttemptIndex}
-                bestAttemptSelection={fixProgress.bestAttemptSelection}
-                stopReason={fixProgress.stopReason}
+                bestAttemptSelection={reviewBestSelection}
+                stopReason={reviewStopReason}
+                reviewMode={isReviewMode}
                 onSelectAttempt={(attempt) => {
-                  const idx = fixProgress.attempts.findIndex(a => a.attempt === attempt.attempt);
+                  const idx = reviewAttempts.findIndex(a => a.attempt === attempt.attempt);
                   setSelectedAttemptIndex(idx);
                 }}
               />
@@ -768,7 +778,7 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
               )}
 
               {/* Post-fix actions */}
-              {(hasFixedImage || (fixProgress?.attempts.length && fixProgress.attempts.length > 0)) && !isGenerating && (
+              {(hasFixedImage || reviewAttempts.length > 0) && !isGenerating && (
                 <>
                   <Button
                     variant="outline"

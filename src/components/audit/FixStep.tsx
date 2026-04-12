@@ -1,10 +1,11 @@
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { RecommendationsPanel } from '@/components/recommendations/RecommendationsPanel';
+import { FixQueuePanel } from '@/components/FixQueuePanel';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { EmptyState } from '@/components/EmptyState';
 import { ImageAsset } from '@/types';
-import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, ArrowLeft, Search } from 'lucide-react';
+import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, Search } from 'lucide-react';
 
 interface FixStepProps {
   assets: ImageAsset[];
@@ -36,6 +37,9 @@ export function FixStep({
   const allFixed = failedAssets.length === 0 && fixedAssets.length > 0;
   const enhanceableCount = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
   const hasNoResults = analyzedAssets.length === 0;
+
+  // Build fix queue for visualization
+  const fixQueueAssets = assets.filter(a => a.batchFixStatus);
 
   // If no analyzed assets, show helpful empty state
   if (hasNoResults) {
@@ -126,19 +130,16 @@ export function FixStep({
         </div>
       </div>
 
-      {/* Batch fix progress */}
-      {isBatchFixing && batchFixProgress && (
-        <div className="space-y-2 p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-            Fixing image {batchFixProgress.current} of {batchFixProgress.total}…
-          </div>
-          <Progress value={(batchFixProgress.current / batchFixProgress.total) * 100} className="h-2" />
-          <p className="text-xs text-muted-foreground">AI is generating, verifying, and retrying if needed.</p>
-        </div>
+      {/* Batch fix queue visualization — replaces the old generic progress bar */}
+      {isBatchFixing && fixQueueAssets.length > 0 && (
+        <FixQueuePanel
+          queue={fixQueueAssets}
+          activeAssetId={fixQueueAssets.find(a => a.batchFixStatus === 'processing')?.id}
+          progress={batchFixProgress}
+        />
       )}
 
-      {/* Batch enhance progress */}
+      {/* Batch enhance progress (kept simple) */}
       {isBatchEnhancing && batchEnhanceProgress && (
         <div className="space-y-2 p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-2 text-sm font-medium">
@@ -154,6 +155,7 @@ export function FixStep({
         assets={assets}
         onViewDetails={onViewDetails}
         onDownload={onDownload}
+        isBatchFixing={isBatchFixing}
       />
 
       {/* Recommendations (moved from Review) */}
