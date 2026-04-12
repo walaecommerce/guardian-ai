@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ImageAsset } from '@/types';
+import { ImportMetadata, isAuditGated } from '@/utils/importMetadata';
+import { HeroConfirmationBanner } from '@/components/HeroConfirmationBanner';
 import { AmazonGalleryPreview } from '@/components/AmazonGalleryPreview';
 import {
   Package, ExternalLink, Pencil, Check, X, Trash2, Plus,
@@ -41,6 +43,8 @@ interface ProductSummaryCardProps {
   isAnalyzing: boolean;
   analyzingProgress?: { current: number; total: number };
   onAddMoreImages: () => void;
+  importMetadata?: ImportMetadata | null;
+  onConfirmHero?: (assetId: string) => void;
 }
 
 export function ProductSummaryCard({
@@ -56,6 +60,8 @@ export function ProductSummaryCard({
   isAnalyzing,
   analyzingProgress,
   onAddMoreImages,
+  importMetadata,
+  onConfirmHero,
 }: ProductSummaryCardProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(listingTitle);
