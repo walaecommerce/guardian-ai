@@ -4,6 +4,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { useAuth } from '@/hooks/useAuth';
 import { RATE_LIMITS } from '@/config/models';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
+import { MultiImageIdentityProfile, IdentityObservation, buildIdentityProfile, fromSingleIdentity } from '@/utils/identityProfile';
 import { runDeterministicAudit } from '@/utils/deterministicAudit';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
@@ -54,6 +55,7 @@ export function useAuditSession() {
   const [failedDownloads, setFailedDownloads] = useState<FailedDownload[]>([]);
   const [isRetrying, setIsRetrying] = useState(false);
   const [productIdentity, setProductIdentity] = useState<ProductIdentityCard | null>(null);
+  const [identityProfile, setIdentityProfile] = useState<MultiImageIdentityProfile | null>(null);
   const [styleConsistency, setStyleConsistency] = useState<StyleConsistencyResult | null>(null);
   const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
@@ -716,7 +718,10 @@ export function useAuditSession() {
     const mainAssetForIdentity = assets.find(a => a.type === 'MAIN');
     if (mainAssetForIdentity && !creditsExhaustedDuringRun) {
       try {
-        addLog('processing', '🔗 Extracting product identity card from main image...');
+        addLog('processing', '🔗 Extracting multi-image identity profile...');
+        const identityObservations: IdentityObservation[] = [];
+
+        // Extract from MAIN image (primary source)
         const mainBase64 = await fileToBase64(mainAssetForIdentity.file);
         const { data: idData, error: idError } = await supabase.functions.invoke('extract-product-identity', {
           body: { imageBase64: mainBase64, productTitle: listingTitle }
@@ -729,9 +734,50 @@ export function useAuditSession() {
           addLog('warning', '⚠️ Product identity extraction skipped (AI credits exhausted)');
         } else if (!idError && idData?.identity) {
           setProductIdentity(idData.identity);
-          addLog('success', `✅ Product identity extracted: ${idData.identity.brandName} - ${idData.identity.productName}`);
+          identityObservations.push({
+            sourceImageId: mainAssetForIdentity.id,
+            sourceImageType: 'MAIN',
+            identity: idData.identity,
+          });
+          addLog('success', `✅ MAIN identity: ${idData.identity.brandName} - ${idData.identity.productName}`);
+
+          // Extract from up to 2 secondary images for multi-image profile
+          const secondaries = assets.filter(a => a.type === 'SECONDARY' && a.analysisResult).slice(0, 2);
+          for (const sec of secondaries) {
+            try {
+              const secBase64 = await fileToBase64(sec.file);
+              const { data: secIdData, error: secIdError } = await supabase.functions.invoke('extract-product-identity', {
+                body: { imageBase64: secBase64, productTitle: listingTitle }
+              });
+              const secStatus = (secIdError as any)?.context?.status;
+              if (secStatus === 402 || secIdData?.errorType === 'payment_required') {
+                creditsExhaustedDuringRun = true;
+                setAiCreditsExhausted(true);
+                break;
+              }
+              if (!secIdError && secIdData?.identity) {
+                identityObservations.push({
+                  sourceImageId: sec.id,
+                  sourceImageType: 'SECONDARY',
+                  identity: secIdData.identity,
+                });
+                addLog('info', `   └─ Secondary identity from ${sec.name}`);
+              }
+            } catch {
+              // Non-critical — continue with what we have
+            }
+          }
+
+          // Build multi-image profile
+          const profile = buildIdentityProfile(identityObservations, listingTitle);
+          setIdentityProfile(profile);
+          if (profile.conflicts.length > 0) {
+            addLog('warning', `⚠️ Identity conflicts detected: ${profile.conflicts.join('; ')}`);
+          }
+          addLog('success', `✅ Identity profile built from ${profile.sourceImageIds.length} source image(s), completeness: ${profile.completeness}%`);
+
           if (currentSessionId) {
-            await supabase.from('enhancement_sessions').update({ product_identity: idData.identity }).eq('id', currentSessionId);
+            await supabase.from('enhancement_sessions').update({ product_identity: JSON.parse(JSON.stringify(profile.identity)) }).eq('id', currentSessionId);
           }
         }
       } catch {
@@ -885,7 +931,7 @@ export function useAuditSession() {
             asset.analysisResult?.productCategory || 'GENERAL',
             asset.analysisResult?.violations || [],
             asset.analysisResult?.deterministicFindings || [],
-            productIdentity || undefined,
+            (identityProfile?.identity || productIdentity) || undefined,
           );
 
           addLog('info', `📋 Fix plan: strategy=${fixPlan.strategy}, rules=${fixPlan.targetRuleIds.join(',') || 'general'}`);
@@ -903,7 +949,7 @@ export function useAuditSession() {
               customPrompt: customPrompt,
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
               imageCategory: asset.analysisResult?.productCategory || undefined,
-              productIdentity: productIdentity || undefined,
+              productIdentity: (identityProfile?.identity || productIdentity) || undefined,
               violations: asset.analysisResult?.violations || [],
               scoringRationale: asset.analysisResult?.scoringRationale || undefined,
               fixPlan,
@@ -977,7 +1023,7 @@ export function useAuditSession() {
               imageType: asset.type,
               mainImageBase64,
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
-              productIdentity: productIdentity || undefined,
+              productIdentity: (identityProfile?.identity || productIdentity) || undefined,
               targetRuleIds: fixPlan.targetRuleIds,
               fixCategory: fixPlan.category,
             }
@@ -1650,6 +1696,7 @@ export function useAuditSession() {
     isRetrying,
     bulkProgress,
     productIdentity,
+    identityProfile,
     styleConsistency,
     isAnalyzingStyle,
     competitorData,

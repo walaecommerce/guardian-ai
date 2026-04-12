@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import { ProductIdentityCard } from '@/types';
+import { MultiImageIdentityProfile } from '@/utils/identityProfile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Fingerprint, ChevronDown, Package, Shapes } from 'lucide-react';
+import { Fingerprint, ChevronDown, Package, Shapes, AlertTriangle, CheckCircle2, Images } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ProductIdentityPanelProps {
   identity: ProductIdentityCard;
+  profile?: MultiImageIdentityProfile | null;
 }
 
-export function ProductIdentityPanel({ identity }: ProductIdentityPanelProps) {
+export function ProductIdentityPanel({ identity, profile }: ProductIdentityPanelProps) {
   const [isOpen, setIsOpen] = useState(true);
+
+  const hasConflicts = profile && profile.conflicts.length > 0;
+  const sourceCount = profile?.sourceImageIds.length || 1;
 
   return (
     <Card className="glass-card border-primary/20">
@@ -21,6 +26,12 @@ export function ProductIdentityPanel({ identity }: ProductIdentityPanelProps) {
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Fingerprint className="h-4 w-4 text-primary" />
               Product Identity
+              {profile && (
+                <Badge variant="secondary" className="text-[10px] h-4 gap-0.5">
+                  <Images className="h-2.5 w-2.5" />
+                  {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+                </Badge>
+              )}
             </CardTitle>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
           </CollapsibleTrigger>
@@ -28,6 +39,24 @@ export function ProductIdentityPanel({ identity }: ProductIdentityPanelProps) {
 
         <CollapsibleContent>
           <CardContent className="p-4 pt-3 space-y-3">
+            {/* Confidence/Completeness bar */}
+            {profile && (
+              <div className="flex items-center gap-2 text-[10px]">
+                {hasConflicts ? (
+                  <Badge variant="outline" className="text-[10px] gap-0.5 text-warning border-warning/30">
+                    <AlertTriangle className="h-2.5 w-2.5" />
+                    {profile.conflicts.length} conflict{profile.conflicts.length !== 1 ? 's' : ''}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] gap-0.5 text-success border-success/30">
+                    <CheckCircle2 className="h-2.5 w-2.5" />
+                    Consistent
+                  </Badge>
+                )}
+                <span className="text-muted-foreground">{profile.completeness}% complete</span>
+              </div>
+            )}
+
             {/* Brand & Product */}
             <div>
               <p className="text-sm font-bold text-foreground">{identity.brandName}</p>
@@ -97,6 +126,16 @@ export function ProductIdentityPanel({ identity }: ProductIdentityPanelProps) {
                     <li key={i}>{feature}</li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {/* Conflict details */}
+            {hasConflicts && (
+              <div className="border-t border-border pt-2">
+                <p className="text-[10px] text-warning mb-1">Conflicts detected:</p>
+                {profile!.conflicts.map((c, i) => (
+                  <p key={i} className="text-[10px] text-muted-foreground">• {c}</p>
+                ))}
               </div>
             )}
           </CardContent>
