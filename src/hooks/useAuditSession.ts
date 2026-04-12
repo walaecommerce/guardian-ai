@@ -9,6 +9,15 @@ import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonic
 import { classifyImage } from '@/services/imageClassifier';
 import { extractImageCategory } from '@/utils/imageCategory';
 import { buildAssetFromDownload } from '@/utils/sessionAssetHelpers';
+import {
+  ImportMetadata,
+  buildImportMetadata,
+  needsHeroConfirmation,
+  autoConfirmSingleImage,
+  confirmHeroImage,
+  applyHeroSelection,
+  isAuditGated,
+} from '@/utils/importMetadata';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { uploadImage } from '@/services/imageStorage';
@@ -55,6 +64,7 @@ export function useAuditSession() {
   const [isLoadingAIComparison, setIsLoadingAIComparison] = useState(false);
   const [aiCreditsExhausted, setAiCreditsExhausted] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importMetadata, setImportMetadata] = useState<ImportMetadata | null>(null);
 
   // Stepper state
   const [currentStep, setCurrentStep] = useState<AuditStep>('import');
