@@ -1061,6 +1061,7 @@ export function useAuditSession() {
               customPrompt: customPrompt,
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
               imageCategory: asset.analysisResult?.productCategory || undefined,
+              imageContentType: assetContentType,
               productIdentity: (identityProfile?.identity || productIdentity) || undefined,
               violations: asset.analysisResult?.violations || [],
               scoringRationale: asset.analysisResult?.scoringRationale || undefined,
