@@ -833,7 +833,7 @@ export function useAuditSession() {
 
           // Build fix plan before generation
           const { buildFixPlan } = await import('@/utils/fixPlanEngine');
-          const fixPlan = buildFixPlan(
+          let fixPlan = buildFixPlan(
             asset.type as 'MAIN' | 'SECONDARY',
             asset.analysisResult?.productCategory || 'GENERAL',
             asset.analysisResult?.violations || [],
