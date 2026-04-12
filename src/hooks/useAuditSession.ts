@@ -931,7 +931,7 @@ export function useAuditSession() {
             asset.analysisResult?.productCategory || 'GENERAL',
             asset.analysisResult?.violations || [],
             asset.analysisResult?.deterministicFindings || [],
-            productIdentity || undefined,
+            (identityProfile?.identity || productIdentity) || undefined,
           );
 
           addLog('info', `📋 Fix plan: strategy=${fixPlan.strategy}, rules=${fixPlan.targetRuleIds.join(',') || 'general'}`);
@@ -949,7 +949,7 @@ export function useAuditSession() {
               customPrompt: customPrompt,
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
               imageCategory: asset.analysisResult?.productCategory || undefined,
-              productIdentity: productIdentity || undefined,
+              productIdentity: (identityProfile?.identity || productIdentity) || undefined,
               violations: asset.analysisResult?.violations || [],
               scoringRationale: asset.analysisResult?.scoringRationale || undefined,
               fixPlan,
