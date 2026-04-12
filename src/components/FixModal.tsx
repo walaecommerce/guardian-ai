@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Card, CardContent } from '@/components/ui/card';
-import { ImageAsset, FixProgressState, FixAttempt, OptimizeMode, ImageCategory } from '@/types';
+import { ImageAsset, FixProgressState, FixAttempt, OptimizeMode, ImageCategory, BestAttemptSelection } from '@/types';
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
 import { FixActivityLog } from '@/components/FixActivityLog';
 import { FixAttemptHistory } from '@/components/FixAttemptHistory';
