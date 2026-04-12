@@ -14,6 +14,9 @@ import {
   buildDeterministicRuleIdSet,
   getSourceBadgeLabel,
   getSourceBadgeClass,
+  getSourceTierLabel,
+  getSourceTierBadgeClass,
+  getSurfaceLabels,
   type EvidenceDisplay,
   type FindingGroup,
 } from '@/utils/evidenceHelpers';
@@ -145,7 +148,7 @@ function EvidenceRow({ evidence }: { evidence: EvidenceDisplay }) {
 
   return (
     <div className="mt-1.5 space-y-1 text-[11px] text-muted-foreground bg-muted/30 rounded px-2 py-1.5 border border-border/50">
-      {/* Rule ID + Source */}
+      {/* Rule ID + Source + Tier */}
       <div className="flex items-center gap-2 flex-wrap">
         {evidence.ruleId && (
           <span className="font-mono font-semibold text-foreground/70">{evidence.ruleId}</span>
@@ -154,6 +157,16 @@ function EvidenceRow({ evidence }: { evidence: EvidenceDisplay }) {
           {evidence.findingSource === 'deterministic' ? <Cpu className="w-2.5 h-2.5" /> : evidence.findingSource === 'category-specific' ? <Tag className="w-2.5 h-2.5" /> : evidence.findingSource === 'consistency' ? <Link2 className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
           {getSourceBadgeLabel(evidence.findingSource)}
         </span>
+        {evidence.sourceTier && (
+          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium border ${getSourceTierBadgeClass(evidence.sourceTier)}`}>
+            {getSourceTierLabel(evidence.sourceTier)}
+          </span>
+        )}
+        {evidence.surfaces && evidence.surfaces.length > 0 && (
+          <span className="text-[10px] text-muted-foreground/70">
+            {getSurfaceLabels(evidence.surfaces).join(' · ')}
+          </span>
+        )}
         {evidence.sourceUrl && (
           <a href={evidence.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-primary/70 hover:text-primary">
             <ExternalLink className="w-2.5 h-2.5" /> Source
@@ -534,6 +547,16 @@ function PolicyContextBanner({ summary }: { summary: PolicySummary }) {
         <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded-full border bg-orange-500/15 text-orange-400 border-orange-500/30">
           <Tag className="w-2.5 h-2.5" />
           {summary.categorySpecificRuleCount} category
+        </span>
+      )}
+      {summary.complianceRuleCount > 0 && (
+        <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded-full border bg-primary/10 text-primary border-primary/20 text-[10px] font-medium">
+          {summary.complianceRuleCount} compliance
+        </span>
+      )}
+      {summary.optimizationRuleCount > 0 && (
+        <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded-full border bg-accent/10 text-accent-foreground border-accent/20 text-[10px] font-medium">
+          {summary.optimizationRuleCount} optimization
         </span>
       )}
       {summary.sources[0]?.url && (
