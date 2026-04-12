@@ -992,6 +992,7 @@ export function useAuditSession() {
       let previousCritique: string | undefined;
       let lastGeneratedImage: string | undefined = previousGeneratedImage;
       let lastFixMethod: ImageAsset['fixMethod'];
+      let lastStrategy: import('@/types').FixStrategy | undefined;
       let finalImage: string | undefined;
       let retryInstructions: string[] = [];
       const retryDecisions: import('@/utils/retryPlanner').RetryDecision[] = [];
