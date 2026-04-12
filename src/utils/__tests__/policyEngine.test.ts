@@ -1,8 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { POLICY_REGISTRY, POLICY_VERSION, getPolicyRule, getRulesForImageType, getRulesForCategory, getApplicableRules } from '@/config/policyRegistry';
+import {
+  POLICY_REGISTRY, POLICY_VERSION, APLUS_POLICY_RULES,
+  getPolicyRule, getRulesForImageType, getRulesForCategory, getApplicableRules,
+  getComplianceRules, getOptimizationRules, getAplusRules, getRulesForSurface,
+  getSourceTierLabel, getSourceTierBadgeClass,
+  type SourceTier, type PolicySurface,
+} from '@/config/policyRegistry';
 import { CATEGORY_POLICY_RULES } from '@/config/categoryPolicyRules';
 import { computePolicyStatus } from '@/utils/deterministicAudit';
 import type { DeterministicFinding } from '@/utils/deterministicAudit';
+import { getPolicySummary } from '@/utils/policySummary';
 
 // ── Policy Registry Structure ──────────────────────────────────
 
@@ -56,6 +63,169 @@ describe('Policy Registry', () => {
     for (const rule of POLICY_REGISTRY) {
       expect(rule.fix_guidance).toBeTruthy();
     }
+  });
+});
+
+// ── Source Tier ─────────────────────────────────────────────────
+
+describe('Source Tier', () => {
+  it('every rule should have a source_tier', () => {
+    for (const rule of POLICY_REGISTRY) {
+      expect(rule.source_tier).toBeTruthy();
+      expect(['official', 'internal_sop', 'optimization_playbook']).toContain(rule.source_tier);
+    }
+  });
+
+  it('critical rules must be official or internal_sop, not optimization', () => {
+    const critical = POLICY_REGISTRY.filter(r => r.severity === 'critical');
+    for (const r of critical) {
+      expect(r.source_tier).not.toBe('optimization_playbook');
+    }
+  });
+
+  it('optimization rules should be info severity', () => {
+    const opt = POLICY_REGISTRY.filter(r => r.source_tier === 'optimization_playbook');
+    expect(opt.length).toBeGreaterThanOrEqual(1);
+    for (const r of opt) {
+      expect(r.severity).toBe('info');
+    }
+  });
+
+  it('getSourceTierLabel returns human labels', () => {
+    expect(getSourceTierLabel('official')).toBe('Official');
+    expect(getSourceTierLabel('internal_sop')).toBe('Internal SOP');
+    expect(getSourceTierLabel('optimization_playbook')).toBe('Optimization');
+    expect(getSourceTierLabel(undefined)).toBe('Official');
+  });
+
+  it('getSourceTierBadgeClass returns classes', () => {
+    expect(getSourceTierBadgeClass('official')).toContain('primary');
+    expect(getSourceTierBadgeClass('optimization_playbook')).toContain('accent');
+  });
+});
+
+// ── Surface / Applicability ────────────────────────────────────
+
+describe('Surface Applicability', () => {
+  it('every listing rule should have surfaces', () => {
+    for (const rule of POLICY_REGISTRY) {
+      expect(rule.surfaces).toBeDefined();
+      expect(rule.surfaces!.length).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('MAIN rules should include LISTING_MAIN surface', () => {
+    const mainRules = POLICY_REGISTRY.filter(r => r.applies_to === 'main');
+    for (const r of mainRules) {
+      expect(r.surfaces).toContain('LISTING_MAIN');
+    }
+  });
+
+  it('secondary rules should include LISTING_SECONDARY surface', () => {
+    const secRules = POLICY_REGISTRY.filter(r => r.applies_to === 'secondary');
+    for (const r of secRules) {
+      expect(r.surfaces).toContain('LISTING_SECONDARY');
+    }
+  });
+
+  it('getRulesForSurface filters correctly', () => {
+    const mainSurface = getRulesForSurface('LISTING_MAIN');
+    const aplusSurface = getRulesForSurface('APLUS');
+
+    expect(mainSurface.some(r => r.rule_id === 'MAIN_WHITE_BG')).toBe(true);
+    expect(mainSurface.some(r => r.rule_id === 'APLUS_ALT_TEXT')).toBe(false);
+    expect(aplusSurface.some(r => r.rule_id === 'APLUS_ALT_TEXT')).toBe(true);
+    expect(aplusSurface.some(r => r.rule_id === 'MAIN_WHITE_BG')).toBe(false);
+  });
+});
+
+// ── Compliance vs Optimization ─────────────────────────────────
+
+describe('Compliance vs Optimization separation', () => {
+  it('getComplianceRules excludes optimization rules', () => {
+    const comp = getComplianceRules('main', 'GENERAL_MERCHANDISE');
+    expect(comp.every(r => r.source_tier !== 'optimization_playbook')).toBe(true);
+  });
+
+  it('getOptimizationRules returns only optimization rules', () => {
+    const opt = getOptimizationRules();
+    expect(opt.every(r => r.source_tier === 'optimization_playbook')).toBe(true);
+    expect(opt.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('compliance + optimization = total for universal rules', () => {
+    const all = getApplicableRules('main', 'GENERAL_MERCHANDISE');
+    const comp = getComplianceRules('main', 'GENERAL_MERCHANDISE');
+    const opt = all.filter(r => r.source_tier === 'optimization_playbook');
+    expect(comp.length + opt.length).toBe(all.length);
+  });
+});
+
+// ── A+ Content Rules ───────────────────────────────────────────
+
+describe('A+ Content Rules', () => {
+  it('should have A+ rules separate from listing registry', () => {
+    const aplusRules = getAplusRules();
+    expect(aplusRules.length).toBeGreaterThanOrEqual(3);
+    for (const r of aplusRules) {
+      expect(r.surfaces).toContain('APLUS');
+      // A+ rules should not appear in the main POLICY_REGISTRY
+      expect(POLICY_REGISTRY.some(pr => pr.rule_id === r.rule_id)).toBe(false);
+    }
+  });
+
+  it('A+ rules should not pollute listing-gallery audits', () => {
+    const mainRules = getApplicableRules('main', 'GENERAL_MERCHANDISE');
+    const aplusIds = APLUS_POLICY_RULES.map(r => r.rule_id);
+    for (const id of aplusIds) {
+      expect(mainRules.some(r => r.rule_id === id)).toBe(false);
+    }
+  });
+});
+
+// ── New listing rules ──────────────────────────────────────────
+
+describe('New listing rules', () => {
+  it('should have MAIN_SINGLE_VIEW rule', () => {
+    const r = getPolicyRule('MAIN_SINGLE_VIEW');
+    expect(r).toBeDefined();
+    expect(r!.severity).toBe('critical');
+    expect(r!.applies_to).toBe('main');
+  });
+
+  it('should have MAIN_FULL_PRODUCT rule', () => {
+    const r = getPolicyRule('MAIN_FULL_PRODUCT');
+    expect(r).toBeDefined();
+    expect(r!.severity).toBe('critical');
+  });
+
+  it('should have SECONDARY_NO_WATERMARKS rule', () => {
+    const r = getPolicyRule('SECONDARY_NO_WATERMARKS');
+    expect(r).toBeDefined();
+    expect(r!.applies_to).toBe('secondary');
+  });
+
+  it('should have IMAGE_MIN_UPLOAD rule', () => {
+    const r = getPolicyRule('IMAGE_MIN_UPLOAD');
+    expect(r).toBeDefined();
+    expect(r!.severity).toBe('critical');
+  });
+});
+
+// ── Policy Summary with tiers ──────────────────────────────────
+
+describe('PolicySummary with tiers', () => {
+  it('should include compliance and optimization counts', () => {
+    const summary = getPolicySummary('main', 'GENERAL_MERCHANDISE');
+    expect(summary.complianceRuleCount).toBeGreaterThan(0);
+    expect(summary.optimizationRuleCount).toBeGreaterThanOrEqual(0);
+    expect(summary.complianceRuleCount + summary.optimizationRuleCount).toBe(summary.totalApplicableRules);
+  });
+
+  it('source entries should include tier', () => {
+    const summary = getPolicySummary('main', 'GENERAL_MERCHANDISE');
+    const officialSource = summary.sources.find(s => s.tier === 'official');
+    expect(officialSource).toBeDefined();
   });
 });
 
@@ -126,7 +296,6 @@ describe('getRulesForCategory', () => {
 
   it('should return only universal rules for GENERAL_MERCHANDISE (no extras)', () => {
     const rules = getRulesForCategory('GENERAL_MERCHANDISE');
-    // GENERAL_MERCHANDISE has no category-specific policy rules
     expect(rules.length).toBe(POLICY_REGISTRY.length);
   });
 });
@@ -136,25 +305,20 @@ describe('getRulesForCategory', () => {
 describe('getApplicableRules', () => {
   it('should filter by image type AND category', () => {
     const rules = getApplicableRules('main', 'JEWELRY');
-    // Should include universal main+all rules AND jewelry main+all rules
     expect(rules.every(r => r.applies_to === 'main' || r.applies_to === 'all')).toBe(true);
-    // Should include JEWELRY_NO_MANNEQUIN (main)
     expect(rules.some(r => r.rule_id === 'JEWELRY_NO_MANNEQUIN')).toBe(true);
-    // Should NOT include JEWELRY_DETAIL_SHOT (secondary)
     expect(rules.some(r => r.rule_id === 'JEWELRY_DETAIL_SHOT')).toBe(false);
   });
 
   it('should include secondary-only rules for secondary type', () => {
     const rules = getApplicableRules('secondary', 'FOOTWEAR');
     expect(rules.some(r => r.rule_id === 'FOOTWEAR_SOLE_VISIBLE')).toBe(true);
-    // Should NOT include main-only rules
     expect(rules.some(r => r.rule_id === 'FOOTWEAR_SINGLE_SHOE')).toBe(false);
   });
 
   it('should not break universal rule selection', () => {
     const universalMain = getRulesForImageType('main');
     const categoryMain = getApplicableRules('main', 'APPAREL');
-    // Category-aware should have >= universal count
     expect(categoryMain.length).toBeGreaterThanOrEqual(universalMain.length);
   });
 });
@@ -272,7 +436,6 @@ describe('Category Detection', () => {
 
   it('should prioritize more specific categories over general ones', async () => {
     const { detectCategoryFromTitle } = await import('@/config/categoryRules');
-    // "shoe" should match FOOTWEAR, not APPAREL or GENERAL
     expect(detectCategoryFromTitle('Running Shoe Athletic')).toBe('FOOTWEAR');
   });
 });

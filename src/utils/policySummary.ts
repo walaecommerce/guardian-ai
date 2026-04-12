@@ -3,7 +3,7 @@
  * and active audit context in the UI.
  */
 
-import { POLICY_VERSION, POLICY_REGISTRY, getApplicableRules, type PolicyRule } from '@/config/policyRegistry';
+import { POLICY_VERSION, POLICY_REGISTRY, getApplicableRules, getSourceTierLabel, type PolicyRule, type SourceTier } from '@/config/policyRegistry';
 import { CATEGORY_RULES, type ProductCategory } from '@/config/categoryRules';
 
 export interface PolicySummary {
@@ -17,6 +17,8 @@ export interface PolicySummary {
   llmRuleCount: number;
   universalRuleCount: number;
   categorySpecificRuleCount: number;
+  complianceRuleCount: number;
+  optimizationRuleCount: number;
   sources: PolicySourceEntry[];
 }
 
@@ -24,6 +26,7 @@ export interface PolicySourceEntry {
   label: string;
   url: string | null;
   ruleCount: number;
+  tier?: SourceTier;
 }
 
 /** Build a UI-friendly policy summary for the current audit context. */
@@ -40,8 +43,11 @@ export function getPolicySummary(
   const universalRuleCount = rules.filter(r => r.category === 'universal').length;
   const categorySpecificRuleCount = rules.length - universalRuleCount;
 
+  const complianceRuleCount = rules.filter(r => r.source_tier !== 'optimization_playbook').length;
+  const optimizationRuleCount = rules.filter(r => r.source_tier === 'optimization_playbook').length;
+
   // Aggregate unique sources
-  const sourceMap = new Map<string, { url: string | null; count: number }>();
+  const sourceMap = new Map<string, { url: string | null; count: number; tier?: SourceTier }>();
   for (const r of rules) {
     const key = r.source;
     const existing = sourceMap.get(key);
@@ -49,12 +55,12 @@ export function getPolicySummary(
       existing.count++;
       if (!existing.url && r.source_url) existing.url = r.source_url;
     } else {
-      sourceMap.set(key, { url: r.source_url || null, count: 1 });
+      sourceMap.set(key, { url: r.source_url || null, count: 1, tier: r.source_tier });
     }
   }
 
   const sources: PolicySourceEntry[] = Array.from(sourceMap.entries())
-    .map(([label, v]) => ({ label, url: v.url, ruleCount: v.count }))
+    .map(([label, v]) => ({ label, url: v.url, ruleCount: v.count, tier: v.tier }))
     .sort((a, b) => b.ruleCount - a.ruleCount);
 
   return {
@@ -68,6 +74,8 @@ export function getPolicySummary(
     llmRuleCount,
     universalRuleCount,
     categorySpecificRuleCount,
+    complianceRuleCount,
+    optimizationRuleCount,
     sources,
   };
 }
