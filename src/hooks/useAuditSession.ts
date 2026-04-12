@@ -1279,7 +1279,7 @@ export function useAuditSession() {
             bestAttemptSelection: bestSel,
             selectedAttemptIndex: bestSel?.selectedAttemptIndex,
             fixStopReason: stopR,
-            lastFixStrategy: fixPlan?.strategy,
+            lastFixStrategy: lastStrategy,
           } : a
         ));
         setFixProgress(null);
