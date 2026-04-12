@@ -1012,6 +1012,7 @@ export function useAuditSession() {
       let retryInstructions: string[] = [];
       const retryDecisions: import('@/utils/retryPlanner').RetryDecision[] = [];
       const maxAttempts = 3;
+      const assetContentType = extractImageCategory(asset);
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         addLog('processing', `🖼️ Generation attempt ${attempt}/${maxAttempts}...`);
@@ -1026,7 +1027,7 @@ export function useAuditSession() {
 
           // Build fix plan before generation
           const { buildFixPlan } = await import('@/utils/fixPlanEngine');
-          const assetContentType = extractImageCategory(asset);
+          const localContentType = assetContentType;
           let fixPlan = buildFixPlan(
             asset.type as 'MAIN' | 'SECONDARY',
             asset.analysisResult?.productCategory || 'GENERAL',
