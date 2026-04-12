@@ -342,6 +342,10 @@ Return this EXACT JSON structure:
     let isSatisfactory = rawResult.is_satisfactory ?? rawResult.isSatisfactory ?? false;
     if (score < SATISFACTORY_THRESHOLD) isSatisfactory = false;
     if (!productMatch) isSatisfactory = false;
+    // Fail if target rules were not fixed
+    if (checks.target_rules_fixed === false) isSatisfactory = false;
+    // Fail if new violations were introduced
+    if (checks.no_new_violations === false) isSatisfactory = false;
 
     // Check identity details for stricter matching
     if (identityDetails.missing_features?.length > 0) {
