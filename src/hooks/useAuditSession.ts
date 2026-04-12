@@ -989,13 +989,24 @@ export function useAuditSession() {
               previousDecisions: retryDecisions,
             });
             retryDecisions.push(retryDecision);
+
+            // Store retry decision on the attempt
+            setFixProgress(prev => {
+              if (!prev) return prev;
+              const updatedAttempts = [...prev.attempts];
+              const lastIdx = updatedAttempts.length - 1;
+              if (lastIdx >= 0) {
+                updatedAttempts[lastIdx] = { ...updatedAttempts[lastIdx], retryDecision };
+              }
+              return { ...prev, attempts: updatedAttempts };
+            });
             
             addLog('info', `🧠 Retry decision: ${retryDecision.rationale}`);
             
             if (!retryDecision.shouldContinue) {
               addLog('warning', `🛑 Stopping retries: ${retryDecision.stopReason}`);
-              setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
-              finalImage = genData.fixedImage;
+              setFixProgress(prev => prev ? { ...prev, currentStep: 'complete', stopReason: retryDecision.stopReason } : prev);
+              // Don't pick finalImage yet — will use best-attempt selector below
               break;
             } else if (attempt < maxAttempts) {
               // Update fix plan with tightened constraints
@@ -1019,9 +1030,9 @@ export function useAuditSession() {
               
               await new Promise(r => setTimeout(r, 2000));
             } else {
-              addLog('warning', `⚠️ Max retries reached. Using best result (${verification.score}%).`);
+              addLog('warning', `⚠️ Max retries reached.`);
               setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
-              finalImage = genData.fixedImage;
+              // Don't pick finalImage yet — will use best-attempt selector below
             }
           }
         } catch (error) {
