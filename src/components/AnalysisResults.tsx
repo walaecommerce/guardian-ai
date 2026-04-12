@@ -439,19 +439,18 @@ function AssetResultCard({
                 );
               })()}
             </div>
-            {result.policyStatus && (
-              <PolicyStatusBadge status={result.policyStatus} />
-            )}
           </div>
           <ScoreGauge score={result.overallScore} size={60} />
         </div>
 
-        {/* Quality Score vs Policy Status summary */}
+        {/* Policy vs Quality side-by-side */}
         {(result.policyStatus || result.qualityScore !== undefined) && (
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-2 text-xs">
+            {result.policyStatus && <PolicyStatusBadge status={result.policyStatus} />}
             {result.qualityScore !== undefined && (
-              <span className="text-muted-foreground">
-                Quality: <span className={`font-bold ${result.qualityScore >= 85 ? 'text-green-400' : result.qualityScore >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>{result.qualityScore}</span>/100
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border bg-muted/50 text-[10px] font-medium">
+                <Activity className="w-3 h-3 text-muted-foreground" />
+                Quality: <span className={`font-bold ${result.qualityScore >= 85 ? 'text-green-400' : result.qualityScore >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>{result.qualityScore}</span>
               </span>
             )}
           </div>
@@ -468,19 +467,28 @@ function AssetResultCard({
           </p>
         )}
 
-        {/* Violations sorted by severity with stagger */}
-        {sortedViolations.length > 0 && (
-          <div className="max-h-32 overflow-y-auto space-y-2">
-            {sortedViolations.slice(0, 2).map((v, i) => (
-              <ViolationItem key={i} violation={v} index={i} matchingUpdate={getMatchingPolicyUpdate?.(v.message, v.category)} />
-            ))}
-            {sortedViolations.length > 2 && (
-              <p className="text-xs text-muted-foreground py-1">
-                +{sortedViolations.length - 2} more issues...
-              </p>
-            )}
-          </div>
-        )}
+        {/* Evidence-grouped violations */}
+        {sortedViolations.length > 0 && (() => {
+          const detRuleIds = buildDeterministicRuleIdSet(result.deterministicFindings);
+          return (
+            <div className="max-h-40 overflow-y-auto space-y-2">
+              {sortedViolations.slice(0, 2).map((v, i) => (
+                <ViolationItem
+                  key={i}
+                  violation={v}
+                  index={i}
+                  matchingUpdate={getMatchingPolicyUpdate?.(v.message, v.category)}
+                  evidence={extractEvidence(v, detRuleIds)}
+                />
+              ))}
+              {sortedViolations.length > 2 && (
+                <p className="text-xs text-muted-foreground py-1">
+                  +{sortedViolations.length - 2} more issues...
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Actions */}
         <div className="flex gap-2">
