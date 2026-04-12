@@ -84,6 +84,7 @@ serve(async (req) => {
       originalImageBase64,
       generatedImageBase64,
       imageType,
+      imageContentType,
       mainImageBase64,
       previousCritique,
       productIdentity,
@@ -98,6 +99,7 @@ serve(async (req) => {
     }
 
     const isMain = imageType === 'MAIN';
+    const contentType = (imageContentType || 'UNKNOWN').toUpperCase();
 
     const originalUrl = await fetchImageAsDataUrl(originalImageBase64);
     const generatedUrl = await fetchImageAsDataUrl(generatedImageBase64);
