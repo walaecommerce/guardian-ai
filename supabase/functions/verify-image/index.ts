@@ -115,7 +115,7 @@ serve(async (req) => {
     }
 
     console.log(`[verify-image] using model: ${MODELS.verification} via Google Gemini API`);
-    console.log(`[verify-image] Verifying ${imageType} image...`);
+    console.log(`[verify-image] Verifying ${imageType} image, contentType=${contentType}...`);
 
     // ── Build prompt with weighted rubric ──
 
