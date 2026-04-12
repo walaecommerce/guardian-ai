@@ -1257,8 +1257,28 @@ export function useAuditSession() {
       }
 
       if (finalImage) {
+        // Persist attempt history on asset for post-fix review
+        const persistedAttempts = allAttempts.length > 0 ? allAttempts : undefined;
+        const bestSel = allAttempts.length > 0 ? (() => {
+          let sel: import('@/types').BestAttemptSelection | undefined;
+          setFixProgress(prev => { sel = prev?.bestAttemptSelection; return prev; });
+          return sel;
+        })() : undefined;
+        let stopR: string | undefined;
+        setFixProgress(prev => { stopR = prev?.stopReason; return prev; });
+        
         setAssets(prev => prev.map(a => 
-          a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: finalImage, fixMethod: lastFixMethod } : a
+          a.id === assetId ? { 
+            ...a, 
+            isGeneratingFix: false, 
+            fixedImage: finalImage, 
+            fixMethod: lastFixMethod,
+            fixAttempts: persistedAttempts,
+            bestAttemptSelection: bestSel,
+            selectedAttemptIndex: bestSel?.selectedAttemptIndex,
+            fixStopReason: stopR,
+            lastFixStrategy: fixPlan?.strategy,
+          } : a
         ));
         setFixProgress(null);
         
