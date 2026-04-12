@@ -1134,6 +1134,7 @@ export function useAuditSession() {
               originalImageBase64: originalBase64,
               generatedImageBase64: genData.fixedImage,
               imageType: asset.type,
+              imageContentType: assetContentType,
               mainImageBase64,
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
               productIdentity: (identityProfile?.identity || productIdentity) || undefined,
