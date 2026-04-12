@@ -860,6 +860,7 @@ export function useAuditSession() {
               violations: asset.analysisResult?.violations || [],
               scoringRationale: asset.analysisResult?.scoringRationale || undefined,
               fixPlan,
+              retryInstructions: retryInstructions.length > 0 ? retryInstructions : undefined,
             }
           });
 
