@@ -211,6 +211,17 @@ export interface VerificationResult {
 // Fix Generation Types
 export type FixTier = 'gemini-flash';
 
+// Retry decision produced by the retry planner
+export interface RetryDecision {
+  shouldContinue: boolean;
+  nextStrategy: FixStrategy;
+  rationale: string;
+  tightenedPreserve: string[];
+  tightenedProhibited: string[];
+  additionalInstructions: string[];
+  stopReason?: string;
+}
+
 export interface FixAttempt {
   attempt: number;
   generatedImage: string;
@@ -218,6 +229,7 @@ export interface FixAttempt {
   status: 'generating' | 'verifying' | 'passed' | 'failed' | 'error';
   fixTier?: FixTier; // Which AI tier was used
   logs?: LogEntry[]; // Logs specific to this attempt
+  retryDecision?: RetryDecision; // Retry planner output for this attempt
 }
 
 // Fix Progress with intermediate state

@@ -816,6 +816,8 @@ export function useAuditSession() {
       let lastGeneratedImage: string | undefined = previousGeneratedImage;
       let lastFixMethod: ImageAsset['fixMethod'];
       let finalImage: string | undefined;
+      let retryInstructions: string[] = [];
+      const retryDecisions: import('@/utils/retryPlanner').RetryDecision[] = [];
       const maxAttempts = 3;
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -831,7 +833,7 @@ export function useAuditSession() {
 
           // Build fix plan before generation
           const { buildFixPlan } = await import('@/utils/fixPlanEngine');
-          const fixPlan = buildFixPlan(
+          let fixPlan = buildFixPlan(
             asset.type as 'MAIN' | 'SECONDARY',
             asset.analysisResult?.productCategory || 'GENERAL',
             asset.analysisResult?.violations || [],
@@ -858,6 +860,7 @@ export function useAuditSession() {
               violations: asset.analysisResult?.violations || [],
               scoringRationale: asset.analysisResult?.scoringRationale || undefined,
               fixPlan,
+              retryInstructions: retryInstructions.length > 0 ? retryInstructions : undefined,
             }
           });
 
@@ -971,8 +974,35 @@ export function useAuditSession() {
             }
             addLog('warning', `⚠️ Issues: ${verification.critique}`);
             
-            if (attempt < maxAttempts) {
-              addLog('processing', `🔄 Refining prompt and retrying...`);
+            // ── Retry planner integration ─────────────────────────
+            const { planRetry } = await import('@/utils/retryPlanner');
+            const retryDecision = planRetry({
+              imageType: asset.type as 'MAIN' | 'SECONDARY',
+              category: fixPlan.category,
+              currentStrategy: fixPlan.strategy,
+              attempt,
+              maxAttempts,
+              verification,
+              targetRuleIds: fixPlan.targetRuleIds,
+              previousDecisions: retryDecisions,
+            });
+            retryDecisions.push(retryDecision);
+            
+            addLog('info', `🧠 Retry decision: ${retryDecision.rationale}`);
+            
+            if (!retryDecision.shouldContinue) {
+              addLog('warning', `🛑 Stopping retries: ${retryDecision.stopReason}`);
+              setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
+              finalImage = genData.fixedImage;
+              break;
+            } else if (attempt < maxAttempts) {
+              // Update fix plan with tightened constraints
+              fixPlan.strategy = retryDecision.nextStrategy;
+              fixPlan.preserve = [...new Set([...fixPlan.preserve, ...retryDecision.tightenedPreserve])];
+              fixPlan.prohibited = [...new Set([...fixPlan.prohibited, ...retryDecision.tightenedProhibited])];
+              retryInstructions = retryDecision.additionalInstructions;
+              
+              addLog('processing', `🔄 Retrying with strategy: ${retryDecision.nextStrategy}`);
               setFixProgress(prev => prev ? {
                 ...prev,
                 currentStep: 'retrying',

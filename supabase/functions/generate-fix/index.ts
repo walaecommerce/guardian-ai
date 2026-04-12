@@ -377,10 +377,11 @@ serve(async (req) => {
       previousCritique, previousGeneratedImage, productTitle, customPrompt,
       spatialAnalysis, imageCategory, productIdentity, violations, scoringRationale,
       fixPlan,
+      retryInstructions,
     } = await req.json();
 
     const fixCategory = detectFixCategory(imageCategory, productTitle);
-    console.log(`[generate-fix] Detected category: ${fixCategory}, fixPlan strategy: ${fixPlan?.strategy || 'none'}`);
+    console.log(`[generate-fix] Detected category: ${fixCategory}, fixPlan strategy: ${fixPlan?.strategy || 'none'}, retryInstructions: ${(retryInstructions || []).length}`);
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
@@ -488,6 +489,17 @@ serve(async (req) => {
       contentParts.push({ type: "text", text: prompt });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
       console.log(`[generate-fix] Pattern B (SECONDARY via ${model}), prompt length: ${prompt.length}`);
+    }
+
+    // ── Append retry corrections if present ───────────────────────
+    if (retryInstructions && Array.isArray(retryInstructions) && retryInstructions.length > 0) {
+      const retrySection = `\n\nRETRY CORRECTIONS (from previous attempt failure):\n${retryInstructions.map((i: string) => `- ${i}`).join('\n')}`;
+      // Find the last text part and append
+      const lastTextIdx = contentParts.map((p: any, i: number) => p.type === 'text' ? i : -1).filter((i: number) => i >= 0).pop();
+      if (lastTextIdx !== undefined && lastTextIdx >= 0) {
+        contentParts[lastTextIdx].text += retrySection;
+      }
+      console.log(`[generate-fix] Added ${retryInstructions.length} retry correction instructions`);
     }
 
     // Add previous attempt for comparison if retrying
