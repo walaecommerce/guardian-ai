@@ -960,6 +960,21 @@ export function useAuditSession() {
   const handleRequestFix = async (assetId: string, previousGeneratedImage?: string, customPrompt?: string) => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
+
+    // Fixability check: warn user if not auto-fixable
+    const { classifyAssetFixability } = await import('@/utils/fixability');
+    const fixability = classifyAssetFixability(asset);
+    if (fixability.tier === 'manual_review' || fixability.tier === 'warn_only') {
+      addLog('warning', `⏭️ ${asset.name}: ${fixability.reason}`);
+      toast({ 
+        title: fixability.tier === 'manual_review' ? 'Manual Review Required' : 'Cannot Auto-Fix', 
+        description: fixability.reason, 
+        variant: 'destructive',
+        duration: 6000,
+      });
+      return;
+    }
+
     if (!creditGate('fix')) return;
 
     try {
