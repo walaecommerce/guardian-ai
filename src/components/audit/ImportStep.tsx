@@ -3,6 +3,7 @@ import { ImageUploader, MaxImagesOption } from '@/components/ImageUploader';
 import { BulkUrlImport } from '@/components/BulkUrlImport';
 import { ProductSummaryCard } from '@/components/ProductSummaryCard';
 import { ImageAsset, FailedDownload } from '@/types';
+import { ImportMetadata } from '@/utils/importMetadata';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +34,8 @@ interface ImportStepProps {
   onBulkImport: (urls: string[]) => void;
   productAsin: string | null;
   importError: string | null;
+  importMetadata: ImportMetadata | null;
+  onConfirmHero: (assetId: string) => void;
 }
 
 export function ImportStep({
@@ -42,6 +45,7 @@ export function ImportStep({
   auditComplete, failedDownloads, isRetrying, onRetryFailedDownloads,
   titlePulse, assetGridRef, selectedCategory, onCategoryChange,
   bulkProgress, onBulkImport, productAsin, importError,
+  importMetadata, onConfirmHero,
 }: ImportStepProps) {
   const hasImages = assets.length > 0;
   const [maxImages, setMaxImages] = useState<MaxImagesOption>('20');
@@ -184,6 +188,8 @@ export function ImportStep({
         isAnalyzing={isAnalyzing}
         analyzingProgress={analyzingProgress}
         onAddMoreImages={() => fileInputRef.current?.click()}
+        importMetadata={importMetadata}
+        onConfirmHero={onConfirmHero}
       />
 
       {/* Hidden file input for adding more images */}

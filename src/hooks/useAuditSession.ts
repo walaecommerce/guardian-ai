@@ -9,6 +9,15 @@ import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonic
 import { classifyImage } from '@/services/imageClassifier';
 import { extractImageCategory } from '@/utils/imageCategory';
 import { buildAssetFromDownload } from '@/utils/sessionAssetHelpers';
+import {
+  ImportMetadata,
+  buildImportMetadata,
+  needsHeroConfirmation,
+  autoConfirmSingleImage,
+  confirmHeroImage,
+  applyHeroSelection,
+  isAuditGated,
+} from '@/utils/importMetadata';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { uploadImage } from '@/services/imageStorage';
@@ -55,6 +64,7 @@ export function useAuditSession() {
   const [isLoadingAIComparison, setIsLoadingAIComparison] = useState(false);
   const [aiCreditsExhausted, setAiCreditsExhausted] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importMetadata, setImportMetadata] = useState<ImportMetadata | null>(null);
 
   // Stepper state
   const [currentStep, setCurrentStep] = useState<AuditStep>('import');
@@ -299,8 +309,27 @@ export function useAuditSession() {
       }
 
       if (newAssets.length > 0) {
+        const allAssets = [...assets, ...newAssets];
         setAssets(prev => [...prev, ...newAssets]);
         setAssetSessionMap(newAssetSessionMap);
+
+        // Build import metadata
+        const coverageNotes: string[] = [];
+        if (newFailedDownloads.length > 0) {
+          coverageNotes.push(`${newFailedDownloads.length} of ${imagesToProcess.length} images failed to download`);
+        }
+        const meta = buildImportMetadata(
+          amazonUrl,
+          product.asin !== 'UNKNOWN' ? product.asin : null,
+          newAssets.map(a => a.sourceUrl || '').filter(Boolean),
+          coverageNotes,
+        );
+        // Auto-confirm if single image
+        const autoMeta = autoConfirmSingleImage(allAssets, meta);
+        setImportMetadata(autoMeta || meta);
+        if (autoMeta) {
+          addLog('info', '🎯 Single image imported — auto-confirmed as hero');
+        }
         
         toast({
           title: '✅ Import Successful',
@@ -555,8 +584,26 @@ export function useAuditSession() {
     }
   };
 
+  const handleConfirmHero = useCallback((assetId: string) => {
+    if (!importMetadata) return;
+    const updatedMeta = confirmHeroImage(importMetadata, assetId);
+    setImportMetadata(updatedMeta);
+    const reordered = applyHeroSelection(assets, assetId);
+    setAssets(reordered);
+    addLog('success', `✅ Hero image confirmed: ${reordered[0]?.name || assetId}`);
+  }, [importMetadata, assets, addLog]);
+
   const handleRunAudit = async () => {
     if (assets.length === 0) return;
+    // Gate: require hero confirmation for multi-image imports
+    if (isAuditGated(assets, importMetadata)) {
+      toast({
+        title: 'Confirm Hero Image',
+        description: 'Please confirm which image is the main/hero image before starting the audit.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!creditGate('analyze')) return;
 
     setAiCreditsExhausted(false);
@@ -1616,6 +1663,7 @@ export function useAuditSession() {
     assetGridRef,
     aiCreditsExhausted,
     importError,
+    importMetadata,
 
     // Handlers
     addLog,
@@ -1635,5 +1683,6 @@ export function useAuditSession() {
     handleImportCompetitor,
     handleRetryFailedAnalysis,
     handleResumeAudit,
+    handleConfirmHero,
   };
 }

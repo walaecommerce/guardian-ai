@@ -196,6 +196,8 @@ const Index = () => {
             onBulkImport={session.handleBulkImport}
             productAsin={session.productAsin}
             importError={session.importError}
+            importMetadata={session.importMetadata}
+            onConfirmHero={session.handleConfirmHero}
           />
         )}
 
