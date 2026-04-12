@@ -971,8 +971,34 @@ export function useAuditSession() {
             }
             addLog('warning', `⚠️ Issues: ${verification.critique}`);
             
-            if (attempt < maxAttempts) {
-              addLog('processing', `🔄 Refining prompt and retrying...`);
+            // ── Retry planner integration ─────────────────────────
+            const { planRetry } = await import('@/utils/retryPlanner');
+            const retryDecision = planRetry({
+              imageType: asset.type as 'MAIN' | 'SECONDARY',
+              category: fixPlan.category,
+              currentStrategy: fixPlan.strategy,
+              attempt,
+              maxAttempts,
+              verification,
+              targetRuleIds: fixPlan.targetRuleIds,
+              previousDecisions: retryDecisions,
+            });
+            retryDecisions.push(retryDecision);
+            
+            addLog('info', `🧠 Retry decision: ${retryDecision.rationale}`);
+            
+            if (!retryDecision.shouldContinue) {
+              addLog('warning', `🛑 Stopping retries: ${retryDecision.stopReason}`);
+              setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
+              finalImage = genData.fixedImage;
+            } else if (attempt < maxAttempts) {
+              // Update fix plan with tightened constraints
+              fixPlan.strategy = retryDecision.nextStrategy;
+              fixPlan.preserve = [...new Set([...fixPlan.preserve, ...retryDecision.tightenedPreserve])];
+              fixPlan.prohibited = [...new Set([...fixPlan.prohibited, ...retryDecision.tightenedProhibited])];
+              retryInstructions = retryDecision.additionalInstructions;
+              
+              addLog('processing', `🔄 Retrying with strategy: ${retryDecision.nextStrategy}`);
               setFixProgress(prev => prev ? {
                 ...prev,
                 currentStep: 'retrying',

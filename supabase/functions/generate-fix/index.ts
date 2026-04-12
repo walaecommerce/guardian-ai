@@ -491,6 +491,17 @@ serve(async (req) => {
       console.log(`[generate-fix] Pattern B (SECONDARY via ${model}), prompt length: ${prompt.length}`);
     }
 
+    // ── Append retry corrections if present ───────────────────────
+    if (retryInstructions && Array.isArray(retryInstructions) && retryInstructions.length > 0) {
+      const retrySection = `\n\nRETRY CORRECTIONS (from previous attempt failure):\n${retryInstructions.map((i: string) => `- ${i}`).join('\n')}`;
+      // Find the last text part and append
+      const lastTextIdx = contentParts.map((p: any, i: number) => p.type === 'text' ? i : -1).filter((i: number) => i >= 0).pop();
+      if (lastTextIdx !== undefined && lastTextIdx >= 0) {
+        contentParts[lastTextIdx].text += retrySection;
+      }
+      console.log(`[generate-fix] Added ${retryInstructions.length} retry correction instructions`);
+    }
+
     // Add previous attempt for comparison if retrying
     if (previousGeneratedImage) {
       contentParts.push({ type: "text", text: "Previous attempt (for comparison — fix the issues noted above):" });
