@@ -1019,6 +1019,7 @@ export function useAuditSession() {
             (identityProfile?.identity || productIdentity) || undefined,
           );
 
+          lastStrategy = fixPlan.strategy;
           addLog('info', `📋 Fix plan: strategy=${fixPlan.strategy}, rules=${fixPlan.targetRuleIds.join(',') || 'general'}`);
 
           const { data: genData, error: genError } = await supabase.functions.invoke('generate-fix', {
