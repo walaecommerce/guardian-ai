@@ -106,7 +106,7 @@ export function FixQueuePanel({ queue, activeAssetId, progress }: FixQueuePanelP
                 config.className,
                 isActive && 'scale-105'
               )}
-              title={`${idx + 1}. ${asset.name} — ${config.label}`}
+              title={`${idx + 1}. ${asset.name} — ${config.label}${asset.batchSkipReason ? `: ${asset.batchSkipReason}` : ''}`}
             >
               {status === 'pending' ? (
                 <Skeleton className="w-full h-full" />
@@ -118,6 +118,7 @@ export function FixQueuePanel({ queue, activeAssetId, progress }: FixQueuePanelP
                 'absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center shadow-sm',
                 status === 'fixed' && 'bg-success',
                 status === 'failed' && 'bg-destructive',
+                status === 'skipped' && 'bg-yellow-500',
                 status === 'processing' && 'bg-primary',
                 status === 'pending' && 'bg-muted',
               )}>
