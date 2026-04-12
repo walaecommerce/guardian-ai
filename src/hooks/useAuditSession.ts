@@ -1048,6 +1048,37 @@ export function useAuditSession() {
         }
       }
 
+      // ── Best-attempt selection ──────────────────────────────────
+      const { selectBestAttempt } = await import('@/utils/bestAttemptSelector');
+      // Gather all attempts from fixProgress state
+      const allAttempts: FixAttempt[] = [];
+      setFixProgress(prev => {
+        if (prev) allAttempts.push(...prev.attempts);
+        return prev;
+      });
+
+      if (finalImage) {
+        // Already have a passing image, use it directly
+      } else if (allAttempts.length > 0) {
+        // Use best-attempt selector
+        const selection = selectBestAttempt(allAttempts, asset.type as 'MAIN' | 'SECONDARY');
+        const bestAttempt = allAttempts[selection.selectedAttemptIndex];
+        if (bestAttempt?.generatedImage) {
+          finalImage = bestAttempt.generatedImage;
+          addLog('info', `🏆 ${selection.selectedReason}`);
+
+          // Mark the best attempt and store selection on progress
+          setFixProgress(prev => {
+            if (!prev) return prev;
+            const updated = prev.attempts.map((a, i) => ({
+              ...a,
+              isBestAttempt: i === selection.selectedAttemptIndex,
+            }));
+            return { ...prev, attempts: updated, bestAttemptSelection: selection };
+          });
+        }
+      }
+
       if (finalImage) {
         setAssets(prev => prev.map(a => 
           a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: finalImage, fixMethod: lastFixMethod } : a
