@@ -816,6 +816,8 @@ export function useAuditSession() {
       let lastGeneratedImage: string | undefined = previousGeneratedImage;
       let lastFixMethod: ImageAsset['fixMethod'];
       let finalImage: string | undefined;
+      let retryInstructions: string[] = [];
+      const retryDecisions: import('@/utils/retryPlanner').RetryDecision[] = [];
       const maxAttempts = 3;
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
