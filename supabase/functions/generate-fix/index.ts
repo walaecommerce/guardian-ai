@@ -377,10 +377,11 @@ serve(async (req) => {
       previousCritique, previousGeneratedImage, productTitle, customPrompt,
       spatialAnalysis, imageCategory, productIdentity, violations, scoringRationale,
       fixPlan,
+      retryInstructions,
     } = await req.json();
 
     const fixCategory = detectFixCategory(imageCategory, productTitle);
-    console.log(`[generate-fix] Detected category: ${fixCategory}, fixPlan strategy: ${fixPlan?.strategy || 'none'}`);
+    console.log(`[generate-fix] Detected category: ${fixCategory}, fixPlan strategy: ${fixPlan?.strategy || 'none'}, retryInstructions: ${(retryInstructions || []).length}`);
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
