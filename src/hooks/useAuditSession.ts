@@ -1194,6 +1194,7 @@ export function useAuditSession() {
               verification,
               targetRuleIds: fixPlan.targetRuleIds,
               previousDecisions: retryDecisions,
+              contentType: assetContentType,
             });
             retryDecisions.push(retryDecision);
 
@@ -1268,7 +1269,7 @@ export function useAuditSession() {
         // Already have a passing image, use it directly
       } else if (allAttempts.length > 0) {
         // Use best-attempt selector
-        const selection = selectBestAttempt(allAttempts, asset.type as 'MAIN' | 'SECONDARY');
+        const selection = selectBestAttempt(allAttempts, asset.type as 'MAIN' | 'SECONDARY', assetContentType);
         const bestAttempt = allAttempts[selection.selectedAttemptIndex];
         if (bestAttempt?.generatedImage) {
           finalImage = bestAttempt.generatedImage;
