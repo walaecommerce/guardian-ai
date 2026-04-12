@@ -27,6 +27,7 @@ export function FixQueuePanel({ queue, activeAssetId, progress }: FixQueuePanelP
 
   const fixedCount = queue.filter(a => a.batchFixStatus === 'fixed').length;
   const failedCount = queue.filter(a => a.batchFixStatus === 'failed').length;
+  const skippedCount = queue.filter(a => a.batchFixStatus === 'skipped').length;
   const pendingCount = queue.filter(a => a.batchFixStatus === 'pending').length;
   const processingAsset = queue.find(a => a.batchFixStatus === 'processing');
 
