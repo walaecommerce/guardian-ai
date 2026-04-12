@@ -1663,6 +1663,7 @@ export function useAuditSession() {
     assetGridRef,
     aiCreditsExhausted,
     importError,
+    importMetadata,
 
     // Handlers
     addLog,
@@ -1682,5 +1683,6 @@ export function useAuditSession() {
     handleImportCompetitor,
     handleRetryFailedAnalysis,
     handleResumeAudit,
+    handleConfirmHero,
   };
 }
