@@ -1026,13 +1026,24 @@ export function useAuditSession() {
 
           // Build fix plan before generation
           const { buildFixPlan } = await import('@/utils/fixPlanEngine');
+          const assetContentType = extractImageCategory(asset);
           let fixPlan = buildFixPlan(
             asset.type as 'MAIN' | 'SECONDARY',
             asset.analysisResult?.productCategory || 'GENERAL',
             asset.analysisResult?.violations || [],
             asset.analysisResult?.deterministicFindings || [],
             (identityProfile?.identity || productIdentity) || undefined,
+            assetContentType,
           );
+
+          // If fix plan says skip, bail out gracefully
+          if (fixPlan.strategy === 'skip') {
+            addLog('warning', `⏭️ ${asset.name}: Content type "${assetContentType}" — not safe to auto-fix.`);
+            setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
+            setFixProgress(null);
+            toast({ title: 'Skipped', description: `${asset.name} requires manual review.` });
+            return;
+          }
 
           lastStrategy = fixPlan.strategy;
           addLog('info', `📋 Fix plan: strategy=${fixPlan.strategy}, rules=${fixPlan.targetRuleIds.join(',') || 'general'}`);
