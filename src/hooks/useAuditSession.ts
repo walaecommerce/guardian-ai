@@ -912,6 +912,7 @@ export function useAuditSession() {
             generatedImage: genData.fixedImage,
             status: 'verifying',
             fixTier: 'gemini-flash',
+            strategyUsed: fixPlan.strategy,
           };
 
           setFixProgress(prev => prev ? {
@@ -957,7 +958,8 @@ export function useAuditSession() {
               updatedAttempts[lastIdx] = {
                 ...updatedAttempts[lastIdx],
                 verification,
-                status: verification.isSatisfactory && verification.productMatch ? 'passed' : 'failed'
+                status: verification.isSatisfactory && verification.productMatch ? 'passed' : 'failed',
+                retryDecision: undefined, // will be set below if retry happens
               };
             }
             return { ...prev, attempts: updatedAttempts };
@@ -987,13 +989,24 @@ export function useAuditSession() {
               previousDecisions: retryDecisions,
             });
             retryDecisions.push(retryDecision);
+
+            // Store retry decision on the attempt
+            setFixProgress(prev => {
+              if (!prev) return prev;
+              const updatedAttempts = [...prev.attempts];
+              const lastIdx = updatedAttempts.length - 1;
+              if (lastIdx >= 0) {
+                updatedAttempts[lastIdx] = { ...updatedAttempts[lastIdx], retryDecision };
+              }
+              return { ...prev, attempts: updatedAttempts };
+            });
             
             addLog('info', `🧠 Retry decision: ${retryDecision.rationale}`);
             
             if (!retryDecision.shouldContinue) {
               addLog('warning', `🛑 Stopping retries: ${retryDecision.stopReason}`);
-              setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
-              finalImage = genData.fixedImage;
+              setFixProgress(prev => prev ? { ...prev, currentStep: 'complete', stopReason: retryDecision.stopReason } : prev);
+              // Don't pick finalImage yet — will use best-attempt selector below
               break;
             } else if (attempt < maxAttempts) {
               // Update fix plan with tightened constraints
@@ -1017,9 +1030,9 @@ export function useAuditSession() {
               
               await new Promise(r => setTimeout(r, 2000));
             } else {
-              addLog('warning', `⚠️ Max retries reached. Using best result (${verification.score}%).`);
+              addLog('warning', `⚠️ Max retries reached.`);
               setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
-              finalImage = genData.fixedImage;
+              // Don't pick finalImage yet — will use best-attempt selector below
             }
           }
         } catch (error) {
@@ -1032,6 +1045,37 @@ export function useAuditSession() {
             return;
           }
           await new Promise(r => setTimeout(r, 3000));
+        }
+      }
+
+      // ── Best-attempt selection ──────────────────────────────────
+      const { selectBestAttempt } = await import('@/utils/bestAttemptSelector');
+      // Gather all attempts from fixProgress state
+      const allAttempts: FixAttempt[] = [];
+      setFixProgress(prev => {
+        if (prev) allAttempts.push(...prev.attempts);
+        return prev;
+      });
+
+      if (finalImage) {
+        // Already have a passing image, use it directly
+      } else if (allAttempts.length > 0) {
+        // Use best-attempt selector
+        const selection = selectBestAttempt(allAttempts, asset.type as 'MAIN' | 'SECONDARY');
+        const bestAttempt = allAttempts[selection.selectedAttemptIndex];
+        if (bestAttempt?.generatedImage) {
+          finalImage = bestAttempt.generatedImage;
+          addLog('info', `🏆 ${selection.selectedReason}`);
+
+          // Mark the best attempt and store selection on progress
+          setFixProgress(prev => {
+            if (!prev) return prev;
+            const updated = prev.attempts.map((a, i) => ({
+              ...a,
+              isBestAttempt: i === selection.selectedAttemptIndex,
+            }));
+            return { ...prev, attempts: updated, bestAttemptSelection: selection };
+          });
         }
       }
 
