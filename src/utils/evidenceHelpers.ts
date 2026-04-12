@@ -4,7 +4,7 @@
  */
 
 import type { Violation, DeterministicFindingSummary } from '@/types';
-import { getPolicyRule } from '@/config/policyRegistry';
+import { getPolicyRule, getSourceTierLabel, getSourceTierBadgeClass, type SourceTier, type PolicySurface } from '@/config/policyRegistry';
 
 // ── Finding source types ──
 
@@ -14,6 +14,8 @@ export interface EvidenceDisplay {
   ruleId: string | null;
   source: string | null;
   sourceUrl: string | null;
+  sourceTier: SourceTier | null;
+  surfaces: PolicySurface[] | null;
   whyTriggered: string | null;
   measuredValue: string | number | null;
   threshold: string | number | null;
@@ -58,11 +60,15 @@ export function extractEvidence(violation: Violation, deterministicRuleIds: Set<
 
   let sourceLabel: string | null = null;
   let sourceUrl: string | null = null;
+  let sourceTier: SourceTier | null = null;
+  let surfaces: PolicySurface[] | null = null;
   if (ruleId) {
     const rule = getPolicyRule(ruleId);
     if (rule) {
       sourceLabel = rule.source;
       sourceUrl = rule.source_url || null;
+      sourceTier = rule.source_tier || null;
+      surfaces = rule.surfaces || null;
     }
   }
   if (ev?.source) sourceLabel = ev.source;
@@ -87,6 +93,8 @@ export function extractEvidence(violation: Violation, deterministicRuleIds: Set<
     ruleId,
     source: sourceLabel,
     sourceUrl,
+    sourceTier,
+    surfaces,
     whyTriggered: ev?.why_triggered || null,
     measuredValue: ev?.measured_value ?? null,
     threshold: ev?.threshold ?? null,
@@ -107,7 +115,8 @@ export function groupFindings(
     critical: { label: 'Hard Policy Failures', priority: 0, items: [] },
     warning: { label: 'Warnings', priority: 1, items: [] },
     consistency: { label: 'Consistency Issues', priority: 2, items: [] },
-    info: { label: 'Informational', priority: 3, items: [] },
+    optimization: { label: 'Optimization Suggestions', priority: 3, items: [] },
+    info: { label: 'Informational', priority: 4, items: [] },
   };
 
   for (const v of violations) {
@@ -116,6 +125,8 @@ export function groupFindings(
 
     if (evidence.findingSource === 'consistency') {
       groups.consistency.items.push(entry);
+    } else if (evidence.sourceTier === 'optimization_playbook') {
+      groups.optimization.items.push(entry);
     } else if (v.severity === 'critical') {
       groups.critical.items.push(entry);
     } else if (v.severity === 'warning') {
@@ -158,3 +169,23 @@ export function getSourceBadgeClass(source: FindingSource): string {
     case 'consistency': return 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30';
   }
 }
+
+// ── Surface label helpers ──
+
+const SURFACE_SHORT_LABELS: Record<PolicySurface, string> = {
+  LISTING_MAIN: 'Main',
+  LISTING_SECONDARY: 'Secondary',
+  APLUS: 'A+',
+  BRAND_STORY: 'Brand Story',
+  BRAND_STORE: 'Brand Store',
+  VIDEO: 'Video',
+  '360': '360°',
+};
+
+export function getSurfaceLabels(surfaces: PolicySurface[] | null): string[] {
+  if (!surfaces || surfaces.length === 0) return [];
+  return surfaces.map(s => SURFACE_SHORT_LABELS[s] || s);
+}
+
+// Re-export tier helpers for convenience
+export { getSourceTierLabel, getSourceTierBadgeClass };
