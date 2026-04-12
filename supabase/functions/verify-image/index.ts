@@ -88,6 +88,8 @@ serve(async (req) => {
       previousCritique,
       productIdentity,
       spatialAnalysis,
+      targetRuleIds,
+      fixCategory,
     } = await req.json();
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
@@ -157,6 +159,31 @@ Check each identity attribute individually. If ANY label text is missing/changed
       }
     }
 
+    // Build target rules section
+    let targetRulesSection = '';
+    if (targetRuleIds?.length > 0) {
+      targetRulesSection = `\n\nTARGET RULES THAT MUST BE FIXED:
+${(targetRuleIds as string[]).map((id: string) => `- ${id}`).join('\n')}
+Verify that these specific rule violations are now resolved in the generated image. If ANY target rule is still violated, is_satisfactory MUST be false.`;
+    }
+
+    // Build category-aware identity requirements
+    let categoryIdentitySection = '';
+    if (fixCategory) {
+      const catReqs: Record<string, string> = {
+        APPAREL: 'Verify garment shape, cut, fabric texture, and color are identical to original.',
+        FOOTWEAR: 'Verify shoe shape, material, color, and sole pattern are preserved.',
+        JEWELRY: 'Verify metal/stone arrangement, settings, and finish are unchanged.',
+        FOOD_BEVERAGE: 'Verify ALL packaging text, label claims, and brand logo are legible and unchanged.',
+        SUPPLEMENTS: 'Verify ALL label text, dosage info, and health claims are preserved.',
+        BEAUTY: 'Verify label text, ingredient claims, and surface finish are unchanged.',
+        ELECTRONICS: 'Verify ports, controls, screen, and safety labels are visible and unchanged.',
+      };
+      if (catReqs[fixCategory as string]) {
+        categoryIdentitySection = `\n\nCATEGORY-SPECIFIC IDENTITY CHECK (${fixCategory}):\n${catReqs[fixCategory as string]}`;
+      }
+    }
+
     const outputSchema = `
 WEIGHTED SCORING RUBRIC:
 - Product Identity (35%): Does the generated image show the EXACT same product? Same brand, labels, colors, shape.
@@ -164,12 +191,16 @@ WEIGHTED SCORING RUBRIC:
 - Badge/Text Removal (20%): Are prohibited badges removed while legitimate text is preserved?
 - Image Quality (10%): Sharp, professional, no artifacts, proper lighting.
 - No New Issues (10%): No new elements added, no hallucinated features, no cropping errors.
-${identitySection}${spatialContext}
+${identitySection}${spatialContext}${targetRulesSection}${categoryIdentitySection}
+
+ADDITIONAL CHECKS:
+- Target rule violations fixed: ${targetRuleIds?.length > 0 ? 'YES — verify each target rule is now passing' : 'N/A'}
+- No new violations introduced: Verify the fix did not create NEW policy violations (e.g., adding text, changing product, introducing props)
 
 Return this EXACT JSON structure:
 {
   "score": <0-100 weighted>,
-  "is_satisfactory": <true if score >= 85 AND product identity preserved>,
+  "is_satisfactory": <true if score >= 85 AND product identity preserved AND target rules fixed>,
   "critique": "<concise description of specific issues found>",
   "checks": {
     "background_compliant": <boolean>,
@@ -179,7 +210,9 @@ Return this EXACT JSON structure:
     "quality_acceptable": <boolean>,
     "no_new_elements": <boolean — nothing hallucinated or added>,
     "label_text_legible": <boolean — all original label text is crisp and readable>,
-    "spatial_zones_respected": <boolean — protected areas unchanged, removable overlays gone>
+    "spatial_zones_respected": <boolean — protected areas unchanged, removable overlays gone>,
+    "target_rules_fixed": <boolean — all target rule violations are now resolved>,
+    "no_new_violations": <boolean — no new policy violations introduced by the fix>
   },
   "identity_details": {
     "brand_match": <boolean>,
