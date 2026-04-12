@@ -1779,13 +1779,14 @@ export function useAuditSession() {
     competitorProgress,
     aiComparison,
     isLoadingAIComparison,
-    currentStep, setCurrentStep,
+    currentStep, setCurrentStep: setCurrentStepAndPersist,
     titlePulse,
     uploadSectionRef,
     assetGridRef,
     aiCreditsExhausted,
     importError,
     importMetadata,
+    isHydrating,
 
     // Handlers
     addLog,
@@ -1806,5 +1807,6 @@ export function useAuditSession() {
     handleRetryFailedAnalysis,
     handleResumeAudit,
     handleConfirmHero,
+    hydrateFromSession,
   };
 }
