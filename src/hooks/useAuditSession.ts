@@ -599,6 +599,68 @@ export function useAuditSession() {
     }
   };
 
+  // Persist currentStep to session metadata when it changes
+  const persistStep = useCallback(async (step: AuditStep) => {
+    if (!currentSessionId) return;
+    try {
+      // Merge lastStep into product_identity JSON
+      const { data: session } = await supabase
+        .from('enhancement_sessions')
+        .select('product_identity')
+        .eq('id', currentSessionId)
+        .maybeSingle();
+      const existing = (session?.product_identity as Record<string, any>) || {};
+      await supabase
+        .from('enhancement_sessions')
+        .update({ product_identity: { ...existing, lastStep: step } })
+        .eq('id', currentSessionId);
+    } catch { /* non-critical */ }
+  }, [currentSessionId]);
+
+  // Wrap setCurrentStep to also persist
+  const setCurrentStepAndPersist = useCallback((step: AuditStep) => {
+    setCurrentStep(step);
+    persistStep(step);
+  }, [persistStep]);
+
+  // Hydrate audit workspace from a saved session
+  const hydrateFromSession = useCallback(async (sessionId: string) => {
+    addLog('processing', '📂 Restoring session...');
+    const data = await loadSessionData(sessionId);
+    if (!data) {
+      addLog('error', 'Failed to load session');
+      return false;
+    }
+
+    setAssets(data.assets);
+    setAssetSessionMap(data.assetSessionMap);
+    setCurrentSessionId(data.session.id);
+    setListingTitle(data.session.listing_title || '');
+    setAmazonUrl(data.session.amazon_url || '');
+    setProductAsin(data.session.product_asin);
+    if (data.productIdentity) setProductIdentity(data.productIdentity);
+
+    // Build import metadata from session data
+    const meta: ImportMetadata = {
+      sourceUrl: data.session.amazon_url || '',
+      resolvedAsin: data.session.product_asin,
+      variantSignals: [],
+      importedImageUrls: data.assets.map(a => a.sourceUrl || '').filter(Boolean),
+      coverageNotes: [],
+      heroConfirmed: true,
+      confirmedHeroAssetId: data.assets.find(a => a.type === 'MAIN')?.id || null,
+      importedAt: data.session.created_at,
+    };
+    setImportMetadata(meta);
+
+    // Infer and set the correct step
+    const step = inferCurrentStep(data.session);
+    setCurrentStep(step);
+
+    addLog('success', `✅ Restored ${data.assets.length} images — resuming at ${step} step`);
+    return true;
+  }, [loadSessionData, addLog]);
+
   const handleConfirmHero = useCallback((assetId: string) => {
     if (!importMetadata) return;
     const updatedMeta = confirmHeroImage(importMetadata, assetId);
