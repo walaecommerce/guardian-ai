@@ -103,6 +103,88 @@ const CATEGORY_BG_NOTES: Record<FixCategory, string> = {
   GENERAL: 'Preserve all surface details, textures, and printed elements on the product.',
 };
 
+// ── Plan-aware prompt builder ────────────────────────────────────
+
+interface FixPlanInput {
+  strategy: string;
+  targetRuleIds: string[];
+  category: string;
+  imageType: 'MAIN' | 'SECONDARY';
+  preserve: string[];
+  permitted: string[];
+  remove: string[];
+  prohibited: string[];
+  categoryConstraints: string[];
+}
+
+const STRATEGY_DESCRIPTIONS: Record<string, string> = {
+  'bg-cleanup': 'Replace background with pure white RGB(255,255,255) while preserving every product pixel.',
+  'crop-reframe': 'Reframe/crop the image so the product occupies 85%+ of frame. Fill exposed canvas with white.',
+  'overlay-removal': 'Remove promotional badges/overlays via inpainting. Preserve all product and packaging content.',
+  'inpaint-edit': 'Surgically edit multiple areas: fix background, remove overlays, adjust framing — while preserving product identity.',
+  'full-regeneration': 'Generate a new product image from scratch matching the product identity exactly.',
+};
+
+function buildPlanAwarePrompt(
+  fixPlan: FixPlanInput,
+  title: string,
+  category: FixCategory,
+  identity?: any,
+  violations?: any[],
+): string {
+  const strategyDesc = STRATEGY_DESCRIPTIONS[fixPlan.strategy] || STRATEGY_DESCRIPTIONS['inpaint-edit'];
+
+  let prompt = `FIX OBJECTIVE: ${strategyDesc}
+TARGET RULES: ${fixPlan.targetRuleIds.length > 0 ? fixPlan.targetRuleIds.join(', ') : 'general compliance'}
+
+MUST PRESERVE:
+${fixPlan.preserve.map(p => `- ${p}`).join('\n')}
+
+MAY CHANGE:
+${fixPlan.permitted.map(p => `- ${p}`).join('\n')}
+
+MUST REMOVE:
+${fixPlan.remove.length > 0 ? fixPlan.remove.map(r => `- ${r}`).join('\n') : '- (none identified)'}
+
+PROHIBITED MODIFICATIONS:
+${fixPlan.prohibited.map(p => `- ${p}`).join('\n')}
+`;
+
+  if (fixPlan.categoryConstraints.length > 0) {
+    prompt += `\nCATEGORY CONSTRAINTS (${fixPlan.category}):
+${fixPlan.categoryConstraints.map(c => `- ${c}`).join('\n')}
+`;
+  }
+
+  prompt += `\n${CATEGORY_BG_NOTES[category]}`;
+
+  if (identity) {
+    prompt += `
+
+PRODUCT IDENTITY CARD (these details must remain UNCHANGED in the output):
+- Brand: ${identity.brandName || 'Unknown'}
+- Product: ${identity.productName || title}
+- Packaging: ${identity.packagingType || 'unknown'}
+- Shape: ${identity.shapeDescription || 'standard'}
+- Dominant colors: ${(identity.dominantColors || []).join(', ')}
+- Key label text: ${(identity.labelText || []).join(' | ')}
+- Visual features: ${(identity.keyVisualFeatures || []).join(', ')}
+
+CRITICAL: Every pixel of the product must remain identical to the input image. Only the areas specified in MAY CHANGE and MUST REMOVE should be modified.`;
+  }
+
+  const topViolations = (violations || []).slice(0, 3);
+  if (topViolations.length > 0) {
+    prompt += `\n\nSPECIFIC VIOLATIONS TO FIX:
+${topViolations.map((v: any, i: number) => `${i + 1}. [${v.severity}] ${v.message} → ${v.recommendation}`).join('\n')}`;
+  }
+
+  prompt += `\n\nProduct: ${title}
+OUTPUT: The edited image only. No text response needed.`;
+
+  return prompt;
+}
+
 // ── Prompt builders ──────────────────────────────────────────────
 
 function buildBackgroundReplacementPrompt(title: string, category: FixCategory, identity?: any, violations?: any[]): string {
@@ -294,10 +376,11 @@ serve(async (req) => {
       imageBase64, imageType, generativePrompt, mainImageBase64,
       previousCritique, previousGeneratedImage, productTitle, customPrompt,
       spatialAnalysis, imageCategory, productIdentity, violations, scoringRationale,
+      fixPlan,
     } = await req.json();
 
     const fixCategory = detectFixCategory(imageCategory, productTitle);
-    console.log(`[generate-fix] Detected category: ${fixCategory}`);
+    console.log(`[generate-fix] Detected category: ${fixCategory}, fixPlan strategy: ${fixPlan?.strategy || 'none'}`);
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
@@ -342,10 +425,18 @@ serve(async (req) => {
     if (isMain) {
       const title = productTitle || generativePrompt || 'Amazon product';
       const isRetryAfterBgSegFail = previousCritique && previousCritique.includes('[BG-SEG-IDENTITY-FAIL]');
+      const useFullRegen = !imageBase64 || isRetryAfterBgSegFail || fixPlan?.strategy === 'full-regeneration';
 
-      if (imageBase64 && !isRetryAfterBgSegFail) {
-        // PATTERN A1 — Background-only edit (primary approach for MAIN)
-        let prompt = customPrompt || buildBackgroundReplacementPrompt(title, fixCategory, productIdentity, violations);
+      if (!useFullRegen) {
+        // PATTERN A1 — Edit-preserving fix (primary approach for MAIN)
+        let prompt: string;
+        if (customPrompt) {
+          prompt = customPrompt;
+        } else if (fixPlan) {
+          prompt = buildPlanAwarePrompt(fixPlan, title, fixCategory, productIdentity, violations);
+        } else {
+          prompt = buildBackgroundReplacementPrompt(title, fixCategory, productIdentity, violations);
+        }
         if (previousCritique) {
           prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
         }
@@ -355,9 +446,9 @@ serve(async (req) => {
           image_url: { url: toDataUrl(imageBase64) }
         });
         usedBackgroundSegmentation = true;
-        console.log(`[generate-fix] Pattern A1 (MAIN background-only edit), prompt length: ${prompt.length}`);
+        console.log(`[generate-fix] Pattern A1 (MAIN edit-preserving, strategy=${fixPlan?.strategy || 'legacy'}), prompt length: ${prompt.length}`);
       } else {
-        // PATTERN A2 — Full regeneration fallback (no original image, or bg-seg identity failure)
+        // PATTERN A2 — Full regeneration fallback
         let prompt = customPrompt || buildMainImagePrompt(title, fixCategory, productIdentity);
         if (previousCritique) {
           const cleanCritique = previousCritique.replace('[BG-SEG-IDENTITY-FAIL]', '').trim();

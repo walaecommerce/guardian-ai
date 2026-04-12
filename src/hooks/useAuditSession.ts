@@ -829,6 +829,18 @@ export function useAuditSession() {
             thinkingSteps: [...prev.thinkingSteps, `🖼️ Generation attempt ${attempt}/${maxAttempts}...`]
           } : prev);
 
+          // Build fix plan before generation
+          const { buildFixPlan } = await import('@/utils/fixPlanEngine');
+          const fixPlan = buildFixPlan(
+            asset.type as 'MAIN' | 'SECONDARY',
+            asset.analysisResult?.productCategory || 'GENERAL',
+            asset.analysisResult?.violations || [],
+            asset.analysisResult?.deterministicFindings || [],
+            productIdentity || undefined,
+          );
+
+          addLog('info', `📋 Fix plan: strategy=${fixPlan.strategy}, rules=${fixPlan.targetRuleIds.join(',') || 'general'}`);
+
           const { data: genData, error: genError } = await supabase.functions.invoke('generate-fix', {
             body: { 
               imageBase64: originalBase64, 
@@ -845,6 +857,7 @@ export function useAuditSession() {
               productIdentity: productIdentity || undefined,
               violations: asset.analysisResult?.violations || [],
               scoringRationale: asset.analysisResult?.scoringRationale || undefined,
+              fixPlan,
             }
           });
 
@@ -914,6 +927,8 @@ export function useAuditSession() {
               mainImageBase64,
               spatialAnalysis: asset.analysisResult?.spatialAnalysis,
               productIdentity: productIdentity || undefined,
+              targetRuleIds: fixPlan.targetRuleIds,
+              fixCategory: fixPlan.category,
             }
           });
 

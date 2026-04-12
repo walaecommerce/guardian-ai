@@ -16,6 +16,22 @@ export interface ProductIdentityCard {
 // Fix method used to generate the fixed image
 export type FixMethod = 'bg-segmentation' | 'full-regeneration' | 'surgical-edit' | 'enhancement';
 
+// Fix strategy selected by the fix plan engine
+export type FixStrategy = 'bg-cleanup' | 'crop-reframe' | 'overlay-removal' | 'inpaint-edit' | 'full-regeneration';
+
+// Structured fix plan produced before generation
+export interface FixPlan {
+  strategy: FixStrategy;
+  targetRuleIds: string[];
+  category: string;
+  imageType: 'MAIN' | 'SECONDARY';
+  preserve: string[];
+  permitted: string[];
+  remove: string[];
+  prohibited: string[];
+  categoryConstraints: string[];
+}
+
 export interface ImageAsset {
   id: string;
   file: File;
