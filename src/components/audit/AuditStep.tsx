@@ -221,6 +221,11 @@ export function AuditStep({
         </div>
       )}
 
+      {/* Product Identity Summary */}
+      {hasResults && productIdentity && (
+        <ProductIdentityPanel identity={productIdentity} profile={identityProfile} />
+      )}
+
       {/* Full-width results */}
       <AnalysisResults
         assets={assets}

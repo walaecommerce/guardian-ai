@@ -221,6 +221,8 @@ const Index = () => {
             onSelectAsset={handleSelectAsset}
             onRetryFailedAnalysis={session.handleRetryFailedAnalysis}
             aiCreditsExhausted={session.aiCreditsExhausted}
+            productIdentity={session.productIdentity}
+            identityProfile={session.identityProfile}
           />
         )}
 
