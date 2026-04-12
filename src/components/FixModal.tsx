@@ -168,12 +168,15 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
     }
   }, [asset?.id]);
 
-  // Reset selected attempt when progress changes
+  // Reset selected attempt when progress or persisted attempts change
   useEffect(() => {
-    if (fixProgress?.attempts.length) {
-      setSelectedAttemptIndex(fixProgress.attempts.length - 1);
+    const attempts = fixProgress?.attempts ?? asset?.fixAttempts ?? [];
+    if (attempts.length) {
+      // In review mode, default to the best attempt if available
+      const bestIdx = asset?.selectedAttemptIndex ?? (attempts.length - 1);
+      setSelectedAttemptIndex(bestIdx);
     }
-  }, [fixProgress?.attempts.length]);
+  }, [fixProgress?.attempts.length, asset?.fixAttempts?.length, asset?.selectedAttemptIndex]);
 
   if (!asset) return null;
 
