@@ -250,10 +250,11 @@ describe('retryPlanner', () => {
           componentScores: { identity: 85, compliance: 80, quality: 75, noNewIssues: 85, layoutPreservation: 40 },
         }),
         previousDecisions: [
-          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['layout preservation'] },
-          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['text changed'] },
+          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['layout changed again'] },
+          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['layout still broken'] },
         ],
-        attempt: 3,
+        attempt: 2,
+        maxAttempts: 3,
       }));
       expect(result.shouldContinue).toBe(false);
       expect(result.stopReason).toContain('layout');
@@ -282,10 +283,11 @@ describe('retryPlanner', () => {
           componentScores: { identity: 85, compliance: 80, quality: 75, noNewIssues: 85, labelFidelity: 40 },
         }),
         previousDecisions: [
-          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['label drift'] },
-          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['text drift found'] },
+          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['label text drift detected'] },
+          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['label drift persists'] },
         ],
-        attempt: 3,
+        attempt: 2,
+        maxAttempts: 3,
       }));
       expect(result.shouldContinue).toBe(false);
       expect(result.stopReason).toContain('label fidelity');
