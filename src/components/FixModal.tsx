@@ -245,7 +245,7 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
 
   // Component scores for display
   const componentScores = selectedAttempt?.verification?.componentScores || 
-    fixProgress?.attempts[fixProgress.attempts.length - 1]?.verification?.componentScores;
+    reviewAttempts[reviewAttempts.length - 1]?.verification?.componentScores;
 
   // Get current progress info
   const currentStepInfo = fixProgress?.currentStep && 
