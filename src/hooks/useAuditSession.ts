@@ -1505,6 +1505,80 @@ export function useAuditSession() {
     toast({ title: 'Fix Complete', description: `${fixedCount} images corrected${skippedMsg}` });
   };
 
+  // --- Single-image Enhance (uses enhancement pipeline, not compliance fix) ---
+  const handleRequestEnhance = async (assetId: string) => {
+    const asset = assets.find(a => a.id === assetId);
+    if (!asset || !asset.analysisResult) return;
+    if (!creditGate('fix')) return;
+
+    setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: true } : a));
+    addLog('processing', `✨ Enhancing ${asset.name}...`);
+
+    try {
+      const base64 = await fileToBase64(asset.file);
+      const mainAsset = assets.find(a => a.type === 'MAIN' && a.id !== assetId);
+      let mainImageBase64: string | undefined;
+      if (mainAsset) {
+        mainImageBase64 = await fileToBase64(
+          mainAsset.fixedImage
+            ? await fetch(mainAsset.fixedImage).then(r => r.blob()).then(b => new File([b], 'main.jpg'))
+            : mainAsset.file
+        );
+      }
+
+      // Step 1: Enhancement analysis
+      const { data: analysisData, error: analysisError } = await supabase.functions.invoke('enhance-analyze-image', {
+        body: {
+          imageBase64: base64,
+          mainImageBase64,
+          imageType: asset.type,
+          listingTitle,
+          imageCategory: asset.analysisResult?.productCategory || undefined,
+        },
+      });
+
+      if (analysisError) throw analysisError;
+      if (analysisData?.error) throw new Error(analysisData.error);
+
+      const opportunities = analysisData?.enhancementOpportunities || [];
+      if (opportunities.length === 0) {
+        addLog('info', `✅ ${asset.name} — no enhancements needed`);
+        toast({ title: 'Already Optimized', description: 'No enhancement opportunities found.' });
+        setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
+        return;
+      }
+
+      // Step 2: Generate enhancement
+      const { data: enhanceData, error: enhanceError } = await supabase.functions.invoke('generate-enhancement', {
+        body: {
+          originalImage: base64,
+          mainProductImage: mainImageBase64,
+          imageCategory: analysisData.imageCategory || asset.analysisResult?.productCategory || 'UNKNOWN',
+          enhancementType: opportunities[0]?.type || 'general',
+          targetImprovements: opportunities.map((o: any) => o.description),
+          preserveElements: ['product', 'brand-text', 'key-features'],
+        },
+      });
+
+      if (enhanceError) throw enhanceError;
+      if (enhanceData?.error) throw new Error(enhanceData.error);
+      if (!enhanceData?.enhancedImage) throw new Error('No enhanced image returned');
+
+      setAssets(prev => prev.map(a =>
+        a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: enhanceData.enhancedImage, fixMethod: 'enhancement' as const } : a
+      ));
+
+      addLog('success', `✨ Enhanced ${asset.name}`);
+      toast({ title: 'Enhancement Complete', description: `${opportunities.length} improvement(s) applied.` });
+      refreshCredits();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Enhancement failed';
+      addLog('error', `❌ Enhancement failed: ${msg}`);
+      toast({ title: 'Enhancement Failed', description: msg, variant: 'destructive' });
+      setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
+    }
+  };
+
   // --- Batch Enhance ---
   const [isBatchEnhancing, setIsBatchEnhancing] = useState(false);
   const [batchEnhanceProgress, setBatchEnhanceProgress] = useState<{ current: number; total: number } | null>(null);
