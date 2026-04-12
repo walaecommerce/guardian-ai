@@ -309,8 +309,27 @@ export function useAuditSession() {
       }
 
       if (newAssets.length > 0) {
+        const allAssets = [...assets, ...newAssets];
         setAssets(prev => [...prev, ...newAssets]);
         setAssetSessionMap(newAssetSessionMap);
+
+        // Build import metadata
+        const coverageNotes: string[] = [];
+        if (newFailedDownloads.length > 0) {
+          coverageNotes.push(`${newFailedDownloads.length} of ${imagesToProcess.length} images failed to download`);
+        }
+        const meta = buildImportMetadata(
+          amazonUrl,
+          product.asin !== 'UNKNOWN' ? product.asin : null,
+          newAssets.map(a => a.sourceUrl || '').filter(Boolean),
+          coverageNotes,
+        );
+        // Auto-confirm if single image
+        const autoMeta = autoConfirmSingleImage(allAssets, meta);
+        setImportMetadata(autoMeta || meta);
+        if (autoMeta) {
+          addLog('info', '🎯 Single image imported — auto-confirmed as hero');
+        }
         
         toast({
           title: '✅ Import Successful',
@@ -319,7 +338,6 @@ export function useAuditSession() {
 
         // Auto-advance to audit step
         setCurrentStep('audit');
-        refreshCredits();
       } else {
         throw new Error('No images could be downloaded');
       }
