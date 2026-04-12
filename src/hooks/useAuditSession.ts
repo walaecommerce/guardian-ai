@@ -584,8 +584,26 @@ export function useAuditSession() {
     }
   };
 
+  const handleConfirmHero = useCallback((assetId: string) => {
+    if (!importMetadata) return;
+    const updatedMeta = confirmHeroImage(importMetadata, assetId);
+    setImportMetadata(updatedMeta);
+    const reordered = applyHeroSelection(assets, assetId);
+    setAssets(reordered);
+    addLog('success', `✅ Hero image confirmed: ${reordered[0]?.name || assetId}`);
+  }, [importMetadata, assets, addLog]);
+
   const handleRunAudit = async () => {
     if (assets.length === 0) return;
+    // Gate: require hero confirmation for multi-image imports
+    if (isAuditGated(assets, importMetadata)) {
+      toast({
+        title: 'Confirm Hero Image',
+        description: 'Please confirm which image is the main/hero image before starting the audit.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!creditGate('analyze')) return;
 
     setAiCreditsExhausted(false);
