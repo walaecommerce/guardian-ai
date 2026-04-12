@@ -9,7 +9,7 @@ export function inferCurrentStep(session: {
   failed_count: number;
   fixed_count: number;
   status: string;
-  product_identity?: { lastStep?: string } | null;
+  product_identity?: Record<string, any> | null;
 }): AuditStep {
   // If we explicitly stored the last step, prefer that
   const stored = (session.product_identity as any)?.lastStep;
