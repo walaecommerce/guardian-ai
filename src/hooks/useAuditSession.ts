@@ -15,6 +15,7 @@ import {
   buildImportMetadata,
   needsHeroConfirmation,
   autoConfirmSingleImage,
+  autoConfirmAmazonHero,
   confirmHeroImage,
   applyHeroSelection,
   isAuditGated,
@@ -326,11 +327,20 @@ export function useAuditSession() {
           newAssets.map(a => a.sourceUrl || '').filter(Boolean),
           coverageNotes,
         );
-        // Auto-confirm if single image
-        const autoMeta = autoConfirmSingleImage(allAssets, meta);
-        setImportMetadata(autoMeta || meta);
-        if (autoMeta) {
+        // Auto-confirm: single image OR Amazon import with confident hero
+        const autoSingle = autoConfirmSingleImage(allAssets, meta);
+        if (autoSingle) {
+          setImportMetadata(autoSingle);
           addLog('info', '🎯 Single image imported — auto-confirmed as hero');
+        } else {
+          // Amazon imports have a confident hero (first image from listing)
+          const autoAmazon = autoConfirmAmazonHero(allAssets, meta);
+          if (autoAmazon) {
+            setImportMetadata(autoAmazon);
+            addLog('info', '🎯 Amazon hero image auto-confirmed (first listing image)');
+          } else {
+            setImportMetadata(meta);
+          }
         }
         
         toast({

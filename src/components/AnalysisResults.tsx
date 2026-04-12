@@ -367,21 +367,21 @@ function AssetResultCard({
       <div className="aspect-video relative bg-muted">
         <img src={asset.preview} alt={asset.name} className="w-full h-full object-cover" />
 
-        {/* MAIN / SECONDARY badge */}
-        <Badge className={`absolute top-2 left-2 font-bold ${
-          asset.type === 'MAIN'
-            ? 'bg-[hsl(33,100%,50%)] text-white hover:bg-[hsl(33,100%,45%)]'
-            : 'bg-[hsl(213,27%,23%)] text-white hover:bg-[hsl(213,27%,20%)]'
-        }`}>
-          {asset.type}
-        </Badge>
-
-        {/* AI Category Badge */}
+        {/* Content type badge (primary label) */}
         {imageCategory && (
-          <div className={`absolute top-10 left-2 px-2 py-0.5 rounded text-xs font-medium ${getCategoryColor(imageCategory)}`}>
+          <div className={`absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-medium ${getCategoryColor(imageCategory)}`}>
             {formatCategory(imageCategory)}
           </div>
         )}
+
+        {/* Role badge (small, secondary) */}
+        <Badge className={`absolute ${imageCategory ? 'top-9' : 'top-2'} left-2 text-[9px] px-1.5 py-0 font-bold ${
+          asset.type === 'MAIN'
+            ? 'bg-[hsl(33,100%,50%)] text-white hover:bg-[hsl(33,100%,45%)]'
+            : 'bg-[hsl(213,27%,23%)]/60 text-white/80 hover:bg-[hsl(213,27%,20%)]/70'
+        }`}>
+          {asset.type === 'MAIN' ? '★ MAIN' : `#${assets.indexOf(asset) + 1}`}
+        </Badge>
 
         {/* Product Category Badge (from analysis) */}
         {result.productCategory && (() => {

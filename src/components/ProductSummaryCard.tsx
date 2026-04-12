@@ -294,8 +294,10 @@ function SortableImageThumbnail({
   };
 
   const isMain = index === 0;
-  const categoryLabel = asset.analysisResult?.productCategory
-    || extractImageCategory(asset);
+  const contentLabel = extractImageCategory(asset);
+  const formattedContent = contentLabel === 'UNKNOWN' 
+    ? (asset.type === 'MAIN' ? 'Hero' : `Image ${index + 1}`)
+    : contentLabel.replace(/_/g, ' ').split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
 
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
 
@@ -341,8 +343,8 @@ function SortableImageThumbnail({
 
       {/* Category + dimensions bottom bar */}
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3 flex items-end justify-between">
-        <span className="text-[9px] font-medium text-white/90 uppercase tracking-wider truncate">
-          {categoryLabel}
+        <span className="text-[9px] font-medium text-white/90 truncate">
+          {formattedContent}
         </span>
         {dims && (
           <span className="text-[8px] text-white/60 tabular-nums shrink-0">
