@@ -5,26 +5,25 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow, format } from 'date-fns';
 import { getSessionActionLabel, humanizeSessionStatus, isStudioSession } from '@/utils/sessionHelpers';
-import { formatContentType } from '@/utils/sessionResume';
-import { inferCurrentStep } from '@/utils/sessionResume';
-import { 
-  History, 
-  RefreshCw, 
-  Trash2, 
-  ExternalLink, 
-  Image as ImageIcon, 
-  CheckCircle2, 
-  XCircle, 
+import { formatContentType, inferCurrentStep } from '@/utils/sessionResume';
+import {
+  History,
+  RefreshCw,
+  Trash2,
+  ExternalLink,
+  Image as ImageIcon,
+  CheckCircle2,
+  XCircle,
   Wrench,
-  ChevronRight,
   Package,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Eye,
+  Crown,
 } from 'lucide-react';
 
 interface SessionImage {
@@ -63,6 +62,17 @@ interface SessionHistoryProps {
   onLoadSession?: (session: EnhancementSession, images: SessionImage[]) => void;
 }
 
+// Step badge styling
+function getStepBadge(step: string) {
+  const styles: Record<string, string> = {
+    import: 'bg-muted text-muted-foreground',
+    audit: 'bg-primary/10 text-primary border-primary/20',
+    fix: 'bg-destructive/10 text-destructive border-destructive/20',
+    review: 'bg-success/10 text-success border-success/20',
+  };
+  return styles[step] || 'bg-muted text-muted-foreground';
+}
+
 export function SessionHistory({ currentSessionId, onLoadSession }: SessionHistoryProps) {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<EnhancementSession[]>([]);
@@ -70,6 +80,8 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
   const [selectedSession, setSelectedSession] = useState<EnhancementSession | null>(null);
   const [sessionImages, setSessionImages] = useState<SessionImage[]>([]);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  // Thumbnail cache: sessionId → first N images
+  const [thumbnailCache, setThumbnailCache] = useState<Map<string, SessionImage[]>>(new Map());
   const { toast } = useToast();
 
   const fetchSessions = async () => {
@@ -82,7 +94,31 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
         .limit(20);
 
       if (error) throw error;
-      setSessions((data as EnhancementSession[]) || []);
+      const sessionList = (data as EnhancementSession[]) || [];
+      setSessions(sessionList);
+
+      // Eagerly fetch thumbnails for all sessions (max 5 images each)
+      if (sessionList.length > 0) {
+        const sessionIds = sessionList.map(s => s.id);
+        const { data: imgData } = await supabase
+          .from('session_images')
+          .select('id, session_id, image_name, image_type, image_category, original_image_url, fixed_image_url, status, analysis_result')
+          .in('session_id', sessionIds)
+          .order('created_at', { ascending: true });
+
+        if (imgData) {
+          const cache = new Map<string, SessionImage[]>();
+          for (const img of imgData as (SessionImage & { session_id: string })[]) {
+            const sid = (img as any).session_id;
+            const existing = cache.get(sid) || [];
+            if (existing.length < 5) {
+              existing.push(img);
+              cache.set(sid, existing);
+            }
+          }
+          setThumbnailCache(cache);
+        }
+      }
     } catch (error) {
       console.error('Error fetching sessions:', error);
       toast({
@@ -114,65 +150,52 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
     }
   };
 
-  const handleViewSession = async (session: EnhancementSession) => {
+  const handleViewDetails = async (session: EnhancementSession, e: React.MouseEvent) => {
+    e.stopPropagation();
     setSelectedSession(session);
     await fetchSessionImages(session.id);
     setShowDetailDialog(true);
   };
 
+  const handleContinueWorking = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/audit?session=${sessionId}`);
+  };
+
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
     try {
       const { error } = await supabase
         .from('enhancement_sessions')
         .delete()
         .eq('id', sessionId);
-
       if (error) throw error;
-      
       setSessions(prev => prev.filter(s => s.id !== sessionId));
-      toast({ title: 'Deleted', description: 'Session removed from history' });
+      setThumbnailCache(prev => {
+        const next = new Map(prev);
+        next.delete(sessionId);
+        return next;
+      });
+      toast({ title: 'Deleted', description: 'Session removed' });
     } catch (error) {
       console.error('Delete error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete session',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleLoadSession = () => {
-    if (selectedSession && onLoadSession) {
-      onLoadSession(selectedSession, sessionImages);
-      setShowDetailDialog(false);
-      toast({ title: 'Session Loaded', description: 'You can continue working on this session' });
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-green-500/10 text-green-500 border-green-500/20';
-      case 'in_progress': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-      case 'archived': return 'bg-muted text-muted-foreground border-muted';
-      default: return 'bg-muted text-muted-foreground';
+      toast({ title: 'Error', description: 'Failed to delete session', variant: 'destructive' });
     }
   };
 
   const getScoreColor = (score: number | null) => {
     if (score === null) return 'text-muted-foreground';
-    if (score >= 80) return 'text-green-500';
-    if (score >= 60) return 'text-yellow-500';
-    return 'text-red-500';
+    if (score >= 80) return 'text-success';
+    if (score >= 60) return 'text-warning';
+    return 'text-destructive';
   };
 
   const getImageStatusIcon = (status: string) => {
     switch (status) {
-      case 'passed': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      case 'failed': return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'fixed': return <Wrench className="h-4 w-4 text-blue-500" />;
-      default: return <ImageIcon className="h-4 w-4 text-muted-foreground" />;
+      case 'passed': return <CheckCircle2 className="h-3.5 w-3.5 text-success" />;
+      case 'failed': return <XCircle className="h-3.5 w-3.5 text-destructive" />;
+      case 'fixed': return <Wrench className="h-3.5 w-3.5 text-primary" />;
+      default: return <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />;
     }
   };
 
@@ -185,91 +208,168 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
               <History className="h-5 w-5 text-primary" />
               <CardTitle className="text-lg">Session History</CardTitle>
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={fetchSessions}
               disabled={isLoading}
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
-          <CardDescription>View past sessions, continue unfinished work, or export results</CardDescription>
+          <CardDescription>Resume work, review results, or export reports</CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[300px] pr-4">
-            {sessions.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                  <Package className="w-8 h-8 text-primary/30" />
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Sessions Yet</h3>
-                <p className="text-sm max-w-xs mx-auto">Start a new audit from the Dashboard or paste an Amazon URL on the Audit page.</p>
+          {sessions.length === 0 && !isLoading ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <Package className="w-8 h-8 text-primary/30" />
               </div>
-            ) : (
-              <div className="space-y-2">
-                {sessions.map((session) => (
+              <h3 className="text-lg font-semibold text-foreground mb-2 tracking-tight">No Sessions Yet</h3>
+              <p className="text-sm max-w-xs mx-auto">Start a new audit from the Dashboard or paste an Amazon URL on the Audit page.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sessions.map((session) => {
+                const thumbs = thumbnailCache.get(session.id) || [];
+                const heroThumb = thumbs.find(t => t.image_type === 'MAIN') || thumbs[0];
+                const supportThumbs = thumbs.filter(t => t !== heroThumb).slice(0, 3);
+                const step = inferCurrentStep(session);
+
+                return (
                   <div
                     key={session.id}
-                    onClick={() => handleViewSession(session)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all hover:bg-accent/50 ${
-                      session.id === currentSessionId ? 'border-primary bg-primary/5' : 'border-border/50'
+                    className={`rounded-xl border transition-all hover:shadow-md ${
+                      session.id === currentSessionId
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border/50 hover:border-border'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="p-4 flex gap-4">
+                      {/* Thumbnail column */}
+                      <div className="flex-shrink-0 flex gap-1.5">
+                        {heroThumb ? (
+                          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-muted border border-border/50">
+                            <img
+                              src={heroThumb.original_image_url}
+                              alt={heroThumb.image_name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                            <div className="absolute top-0.5 left-0.5">
+                              <Crown className="w-3 h-3 text-primary drop-shadow-sm" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-muted border border-border/50 flex items-center justify-center">
+                            <Package className="w-6 h-6 text-muted-foreground/30" />
+                          </div>
+                        )}
+                        {supportThumbs.length > 0 && (
+                          <div className="hidden sm:flex flex-col gap-1">
+                            {supportThumbs.map((t) => (
+                              <div
+                                key={t.id}
+                                className="w-6 h-6 rounded overflow-hidden bg-muted border border-border/30"
+                              >
+                                <img
+                                  src={t.original_image_url}
+                                  alt={t.image_name}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info column */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                         <Badge variant="outline" className={getStatusColor(session.status)}>
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                          <Badge variant="outline" className={`text-[10px] h-5 px-1.5 ${getStepBadge(step)}`}>
+                            {step.charAt(0).toUpperCase() + step.slice(1)}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] h-5 px-1.5 ${
+                              session.status === 'completed'
+                                ? 'bg-success/10 text-success border-success/20'
+                                : 'bg-warning/10 text-warning border-warning/20'
+                            }`}
+                          >
                             {humanizeSessionStatus(session.status)}
                           </Badge>
                           {isStudioSession(session.product_identity) && (
-                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px]">
+                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] h-5 px-1.5">
                               <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Studio
                             </Badge>
                           )}
-                          {session.product_asin && (
-                            <span className="text-xs font-mono text-muted-foreground">
-                              {session.product_asin}
-                            </span>
-                          )}
                         </div>
-                        <p className="text-sm font-medium truncate">
+
+                        <p className="text-sm font-semibold text-foreground truncate leading-snug">
                           {session.listing_title || 'Untitled Session'}
                         </p>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span>{session.total_images} images</span>
-                          <span className="text-success">✓ {session.passed_count}</span>
-                          <span className="text-destructive">✗ {session.failed_count}</span>
-                          {session.fixed_count > 0 && (
-                            <span className="text-primary">⚡ {session.fixed_count} fixed</span>
+
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+                          {session.product_asin && (
+                            <span className="font-mono">{session.product_asin}</span>
                           )}
-                          <Badge variant="outline" className="text-[10px] h-4 px-1 capitalize">
-                            {inferCurrentStep(session)} step
-                          </Badge>
+                          <span className="flex items-center gap-0.5">
+                            <ImageIcon className="w-3 h-3" /> {session.total_images}
+                          </span>
+                          {session.passed_count > 0 && (
+                            <span className="text-success">✓{session.passed_count}</span>
+                          )}
+                          {session.failed_count > 0 && (
+                            <span className="text-destructive">✗{session.failed_count}</span>
+                          )}
+                          {session.fixed_count > 0 && (
+                            <span className="text-primary">⚡{session.fixed_count}</span>
+                          )}
+                          <span>·</span>
+                          <span>{formatDistanceToNow(new Date(session.updated_at || session.created_at), { addSuffix: true })}</span>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(new Date(session.created_at), { addSuffix: true })}
-                        </p>
                       </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className={`text-lg font-bold ${getScoreColor(session.average_score)}`}>
-                          {session.average_score !== null ? `${Math.round(session.average_score)}%` : '-'}
+
+                      {/* Score + Actions column */}
+                      <div className="flex flex-col items-end justify-between shrink-0">
+                        <span className={`text-xl font-bold tabular-nums ${getScoreColor(session.average_score)}`}>
+                          {session.average_score !== null ? `${Math.round(session.average_score)}%` : '—'}
                         </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={(e) => handleDeleteSession(session.id, e)}
-                        >
-                          <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs px-3"
+                            onClick={(e) => handleContinueWorking(session.id, e)}
+                          >
+                            <ArrowRight className="w-3 h-3 mr-1" />
+                            Continue Working
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => handleViewDetails(session, e)}
+                          >
+                            <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => handleDeleteSession(session.id, e)}
+                          >
+                            <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -279,144 +379,113 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              Session Details
+              {selectedSession?.listing_title || 'Session Details'}
             </DialogTitle>
-            <DialogDescription>
-              {selectedSession?.listing_title || 'Enhancement Session'}
+            <DialogDescription className="flex items-center gap-2">
+              {selectedSession?.product_asin && (
+                <span className="font-mono">{selectedSession.product_asin}</span>
+              )}
+              {selectedSession && (
+                <>
+                  <span>·</span>
+                  <span>{format(new Date(selectedSession.created_at), 'MMM d, yyyy HH:mm')}</span>
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           {selectedSession && (
-            <div className="flex-1 overflow-auto">
-              {/* Session Info */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg mb-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">ASIN</p>
-                  <p className="font-mono text-sm">{selectedSession.product_asin || '-'}</p>
+            <div className="flex-1 overflow-auto space-y-4">
+              {/* Stats row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className="text-2xl font-bold tabular-nums text-foreground">{selectedSession.total_images}</p>
+                  <p className="text-xs text-muted-foreground">Images</p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Avg Score</p>
-                  <p className={`font-bold ${getScoreColor(selectedSession.average_score)}`}>
-                    {selectedSession.average_score !== null ? `${Math.round(selectedSession.average_score)}%` : '-'}
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className={`text-2xl font-bold tabular-nums ${getScoreColor(selectedSession.average_score)}`}>
+                    {selectedSession.average_score !== null ? `${Math.round(selectedSession.average_score)}%` : '—'}
                   </p>
+                  <p className="text-xs text-muted-foreground">Avg Score</p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Created</p>
-                  <p className="text-sm">{format(new Date(selectedSession.created_at), 'MMM d, yyyy HH:mm')}</p>
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className="text-2xl font-bold tabular-nums text-success">{selectedSession.passed_count}</p>
+                  <p className="text-xs text-muted-foreground">Passed</p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
-                  <Badge variant="outline" className={getStatusColor(selectedSession.status)}>
-                    {humanizeSessionStatus(selectedSession.status)}
-                  </Badge>
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className="text-2xl font-bold tabular-nums text-destructive">{selectedSession.failed_count}</p>
+                  <p className="text-xs text-muted-foreground">Failed</p>
                 </div>
               </div>
 
               {selectedSession.amazon_url && (
-                <a 
+                <a
                   href={selectedSession.amazon_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline mb-4"
+                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                 >
                   View on Amazon <ExternalLink className="h-3 w-3" />
                 </a>
               )}
 
-              {/* Images Grid */}
-              <h4 className="font-medium mb-3">Images ({sessionImages.length})</h4>
-              {sessionImages.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No images recorded for this session</p>
-              ) : (
-                <Accordion type="single" collapsible className="space-y-2">
-                  {sessionImages.map((img, index) => (
-                    <AccordionItem key={img.id} value={img.id} className="border rounded-lg px-4">
-                      <AccordionTrigger className="hover:no-underline py-3">
-                        <div className="flex items-center gap-3 w-full">
-                          <div className="w-12 h-12 rounded overflow-hidden bg-muted flex-shrink-0">
-                            <img 
-                              src={img.original_image_url} 
-                              alt={img.image_name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div className="flex-1 text-left">
-                            <div className="flex items-center gap-2">
-                              {getImageStatusIcon(img.status)}
-                              <span className="font-medium text-sm">{img.image_name}</span>
-                              {img.image_type === 'MAIN' && (
-                                <Badge variant="default" className="text-[10px] h-4 px-1">Hero</Badge>
-                              )}
-                              <Badge variant="secondary" className="text-xs">
-                                {formatContentType(img.image_category)}
-                              </Badge>
-                            </div>
-                            {img.analysis_result?.overallScore !== undefined && (
-                              <p className={`text-sm ${getScoreColor(img.analysis_result.overallScore)}`}>
-                                Score: {img.analysis_result.overallScore}%
-                              </p>
-                            )}
-                          </div>
-                          {img.fixed_image_url && (
-                            <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20">
-                              Fixed
+              {/* Visual image grid */}
+              <div>
+                <h4 className="text-sm font-medium text-foreground mb-3">Images ({sessionImages.length})</h4>
+                {sessionImages.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No images recorded for this session</p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {sessionImages.map((img) => (
+                      <div key={img.id} className="group relative rounded-lg border border-border/50 overflow-hidden bg-muted">
+                        <div className="aspect-square">
+                          <img
+                            src={img.fixed_image_url || img.original_image_url}
+                            alt={img.image_name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                        {/* Overlay badges */}
+                        <div className="absolute top-1.5 left-1.5 flex flex-col gap-1">
+                          {img.image_type === 'MAIN' && (
+                            <Badge variant="default" className="text-[9px] h-4 px-1 shadow-sm">
+                              <Crown className="w-2.5 h-2.5 mr-0.5" /> Hero
                             </Badge>
                           )}
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <Badge variant="secondary" className="text-[9px] h-4 px-1 shadow-sm bg-background/80 backdrop-blur-sm">
+                            {formatContentType(img.image_category)}
+                          </Badge>
                         </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="grid grid-cols-2 gap-4 py-4">
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-2">Original</p>
-                            <img 
-                              src={img.original_image_url}
-                              alt="Original"
-                              className="w-full rounded-lg border"
-                            />
-                          </div>
-                          {img.fixed_image_url && (
-                            <div>
-                              <p className="text-xs text-muted-foreground mb-2">AI Fixed</p>
-                              <img 
-                                src={img.fixed_image_url}
-                                alt="Fixed"
-                                className="w-full rounded-lg border"
-                              />
-                            </div>
-                          )}
+                        <div className="absolute top-1.5 right-1.5">
+                          {getImageStatusIcon(img.status)}
                         </div>
-                        {img.analysis_result?.violations && img.analysis_result.violations.length > 0 && (
-                          <div className="mt-2 p-3 bg-muted/50 rounded">
-                            <p className="text-xs font-medium mb-2">Violations</p>
-                            <ul className="text-xs space-y-1">
-                              {img.analysis_result.violations.slice(0, 5).map((v, i) => (
-                                <li key={i} className="flex items-start gap-2">
-                                  <span className={
-                                    v.severity === 'critical' ? 'text-red-500' : 
-                                    v.severity === 'warning' ? 'text-yellow-500' : 'text-muted-foreground'
-                                  }>
-                                    {v.severity === 'critical' ? '●' : v.severity === 'warning' ? '○' : '·'}
-                                  </span>
-                                  {v.message}
-                                </li>
-                              ))}
-                            </ul>
+                        {img.fixed_image_url && (
+                          <div className="absolute bottom-1.5 right-1.5">
+                            <Badge className="text-[9px] h-4 px-1 bg-primary/90 text-primary-foreground shadow-sm">Fixed</Badge>
                           </div>
                         )}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              )}
+                        {/* Score overlay */}
+                        {img.analysis_result?.overallScore !== undefined && (
+                          <div className="absolute bottom-1.5 left-1.5">
+                            <span className={`text-xs font-bold tabular-nums drop-shadow-sm ${getScoreColor(img.analysis_result.overallScore)}`}>
+                              {img.analysis_result.overallScore}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Actions */}
-              <div className="flex gap-3 mt-6 pt-4 border-t">
-                <Button 
+              <div className="flex gap-3 pt-4 border-t border-border">
+                <Button
                   onClick={() => {
                     setShowDetailDialog(false);
                     navigate(`/audit?session=${selectedSession.id}`);
-                  }} 
+                  }}
                   className="flex-1"
                 >
                   <ArrowRight className="h-4 w-4 mr-2" />
@@ -429,8 +498,8 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                     </a>
                   </Button>
                 )}
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setShowDetailDialog(false)}
                 >
                   Close
