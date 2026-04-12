@@ -200,6 +200,9 @@ export interface ComponentScores {
   noNewIssues: number;
   textLayout?: number; // Text/layout preservation score
   noAdditions?: number; // No new elements added score
+  contextPreservation?: number; // Scene/context preservation (lifestyle, product-in-use)
+  labelFidelity?: number; // Label/printed text preservation (packaging)
+  layoutPreservation?: number; // Layout/text structure preservation (infographic)
 }
 
 export interface VerificationResult {

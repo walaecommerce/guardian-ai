@@ -1,4 +1,4 @@
-import type { FixAttempt } from '@/types';
+import type { FixAttempt, ImageCategory } from '@/types';
 
 export interface AttemptScore {
   attemptIndex: number;
@@ -7,6 +7,9 @@ export interface AttemptScore {
   complianceScore: number;
   noNewIssuesScore: number;
   qualityScore: number;
+  contextPreservationScore: number;
+  labelFidelityScore: number;
+  layoutPreservationScore: number;
   targetRulesFixed: boolean;
   noNewViolations: boolean;
   identityPreserved: boolean;
@@ -20,13 +23,50 @@ export interface BestAttemptSelection {
   comparison: AttemptScore[];
 }
 
-function scoreAttempt(attempt: FixAttempt, index: number, imageType: 'MAIN' | 'SECONDARY'): AttemptScore {
+type WeightSet = {
+  identity: number;
+  compliance: number;
+  noNew: number;
+  quality: number;
+  raw: number;
+  contextPreservation: number;
+  labelFidelity: number;
+  layoutPreservation: number;
+};
+
+function getWeights(imageType: 'MAIN' | 'SECONDARY', contentType?: ImageCategory): WeightSet {
+  if (imageType === 'MAIN') {
+    return { identity: 0.35, compliance: 0.30, noNew: 0.15, quality: 0.10, raw: 0.10, contextPreservation: 0, labelFidelity: 0, layoutPreservation: 0 };
+  }
+
+  switch (contentType) {
+    case 'LIFESTYLE':
+    case 'PRODUCT_IN_USE':
+      return { identity: 0.20, compliance: 0.10, noNew: 0.15, quality: 0.10, raw: 0.10, contextPreservation: 0.30, labelFidelity: 0, layoutPreservation: 0.05 };
+    case 'INFOGRAPHIC':
+      return { identity: 0.15, compliance: 0.10, noNew: 0.15, quality: 0.10, raw: 0.10, contextPreservation: 0.05, labelFidelity: 0, layoutPreservation: 0.35 };
+    case 'PACKAGING':
+      return { identity: 0.25, compliance: 0.10, noNew: 0.10, quality: 0.10, raw: 0.10, contextPreservation: 0, labelFidelity: 0.30, layoutPreservation: 0.05 };
+    case 'DETAIL':
+      return { identity: 0.20, compliance: 0.10, noNew: 0.10, quality: 0.25, raw: 0.15, contextPreservation: 0.10, labelFidelity: 0, layoutPreservation: 0.10 };
+    case 'PRODUCT_SHOT':
+      return { identity: 0.30, compliance: 0.25, noNew: 0.15, quality: 0.15, raw: 0.15, contextPreservation: 0, labelFidelity: 0, layoutPreservation: 0 };
+    default:
+      // Generic secondary fallback
+      return { identity: 0.25, compliance: 0.20, noNew: 0.15, quality: 0.15, raw: 0.25, contextPreservation: 0, labelFidelity: 0, layoutPreservation: 0 };
+  }
+}
+
+function scoreAttempt(attempt: FixAttempt, index: number, imageType: 'MAIN' | 'SECONDARY', contentType?: ImageCategory): AttemptScore {
   const v = attempt.verification;
   const rawScore = v?.score ?? 0;
   const identityScore = v?.componentScores?.identity ?? (v?.productMatch ? 90 : 30);
   const complianceScore = v?.componentScores?.compliance ?? rawScore;
   const noNewIssuesScore = v?.componentScores?.noNewIssues ?? 80;
   const qualityScore = v?.componentScores?.quality ?? rawScore;
+  const contextPreservationScore = v?.componentScores?.contextPreservation ?? 80;
+  const labelFidelityScore = v?.componentScores?.labelFidelity ?? 80;
+  const layoutPreservationScore = v?.componentScores?.layoutPreservation ?? 80;
 
   const targetRulesFixed = !(v?.failedChecks?.some(c =>
     c.toLowerCase().includes('target_rules_fixed') || c.toLowerCase().includes('target rule')
@@ -38,17 +78,17 @@ function scoreAttempt(attempt: FixAttempt, index: number, imageType: 'MAIN' | 'S
 
   const identityPreserved = v?.productMatch !== false;
 
-  // Weighted composite — MAIN heavily weights identity + compliance
-  const weights = imageType === 'MAIN'
-    ? { identity: 0.35, compliance: 0.30, noNew: 0.15, quality: 0.10, raw: 0.10 }
-    : { identity: 0.25, compliance: 0.20, noNew: 0.15, quality: 0.15, raw: 0.25 };
+  const weights = getWeights(imageType, contentType);
 
   const compositeScore =
     identityScore * weights.identity +
     complianceScore * weights.compliance +
     noNewIssuesScore * weights.noNew +
     qualityScore * weights.quality +
-    rawScore * weights.raw;
+    rawScore * weights.raw +
+    contextPreservationScore * weights.contextPreservation +
+    labelFidelityScore * weights.labelFidelity +
+    layoutPreservationScore * weights.layoutPreservation;
 
   return {
     attemptIndex: index,
@@ -57,6 +97,9 @@ function scoreAttempt(attempt: FixAttempt, index: number, imageType: 'MAIN' | 'S
     complianceScore,
     noNewIssuesScore,
     qualityScore,
+    contextPreservationScore,
+    labelFidelityScore,
+    layoutPreservationScore,
     targetRulesFixed,
     noNewViolations,
     identityPreserved,
@@ -64,9 +107,26 @@ function scoreAttempt(attempt: FixAttempt, index: number, imageType: 'MAIN' | 'S
   };
 }
 
+function getContentTypeReasonSuffix(contentType?: ImageCategory): string {
+  switch (contentType) {
+    case 'LIFESTYLE':
+    case 'PRODUCT_IN_USE':
+      return 'with context preserved';
+    case 'INFOGRAPHIC':
+      return 'with infographic layout preserved';
+    case 'PACKAGING':
+      return 'with label fidelity preserved';
+    case 'DETAIL':
+      return 'with detail preservation';
+    default:
+      return 'with identity preserved';
+  }
+}
+
 export function selectBestAttempt(
   attempts: FixAttempt[],
   imageType: 'MAIN' | 'SECONDARY' = 'MAIN',
+  contentType?: ImageCategory,
 ): BestAttemptSelection {
   if (attempts.length === 0) {
     return {
@@ -79,7 +139,7 @@ export function selectBestAttempt(
 
   // Only consider attempts that have a generated image
   const scored = attempts
-    .map((a, i) => ({ attempt: a, score: scoreAttempt(a, i, imageType) }))
+    .map((a, i) => ({ attempt: a, score: scoreAttempt(a, i, imageType, contentType) }))
     .filter(s => s.attempt.generatedImage);
 
   if (scored.length === 0) {
@@ -93,7 +153,7 @@ export function selectBestAttempt(
 
   const comparison = scored.map(s => s.score);
 
-  // Safety-first: for MAIN, any attempt with identity preserved + target rules fixed
+  // Safety-first: for MAIN, any attempt with identity preserved + no new violations
   // is preferred over a higher-score attempt with identity drift
   const isMain = imageType === 'MAIN';
 
@@ -102,7 +162,6 @@ export function selectBestAttempt(
       s.score.identityPreserved && s.score.noNewViolations
     );
     if (safeCandidates.length > 0) {
-      // Among safe candidates, pick highest composite
       safeCandidates.sort((a, b) => b.score.compositeScore - a.score.compositeScore);
       const best = safeCandidates[0];
       const wasSafetyDriven = scored.some(s =>
@@ -119,6 +178,30 @@ export function selectBestAttempt(
     }
   }
 
+  // For secondary content types, apply content-type-specific safety checks
+  if (!isMain && contentType) {
+    const safeFilter = getSafetyFilter(contentType);
+    if (safeFilter) {
+      const safeCandidates = scored.filter(safeFilter);
+      if (safeCandidates.length > 0) {
+        safeCandidates.sort((a, b) => b.score.compositeScore - a.score.compositeScore);
+        const best = safeCandidates[0];
+        const wasSafetyDriven = scored.some(s =>
+          s.score.compositeScore > best.score.compositeScore && !safeFilter(s)
+        );
+        const suffix = getContentTypeReasonSuffix(contentType);
+        return {
+          selectedAttemptIndex: best.score.attemptIndex,
+          selectedReason: wasSafetyDriven
+            ? `Selected attempt ${best.score.attemptIndex + 1} (score ${Math.round(best.score.compositeScore)}%) — safer attempt ${suffix}`
+            : `Selected attempt ${best.score.attemptIndex + 1} (score ${Math.round(best.score.compositeScore)}%) — best score ${suffix}`,
+          selectionType: wasSafetyDriven ? 'safety-driven' : 'score-driven',
+          comparison,
+        };
+      }
+    }
+  }
+
   // Fallback: pick highest composite score
   scored.sort((a, b) => b.score.compositeScore - a.score.compositeScore);
   const best = scored[0];
@@ -129,4 +212,19 @@ export function selectBestAttempt(
     selectionType: 'score-driven',
     comparison,
   };
+}
+
+// Content-type-specific safety filters for secondary images
+function getSafetyFilter(contentType: ImageCategory): ((s: { score: AttemptScore }) => boolean) | null {
+  switch (contentType) {
+    case 'LIFESTYLE':
+    case 'PRODUCT_IN_USE':
+      return (s) => s.score.identityPreserved && s.score.contextPreservationScore >= 65;
+    case 'INFOGRAPHIC':
+      return (s) => s.score.layoutPreservationScore >= 65;
+    case 'PACKAGING':
+      return (s) => s.score.identityPreserved && s.score.labelFidelityScore >= 65;
+    default:
+      return null;
+  }
 }

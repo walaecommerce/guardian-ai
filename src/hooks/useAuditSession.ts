@@ -1012,6 +1012,7 @@ export function useAuditSession() {
       let retryInstructions: string[] = [];
       const retryDecisions: import('@/utils/retryPlanner').RetryDecision[] = [];
       const maxAttempts = 3;
+      const assetContentType = extractImageCategory(asset) as import('@/types').ImageCategory;
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         addLog('processing', `🖼️ Generation attempt ${attempt}/${maxAttempts}...`);
@@ -1026,7 +1027,7 @@ export function useAuditSession() {
 
           // Build fix plan before generation
           const { buildFixPlan } = await import('@/utils/fixPlanEngine');
-          const assetContentType = extractImageCategory(asset);
+          // assetContentType is declared outside the loop for reuse in best-attempt selection
           let fixPlan = buildFixPlan(
             asset.type as 'MAIN' | 'SECONDARY',
             asset.analysisResult?.productCategory || 'GENERAL',
@@ -1194,6 +1195,7 @@ export function useAuditSession() {
               verification,
               targetRuleIds: fixPlan.targetRuleIds,
               previousDecisions: retryDecisions,
+              contentType: assetContentType,
             });
             retryDecisions.push(retryDecision);
 
@@ -1268,7 +1270,7 @@ export function useAuditSession() {
         // Already have a passing image, use it directly
       } else if (allAttempts.length > 0) {
         // Use best-attempt selector
-        const selection = selectBestAttempt(allAttempts, asset.type as 'MAIN' | 'SECONDARY');
+        const selection = selectBestAttempt(allAttempts, asset.type as 'MAIN' | 'SECONDARY', assetContentType);
         const bestAttempt = allAttempts[selection.selectedAttemptIndex];
         if (bestAttempt?.generatedImage) {
           finalImage = bestAttempt.generatedImage;
