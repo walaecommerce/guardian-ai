@@ -45,6 +45,7 @@ interface AnalysisResultsProps {
   assets: ImageAsset[];
   listingTitle: string;
   onRequestFix: (assetId: string) => void;
+  onRequestEnhance?: (assetId: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
   onReverify?: (assetId: string) => void;
   onBatchFix?: () => void;
