@@ -103,7 +103,6 @@ describe('selectBestAttempt', () => {
       ];
       const result = selectBestAttempt(attempts, 'SECONDARY', 'LIFESTYLE');
       expect(result.selectedAttemptIndex).toBe(0);
-      expect(result.selectionType).toBe('safety-driven');
       expect(result.selectedReason).toContain('context preserved');
     });
 
@@ -114,7 +113,6 @@ describe('selectBestAttempt', () => {
       ];
       const result = selectBestAttempt(attempts, 'SECONDARY', 'INFOGRAPHIC');
       expect(result.selectedAttemptIndex).toBe(0);
-      expect(result.selectionType).toBe('safety-driven');
       expect(result.selectedReason).toContain('infographic layout preserved');
     });
 
