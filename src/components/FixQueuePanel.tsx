@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import { ImageAsset } from '@/types';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, XCircle, Clock, Image as ImageIcon } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Clock, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { formatContentType } from '@/utils/sessionResume';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -18,6 +18,7 @@ const STATUS_CONFIG = {
   processing: { label: 'Processing', icon: Loader2, className: 'border-primary bg-primary/10 ring-2 ring-primary/30', iconClass: 'animate-spin text-primary', badgeVariant: 'default' as const },
   fixed: { label: 'Fixed', icon: CheckCircle, className: 'border-success/50 bg-success/5', iconClass: 'text-success', badgeVariant: 'default' as const },
   failed: { label: 'Needs Review', icon: XCircle, className: 'border-destructive/50 bg-destructive/5', iconClass: 'text-destructive', badgeVariant: 'destructive' as const },
+  skipped: { label: 'Skipped', icon: AlertCircle, className: 'border-yellow-500/50 bg-yellow-500/5', iconClass: 'text-yellow-500', badgeVariant: 'secondary' as const },
   pending: { label: 'Pending', icon: Clock, className: 'border-muted-foreground/20 bg-muted/30 opacity-60', iconClass: 'text-muted-foreground', badgeVariant: 'secondary' as const },
 };
 
