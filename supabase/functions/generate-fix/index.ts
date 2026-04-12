@@ -376,10 +376,11 @@ serve(async (req) => {
       imageBase64, imageType, generativePrompt, mainImageBase64,
       previousCritique, previousGeneratedImage, productTitle, customPrompt,
       spatialAnalysis, imageCategory, productIdentity, violations, scoringRationale,
+      fixPlan,
     } = await req.json();
 
     const fixCategory = detectFixCategory(imageCategory, productTitle);
-    console.log(`[generate-fix] Detected category: ${fixCategory}`);
+    console.log(`[generate-fix] Detected category: ${fixCategory}, fixPlan strategy: ${fixPlan?.strategy || 'none'}`);
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
@@ -424,10 +425,18 @@ serve(async (req) => {
     if (isMain) {
       const title = productTitle || generativePrompt || 'Amazon product';
       const isRetryAfterBgSegFail = previousCritique && previousCritique.includes('[BG-SEG-IDENTITY-FAIL]');
+      const useFullRegen = !imageBase64 || isRetryAfterBgSegFail || fixPlan?.strategy === 'full-regeneration';
 
-      if (imageBase64 && !isRetryAfterBgSegFail) {
-        // PATTERN A1 — Background-only edit (primary approach for MAIN)
-        let prompt = customPrompt || buildBackgroundReplacementPrompt(title, fixCategory, productIdentity, violations);
+      if (!useFullRegen) {
+        // PATTERN A1 — Edit-preserving fix (primary approach for MAIN)
+        let prompt: string;
+        if (customPrompt) {
+          prompt = customPrompt;
+        } else if (fixPlan) {
+          prompt = buildPlanAwarePrompt(fixPlan, title, fixCategory, productIdentity, violations);
+        } else {
+          prompt = buildBackgroundReplacementPrompt(title, fixCategory, productIdentity, violations);
+        }
         if (previousCritique) {
           prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
         }
@@ -437,9 +446,9 @@ serve(async (req) => {
           image_url: { url: toDataUrl(imageBase64) }
         });
         usedBackgroundSegmentation = true;
-        console.log(`[generate-fix] Pattern A1 (MAIN background-only edit), prompt length: ${prompt.length}`);
+        console.log(`[generate-fix] Pattern A1 (MAIN edit-preserving, strategy=${fixPlan?.strategy || 'legacy'}), prompt length: ${prompt.length}`);
       } else {
-        // PATTERN A2 — Full regeneration fallback (no original image, or bg-seg identity failure)
+        // PATTERN A2 — Full regeneration fallback
         let prompt = customPrompt || buildMainImagePrompt(title, fixCategory, productIdentity);
         if (previousCritique) {
           const cleanCritique = previousCritique.replace('[BG-SEG-IDENTITY-FAIL]', '').trim();
