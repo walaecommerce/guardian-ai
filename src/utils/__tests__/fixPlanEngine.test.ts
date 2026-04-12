@@ -69,9 +69,34 @@ describe('buildFixPlan', () => {
       expect(plan.strategy).toBe('overlay-removal');
     });
 
-    it('SECONDARY without overlay → inpaint-edit', () => {
+    it('SECONDARY without overlay → bg-cleanup for bg violations', () => {
       const plan = buildFixPlan('SECONDARY', 'GENERAL', [bgViolation], []);
-      expect(plan.strategy).toBe('inpaint-edit');
+      expect(plan.strategy).toBe('bg-cleanup');
+    });
+
+    it('SIZE_CHART content type → skip', () => {
+      const plan = buildFixPlan('SECONDARY', 'GENERAL', [bgViolation], [], null, 'SIZE_CHART');
+      expect(plan.strategy).toBe('skip');
+    });
+
+    it('COMPARISON content type → skip', () => {
+      const plan = buildFixPlan('SECONDARY', 'GENERAL', [bgViolation], [], null, 'COMPARISON');
+      expect(plan.strategy).toBe('skip');
+    });
+
+    it('INFOGRAPHIC with overlay → overlay-removal', () => {
+      const plan = buildFixPlan('SECONDARY', 'GENERAL', [overlayViolation], [], null, 'INFOGRAPHIC');
+      expect(plan.strategy).toBe('overlay-removal');
+    });
+
+    it('INFOGRAPHIC without overlay → skip', () => {
+      const plan = buildFixPlan('SECONDARY', 'GENERAL', [bgViolation], [], null, 'INFOGRAPHIC');
+      expect(plan.strategy).toBe('skip');
+    });
+
+    it('LIFESTYLE with bg violation → bg-cleanup', () => {
+      const plan = buildFixPlan('SECONDARY', 'GENERAL', [bgViolation], [], null, 'LIFESTYLE');
+      expect(plan.strategy).toBe('bg-cleanup');
     });
   });
 
