@@ -2002,6 +2002,7 @@ export function useAuditSession() {
     handleRunAudit,
     handleSaveReport,
     handleRequestFix,
+    handleRequestEnhance,
     handleReverify,
     handleBatchFix,
     handleBatchEnhance,
