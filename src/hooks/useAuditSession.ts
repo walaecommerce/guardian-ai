@@ -653,8 +653,17 @@ export function useAuditSession() {
     };
     setImportMetadata(meta);
 
-    // Infer and set the correct step
-    const step = inferCurrentStep(data.session);
+    // Infer step from actual loaded assets (DB session counts may be stale)
+    const analyzedAssets = data.assets.filter(a => a.analysisResult);
+    const failedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING');
+    const fixedAssets = data.assets.filter(a => a.fixedImage);
+    const step = inferCurrentStep({
+      ...data.session,
+      passed_count: analyzedAssets.length - failedAssets.length,
+      failed_count: failedAssets.length,
+      fixed_count: fixedAssets.length,
+      total_images: data.assets.length,
+    });
     setCurrentStep(step);
 
     addLog('success', `✅ Restored ${data.assets.length} images — resuming at ${step} step`);
