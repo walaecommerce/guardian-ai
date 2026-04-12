@@ -958,7 +958,8 @@ export function useAuditSession() {
               updatedAttempts[lastIdx] = {
                 ...updatedAttempts[lastIdx],
                 verification,
-                status: verification.isSatisfactory && verification.productMatch ? 'passed' : 'failed'
+                status: verification.isSatisfactory && verification.productMatch ? 'passed' : 'failed',
+                retryDecision: undefined, // will be set below if retry happens
               };
             }
             return { ...prev, attempts: updatedAttempts };
