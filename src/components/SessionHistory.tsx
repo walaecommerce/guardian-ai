@@ -407,7 +407,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                 <Button 
                   onClick={() => {
                     setShowDetailDialog(false);
-                    navigate(`/session/${selectedSession.id}`);
+                    navigate(`/audit?session=${selectedSession.id}`);
                   }} 
                   className="flex-1"
                 >
