@@ -777,7 +777,7 @@ export function useAuditSession() {
           addLog('success', `✅ Identity profile built from ${profile.sourceImageIds.length} source image(s), completeness: ${profile.completeness}%`);
 
           if (currentSessionId) {
-            await supabase.from('enhancement_sessions').update({ product_identity: profile.identity }).eq('id', currentSessionId);
+            await supabase.from('enhancement_sessions').update({ product_identity: JSON.parse(JSON.stringify(profile.identity)) }).eq('id', currentSessionId);
           }
         }
       } catch {
