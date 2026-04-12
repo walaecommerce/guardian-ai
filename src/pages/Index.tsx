@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuditSession, AuditStep } from '@/hooks/useAuditSession';
 import { AuditStepper } from '@/components/audit/AuditStepper';
 import { ImportStep } from '@/components/audit/ImportStep';
@@ -70,10 +71,27 @@ function InlineActivityLog({ logs, onClear }: { logs: LogEntry[]; onClear: () =>
 }
 
 const Index = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const session = useAuditSession();
   const [drawerAsset, setDrawerAsset] = useState<ImageAsset | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { toast } = useToast();
+  const hydratedRef = useRef(false);
+
+  // Hydrate from session if ?session= param is present
+  useEffect(() => {
+    const sessionId = searchParams.get('session');
+    if (sessionId && !hydratedRef.current) {
+      hydratedRef.current = true;
+      session.hydrateFromSession(sessionId).then((ok) => {
+        if (ok) {
+          // Clean up URL param after successful hydration
+          setSearchParams({}, { replace: true });
+          toast({ title: 'Session Restored', description: 'Continuing where you left off' });
+        }
+      });
+    }
+  }, [searchParams]);
 
   // Keyboard shortcuts
   useEffect(() => {

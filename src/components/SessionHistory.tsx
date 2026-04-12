@@ -10,6 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow, format } from 'date-fns';
 import { getSessionActionLabel, humanizeSessionStatus, isStudioSession } from '@/utils/sessionHelpers';
+import { formatContentType } from '@/utils/sessionResume';
+import { inferCurrentStep } from '@/utils/sessionResume';
 import { 
   History, 
   RefreshCw, 
@@ -236,11 +238,14 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                         </p>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                           <span>{session.total_images} images</span>
-                          <span className="text-green-500">✓ {session.passed_count}</span>
-                          <span className="text-red-500">✗ {session.failed_count}</span>
+                          <span className="text-success">✓ {session.passed_count}</span>
+                          <span className="text-destructive">✗ {session.failed_count}</span>
                           {session.fixed_count > 0 && (
-                            <span className="text-blue-500">⚡ {session.fixed_count} fixed</span>
+                            <span className="text-primary">⚡ {session.fixed_count} fixed</span>
                           )}
+                          <Badge variant="outline" className="text-[10px] h-4 px-1 capitalize">
+                            {inferCurrentStep(session)} step
+                          </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {formatDistanceToNow(new Date(session.created_at), { addSuffix: true })}
@@ -339,8 +344,11 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                             <div className="flex items-center gap-2">
                               {getImageStatusIcon(img.status)}
                               <span className="font-medium text-sm">{img.image_name}</span>
+                              {img.image_type === 'MAIN' && (
+                                <Badge variant="default" className="text-[10px] h-4 px-1">Hero</Badge>
+                              )}
                               <Badge variant="secondary" className="text-xs">
-                                {img.image_type}
+                                {formatContentType(img.image_category)}
                               </Badge>
                             </div>
                             {img.analysis_result?.overallScore !== undefined && (
@@ -407,7 +415,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                 <Button 
                   onClick={() => {
                     setShowDetailDialog(false);
-                    navigate(`/session/${selectedSession.id}`);
+                    navigate(`/audit?session=${selectedSession.id}`);
                   }} 
                   className="flex-1"
                 >
