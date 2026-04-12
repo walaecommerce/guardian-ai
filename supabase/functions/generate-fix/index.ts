@@ -565,28 +565,34 @@ serve(async (req) => {
 
     } else if (mainImageBase64) {
       // PATTERN C — SECONDARY with main reference
-      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity, violations);
+      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity, violations, imageContentType, fixPlan?.strategy);
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
+      if (fixPlan) {
+        prompt += `\n\nFIX PLAN CONTEXT: strategy=${fixPlan.strategy}, target_rules=${(fixPlan.targetRuleIds || []).join(',')}`;
+      }
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
       contentParts.push({ type: "text", text: prompt });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(mainImageBase64) } });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
-      console.log(`[generate-fix] Pattern C (SECONDARY+REF via ${model}), prompt length: ${prompt.length}`);
+      console.log(`[generate-fix] Pattern C (SECONDARY+REF, contentType=${imageContentType || 'UNKNOWN'}, strategy=${fixPlan?.strategy || 'legacy'}), prompt length: ${prompt.length}`);
 
     } else {
       // PATTERN B — SECONDARY without main reference
-      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity, violations);
+      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity, violations, imageContentType, fixPlan?.strategy);
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
+      if (fixPlan) {
+        prompt += `\n\nFIX PLAN CONTEXT: strategy=${fixPlan.strategy}, target_rules=${(fixPlan.targetRuleIds || []).join(',')}`;
+      }
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
       contentParts.push({ type: "text", text: prompt });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
-      console.log(`[generate-fix] Pattern B (SECONDARY via ${model}), prompt length: ${prompt.length}`);
+      console.log(`[generate-fix] Pattern B (SECONDARY, contentType=${imageContentType || 'UNKNOWN'}, strategy=${fixPlan?.strategy || 'legacy'}), prompt length: ${prompt.length}`);
     }
 
     // ── Append retry corrections if present ───────────────────────
