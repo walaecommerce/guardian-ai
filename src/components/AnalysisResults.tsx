@@ -316,12 +316,14 @@ function DeterministicFindingsPanel({ findings }: { findings: DeterministicFindi
 function AssetResultCard({
   asset,
   onRequestFix,
+  onRequestEnhance,
   onViewDetails,
   onReverify,
   getMatchingPolicyUpdate,
 }: {
   asset: ImageAsset;
   onRequestFix: (id: string) => void;
+  onRequestEnhance?: (id: string) => void;
   onViewDetails: (asset: ImageAsset) => void;
   onReverify?: (assetId: string) => void;
   getMatchingPolicyUpdate?: (message: string, category: string) => PolicyUpdate | null;
