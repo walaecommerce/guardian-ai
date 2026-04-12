@@ -231,7 +231,13 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
     }
   };
 
-  const selectedAttempt = selectedAttemptIndex !== undefined && fixProgress?.attempts[selectedAttemptIndex];
+  // Use persisted attempts from asset if fixProgress is gone (review mode)
+  const reviewAttempts = fixProgress?.attempts ?? asset.fixAttempts ?? [];
+  const reviewBestSelection = fixProgress?.bestAttemptSelection ?? asset.bestAttemptSelection;
+  const reviewStopReason = fixProgress?.stopReason ?? asset.fixStopReason;
+  const isReviewMode = !fixProgress && reviewAttempts.length > 0;
+  
+  const selectedAttempt = selectedAttemptIndex !== undefined && reviewAttempts[selectedAttemptIndex];
   const displayImage = selectedAttempt?.generatedImage || fixProgress?.intermediateImage || asset.fixedImage;
 
   // Component scores for display
