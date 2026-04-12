@@ -301,6 +301,19 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
 
         <ScrollArea className="max-h-[calc(95vh-120px)]">
           <div className="space-y-4 pr-4">
+            {/* Review Mode Banner */}
+            {isReviewMode && (
+              <div className="p-3 rounded-lg border bg-muted/30 border-muted flex items-center gap-2">
+                <Eye className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Fix Review</p>
+                  <p className="text-xs text-muted-foreground">
+                    Viewing saved fix trace — scores, strategies, and selection rationale are preserved. Intermediate attempt images are not stored.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Mode Description Banner */}
             <div className={`p-3 rounded-lg border ${activeMode === 'fix' ? 'bg-orange-500/5 border-orange-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
               <div className="flex items-center gap-2">
