@@ -912,6 +912,7 @@ export function useAuditSession() {
             generatedImage: genData.fixedImage,
             status: 'verifying',
             fixTier: 'gemini-flash',
+            strategyUsed: fixPlan.strategy,
           };
 
           setFixProgress(prev => prev ? {
