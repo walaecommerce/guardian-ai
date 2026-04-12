@@ -17,6 +17,7 @@ import {
   type EvidenceDisplay,
   type FindingGroup,
 } from '@/utils/evidenceHelpers';
+import { getPolicySummary, type PolicySummary } from '@/utils/policySummary';
 
 const getFixMethodConfig = (method: FixMethod) => {
   switch (method) {
@@ -514,6 +515,36 @@ function AssetResultCard({
   );
 }
 
+// ── Policy Context Banner ──
+
+function PolicyContextBanner({ summary }: { summary: PolicySummary }) {
+  return (
+    <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground mb-3 px-2 py-1.5 rounded-md bg-muted/30 border border-border/50">
+      <span className="font-mono font-semibold text-foreground/70">v{summary.policyVersion}</span>
+      <span className="inline-flex items-center gap-1">
+        <span>{summary.categoryIcon}</span>
+        <span className="font-medium text-foreground/80">{summary.categoryLabel}</span>
+      </span>
+      <span>{summary.totalApplicableRules} rules</span>
+      <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded-full border bg-blue-500/15 text-blue-400 border-blue-500/30">
+        <Cpu className="w-2.5 h-2.5" />
+        {summary.deterministicRuleCount + summary.hybridRuleCount} pre-checks
+      </span>
+      {summary.categorySpecificRuleCount > 0 && (
+        <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded-full border bg-orange-500/15 text-orange-400 border-orange-500/30">
+          <Tag className="w-2.5 h-2.5" />
+          {summary.categorySpecificRuleCount} category
+        </span>
+      )}
+      {summary.sources[0]?.url && (
+        <a href={summary.sources[0].url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-primary/70 hover:text-primary">
+          <ExternalLink className="w-2.5 h-2.5" /> Source
+        </a>
+      )}
+    </div>
+  );
+}
+
 // ── Main export ──
 
 export function AnalysisResults({
@@ -623,6 +654,13 @@ export function AnalysisResults({
           </div>
         </CardHeader>
         <CardContent>
+          {/* Policy context banner */}
+          {completedAssets.length > 0 && (() => {
+            const detectedCat = completedAssets[0]?.analysisResult?.productCategory;
+            const catKey = detectedCat ? (GEMINI_CATEGORY_MAP[detectedCat] || detectedCat) as ProductCategory : 'GENERAL_MERCHANDISE' as ProductCategory;
+            const summary = getPolicySummary('main', catKey);
+            return <PolicyContextBanner summary={summary} />;
+          })()}
           <div className="flex items-center justify-between">
             <div className="flex gap-6">
               <div className="text-center">
