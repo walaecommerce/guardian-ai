@@ -158,7 +158,7 @@ export function FixAttemptHistory({
                           </div>
                         )}
 
-                        {/* Identity indicator */}
+                        {/* Identity / content-type indicators */}
                         <div className="flex items-center justify-center gap-1">
                           {identityOk ? (
                             <ShieldCheck className="w-2.5 h-2.5 text-success" />
@@ -169,6 +169,22 @@ export function FixAttemptHistory({
                             {identityOk ? 'Identity OK' : 'Identity drift'}
                           </span>
                         </div>
+                        {/* Content-type subscores */}
+                        {attempt.verification?.componentScores?.contextPreservation !== undefined && (
+                          <div className="text-[7px] text-muted-foreground text-center truncate">
+                            Ctx: {attempt.verification.componentScores.contextPreservation}%
+                          </div>
+                        )}
+                        {attempt.verification?.componentScores?.labelFidelity !== undefined && (
+                          <div className="text-[7px] text-muted-foreground text-center truncate">
+                            Label: {attempt.verification.componentScores.labelFidelity}%
+                          </div>
+                        )}
+                        {attempt.verification?.componentScores?.layoutPreservation !== undefined && (
+                          <div className="text-[7px] text-muted-foreground text-center truncate">
+                            Layout: {attempt.verification.componentScores.layoutPreservation}%
+                          </div>
+                        )}
                       </div>
                     </button>
                   </TooltipTrigger>

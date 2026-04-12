@@ -194,6 +194,130 @@ describe('retryPlanner', () => {
     });
   });
 
+  describe('content-type-aware retries', () => {
+    it('LIFESTYLE: tightens scene constraints on context preservation failure', () => {
+      const result = planRetry(makeInput({
+        imageType: 'SECONDARY',
+        currentStrategy: 'overlay-removal',
+        contentType: 'LIFESTYLE',
+        verification: makeVerification({
+          componentScores: { identity: 85, compliance: 80, quality: 75, noNewIssues: 85, contextPreservation: 50 },
+        }),
+      }));
+      expect(result.shouldContinue).toBe(true);
+      expect(result.tightenedPreserve.some(p => p.toLowerCase().includes('scene'))).toBe(true);
+      expect(result.additionalInstructions.some(i => i.includes('scene context'))).toBe(true);
+    });
+
+    it('LIFESTYLE: stops on repeated context preservation failure', () => {
+      const result = planRetry(makeInput({
+        imageType: 'SECONDARY',
+        currentStrategy: 'overlay-removal',
+        contentType: 'LIFESTYLE',
+        verification: makeVerification({
+          componentScores: { identity: 85, compliance: 80, quality: 75, noNewIssues: 85, contextPreservation: 40 },
+        }),
+        previousDecisions: [
+          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['scene context preservation'] },
+          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['context preservation failure'] },
+        ],
+        attempt: 3,
+      }));
+      expect(result.shouldContinue).toBe(false);
+      expect(result.stopReason).toContain('context preservation');
+    });
+
+    it('INFOGRAPHIC: tightens layout constraints on layout failure', () => {
+      const result = planRetry(makeInput({
+        imageType: 'SECONDARY',
+        currentStrategy: 'overlay-removal',
+        contentType: 'INFOGRAPHIC',
+        verification: makeVerification({
+          componentScores: { identity: 85, compliance: 80, quality: 75, noNewIssues: 85, layoutPreservation: 45 },
+        }),
+      }));
+      expect(result.shouldContinue).toBe(true);
+      expect(result.tightenedPreserve.some(p => p.toLowerCase().includes('text'))).toBe(true);
+      expect(result.additionalInstructions.some(i => i.includes('infographic'))).toBe(true);
+    });
+
+    it('INFOGRAPHIC: stops on repeated layout failure', () => {
+      const result = planRetry(makeInput({
+        imageType: 'SECONDARY',
+        currentStrategy: 'overlay-removal',
+        contentType: 'INFOGRAPHIC',
+        verification: makeVerification({
+          componentScores: { identity: 85, compliance: 80, quality: 75, noNewIssues: 85, layoutPreservation: 40 },
+        }),
+        previousDecisions: [
+          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['layout preservation'] },
+          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['text changed'] },
+        ],
+        attempt: 3,
+      }));
+      expect(result.shouldContinue).toBe(false);
+      expect(result.stopReason).toContain('layout');
+    });
+
+    it('PACKAGING: tightens label constraints on label fidelity failure', () => {
+      const result = planRetry(makeInput({
+        imageType: 'SECONDARY',
+        currentStrategy: 'overlay-removal',
+        contentType: 'PACKAGING',
+        verification: makeVerification({
+          componentScores: { identity: 85, compliance: 80, quality: 75, noNewIssues: 85, labelFidelity: 50 },
+        }),
+      }));
+      expect(result.shouldContinue).toBe(true);
+      expect(result.tightenedPreserve.some(p => p.toLowerCase().includes('label'))).toBe(true);
+      expect(result.additionalInstructions.some(i => i.includes('label text drift'))).toBe(true);
+    });
+
+    it('PACKAGING: stops on repeated label failure', () => {
+      const result = planRetry(makeInput({
+        imageType: 'SECONDARY',
+        currentStrategy: 'overlay-removal',
+        contentType: 'PACKAGING',
+        verification: makeVerification({
+          componentScores: { identity: 85, compliance: 80, quality: 75, noNewIssues: 85, labelFidelity: 40 },
+        }),
+        previousDecisions: [
+          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['label drift'] },
+          { shouldContinue: true, nextStrategy: 'overlay-removal', rationale: '', tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: ['text drift found'] },
+        ],
+        attempt: 3,
+      }));
+      expect(result.shouldContinue).toBe(false);
+      expect(result.stopReason).toContain('label fidelity');
+    });
+
+    it('PRODUCT_SHOT secondary: normal compliance retries, no extra constraints', () => {
+      const result = planRetry(makeInput({
+        imageType: 'SECONDARY',
+        currentStrategy: 'bg-cleanup',
+        contentType: 'PRODUCT_SHOT',
+        verification: makeVerification({
+          failedChecks: ['background compliance'],
+        }),
+      }));
+      expect(result.shouldContinue).toBe(true);
+      expect(result.additionalInstructions.some(i => i.includes('RGB(255,255,255)'))).toBe(true);
+    });
+
+    it('MAIN: contentType does not affect MAIN behavior', () => {
+      const result = planRetry(makeInput({
+        imageType: 'MAIN',
+        contentType: 'LIFESTYLE',
+        verification: makeVerification({
+          failedChecks: ['background compliance'],
+        }),
+      }));
+      // Should still add compliance language, not scene preservation
+      expect(result.additionalInstructions.some(i => i.includes('RGB(255,255,255)'))).toBe(true);
+      expect(result.tightenedPreserve.some(p => p.toLowerCase().includes('scene'))).toBe(false);
+    });
+  });
+
   describe('max attempts', () => {
     it('stops when attempt >= maxAttempts', () => {
       const result = planRetry(makeInput({
