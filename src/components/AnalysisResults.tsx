@@ -1,12 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
-import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Scissors, AlertOctagon, Sparkles, Shield, ShieldCheck, ShieldAlert, ShieldX, Activity } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Scissors, AlertOctagon, Sparkles, Shield, ShieldCheck, ShieldAlert, ShieldX, Activity, ExternalLink, Eye, Cpu, Tag, Link2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ImageAsset, AnalysisResult, FixMethod, DeterministicFindingSummary } from '@/types';
+import {
+  extractEvidence,
+  groupFindings,
+  buildDeterministicRuleIdSet,
+  getSourceBadgeLabel,
+  getSourceBadgeClass,
+  type EvidenceDisplay,
+  type FindingGroup,
+} from '@/utils/evidenceHelpers';
 
 const getFixMethodConfig = (method: FixMethod) => {
   switch (method) {
@@ -126,12 +136,62 @@ function ScoreGauge({ score, size = 80 }: { score: number; size?: number }) {
 
 import { SEVERITY_ORDER, getSeverityBadgeClass } from '@/utils/severityHelpers';
 
-// ── Violation Card with expandable recommendation ──
+// ── Compact Evidence Row ──
 
-function ViolationItem({ violation, index, matchingUpdate }: {
+function EvidenceRow({ evidence }: { evidence: EvidenceDisplay }) {
+  const hasDetails = evidence.whyTriggered || evidence.measuredValue !== null || evidence.ocrSnippet || evidence.boundingBoxSummary;
+  if (!hasDetails && !evidence.ruleId && !evidence.fixLikelihood) return null;
+
+  return (
+    <div className="mt-1.5 space-y-1 text-[11px] text-muted-foreground bg-muted/30 rounded px-2 py-1.5 border border-border/50">
+      {/* Rule ID + Source */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {evidence.ruleId && (
+          <span className="font-mono font-semibold text-foreground/70">{evidence.ruleId}</span>
+        )}
+        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium border ${getSourceBadgeClass(evidence.findingSource)}`}>
+          {evidence.findingSource === 'deterministic' ? <Cpu className="w-2.5 h-2.5" /> : evidence.findingSource === 'category-specific' ? <Tag className="w-2.5 h-2.5" /> : evidence.findingSource === 'consistency' ? <Link2 className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
+          {getSourceBadgeLabel(evidence.findingSource)}
+        </span>
+        {evidence.sourceUrl && (
+          <a href={evidence.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-primary/70 hover:text-primary">
+            <ExternalLink className="w-2.5 h-2.5" /> Source
+          </a>
+        )}
+        {evidence.fixLikelihood && (
+          <span className="text-[10px] text-primary/80 font-medium">⚡ {evidence.fixLikelihood}</span>
+        )}
+      </div>
+      {/* Why triggered */}
+      {evidence.whyTriggered && (
+        <p className="leading-snug"><span className="font-medium text-foreground/60">Why:</span> {evidence.whyTriggered}</p>
+      )}
+      {/* Measured vs Threshold */}
+      {evidence.measuredValue !== null && (
+        <p className="leading-snug">
+          <span className="font-medium text-foreground/60">Measured:</span> {String(evidence.measuredValue)}
+          {evidence.threshold !== null && <> · <span className="font-medium text-foreground/60">Threshold:</span> {String(evidence.threshold)}</>}
+        </p>
+      )}
+      {/* OCR */}
+      {evidence.ocrSnippet && (
+        <p className="leading-snug"><span className="font-medium text-foreground/60">OCR:</span> "{evidence.ocrSnippet}"</p>
+      )}
+      {/* Bounding box */}
+      {evidence.boundingBoxSummary && (
+        <p className="leading-snug text-muted-foreground/70">{evidence.boundingBoxSummary}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Violation Card with expandable recommendation + evidence ──
+
+function ViolationItem({ violation, index, matchingUpdate, evidence }: {
   violation: AnalysisResult['violations'][0];
   index: number;
   matchingUpdate?: PolicyUpdate | null;
+  evidence?: EvidenceDisplay;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -150,6 +210,9 @@ function ViolationItem({ violation, index, matchingUpdate }: {
         </div>
       </div>
       <p className="text-sm text-foreground mt-1">{violation.message}</p>
+
+      {/* Inline evidence */}
+      {evidence && <EvidenceRow evidence={evidence} />}
 
       {violation.recommendation && (
         <Collapsible open={expanded} onOpenChange={setExpanded}>
