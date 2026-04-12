@@ -246,13 +246,108 @@ CRITICAL: The generated image must show THIS EXACT product. Do NOT change any la
   return prompt;
 }
 
-function buildSecondaryImagePrompt(identity?: any, violations?: any[]): string {
+// ── Content-type-aware secondary prompt builders ─────────────────
+
+type ImageContentType = 'PRODUCT_SHOT' | 'LIFESTYLE' | 'PRODUCT_IN_USE' | 'INFOGRAPHIC' | 'PACKAGING' | 'DETAIL' | 'SIZE_CHART' | 'COMPARISON' | 'MAIN' | 'UNKNOWN';
+
+function buildSecondaryImagePrompt(identity?: any, violations?: any[], contentType?: string, strategy?: string): string {
   const topViolations = (violations || []).slice(0, 3);
   const violationContext = topViolations.length > 0
     ? `\n\nSPECIFIC VIOLATIONS TO FIX:\n${topViolations.map((v: any, i: number) => `${i + 1}. [${v.severity}] ${v.message} → ${v.recommendation}`).join('\n')}`
     : '';
 
-  let prompt = `Edit this product image with MINIMAL targeted changes — STEP-BY-STEP:
+  const ct = (contentType || 'UNKNOWN').toUpperCase();
+
+  // Select content-type-specific prompt
+  let prompt: string;
+
+  switch (ct) {
+    case 'LIFESTYLE':
+      prompt = `LIFESTYLE IMAGE — SURGICAL EDIT ONLY:
+
+STEP 1: This is a lifestyle/context image. The scene, setting, lighting, and composition are INTENTIONAL and must be preserved.
+STEP 2: Scan ONLY for prohibited elements: "Best Seller" badges, "Amazon's Choice" badges, competitor watermarks, promotional ribbons.
+STEP 3: If prohibited elements exist, remove them via inpainting — seamlessly matching the surrounding scene texture and colors.
+STEP 4: DO NOT change the background, scene, or environment. Do NOT whiten the background.
+STEP 5: DO NOT remove or modify any person, hand, prop, or contextual element — these are part of the lifestyle composition.
+STEP 6: DO NOT alter product colors, labels, or placement within the scene.
+STEP 7: Preserve the mood, lighting, and atmosphere of the original scene exactly.
+OUTPUT: The minimally edited image only. No text response needed.
+${violationContext}`;
+      break;
+
+    case 'PRODUCT_IN_USE':
+      prompt = `PRODUCT-IN-USE IMAGE — MINIMAL EDIT:
+
+STEP 1: This is a demonstration/usage image showing the product being used. The context (hands, body, surfaces) is INTENTIONAL.
+STEP 2: Scan ONLY for prohibited elements: promotional badges, competitor watermarks, "Best Seller" overlays.
+STEP 3: Remove ONLY prohibited overlays via inpainting. Fill removed areas to match surrounding scene.
+STEP 4: PRESERVE the usage context completely — hands, body parts, surfaces, environments showing product in use.
+STEP 5: DO NOT change the background or usage setting.
+STEP 6: DO NOT alter the product appearance, labels, or how it's being demonstrated.
+OUTPUT: The minimally edited image only. No text response needed.
+${violationContext}`;
+      break;
+
+    case 'INFOGRAPHIC':
+      prompt = `INFOGRAPHIC IMAGE — EXTREMELY NARROW EDIT:
+
+STEP 1: This is an informational infographic with INTENTIONAL text, callouts, icons, and layout. All legitimate informational content must be preserved EXACTLY.
+STEP 2: Scan ONLY for clearly prohibited promotional overlays: "Best Seller" badges, "Amazon's Choice" badges, competitor watermarks, promotional ribbons/starbursts.
+STEP 3: REMOVE ONLY clearly prohibited promotional overlays — NOT feature callouts, specifications, bullet points, dimensions, or any informational text.
+STEP 4: When removing an overlay, inpaint to match surrounding background — do NOT restructure or reflow text layout.
+STEP 5: DO NOT modify, move, resize, or rewrite ANY legitimate infographic text, icons, or annotations.
+STEP 6: DO NOT change the infographic layout, color scheme, or design structure.
+STEP 7: DO NOT alter the product image within the infographic.
+OUTPUT: The minimally edited image only. No text response needed.
+
+CRITICAL DISTINCTION: Informational callouts like "100% Organic", feature descriptions, dimensions, ingredients lists, and comparison data are LEGITIMATE infographic content — NOT promotional badges. Only remove clearly-added marketplace promotional elements.
+${violationContext}`;
+      break;
+
+    case 'PACKAGING':
+      prompt = `PACKAGING/LABEL IMAGE — NARROW EDIT:
+
+STEP 1: This is a packaging or label image. All printed text, label copy, ingredient lists, nutrition facts, and brand elements are CRITICAL product information.
+STEP 2: Scan ONLY for prohibited overlays: "Best Seller" badges, "Amazon's Choice" badges, external watermarks that are NOT part of the physical packaging.
+STEP 3: Remove ONLY clearly non-physical promotional overlays via inpainting.
+STEP 4: PRESERVE ALL printed packaging text — brand name, product name, ingredients, directions, claims, barcodes, certifications.
+STEP 5: DO NOT alter, re-word, or hallucinate any label text. The text on packaging must remain pixel-identical.
+STEP 6: DO NOT change packaging colors, materials, or structural design.
+STEP 7: If background cleanup is needed, preserve packaging edges cleanly.
+OUTPUT: The minimally edited image only. No text response needed.
+${violationContext}`;
+      break;
+
+    case 'DETAIL':
+      prompt = `DETAIL/CLOSE-UP IMAGE — MINIMAL EDIT:
+
+STEP 1: This is a zoomed detail shot highlighting specific product features (texture, stitching, material, mechanism, etc.).
+STEP 2: Scan ONLY for prohibited overlays: promotional badges, watermarks, competitor logos that are digitally added.
+STEP 3: Remove ONLY prohibited overlays via inpainting. Match surrounding detail texture.
+STEP 4: PRESERVE the zoomed detail exactly — texture, color, material quality, and all fine features.
+STEP 5: DO NOT zoom out, reframe, or change the crop of the detail shot.
+STEP 6: DO NOT smooth, sharpen, or otherwise alter the product texture or surface.
+OUTPUT: The minimally edited image only. No text response needed.
+${violationContext}`;
+      break;
+
+    case 'PRODUCT_SHOT':
+      prompt = `SECONDARY PRODUCT SHOT — TARGETED EDIT:
+
+STEP 1: This is a secondary product image (alternate angle, variant, or accessory view).
+STEP 2: Scan for prohibited elements: promotional badges, watermarks, competitor logos overlaid on the image.
+STEP 3: Remove prohibited overlays via inpainting — fill to match the surrounding background.
+${strategy === 'bg-cleanup' ? 'STEP 4: Clean up the background — replace non-white background pixels with pure white RGB(255,255,255).\nSTEP 5: Add a soft natural shadow beneath the product.' : 'STEP 4: Preserve the existing background and context.'}
+STEP 5: PRESERVE the product exactly — labels, logos, colors, shape, texture must remain pixel-identical.
+STEP 6: DO NOT regenerate or reimagine the product. Only modify background and prohibited overlays.
+OUTPUT: The minimally edited image only. No text response needed.
+${violationContext}`;
+      break;
+
+    default:
+      // Generic secondary (UNKNOWN or unsupported types)
+      prompt = `Edit this product image with MINIMAL targeted changes — STEP-BY-STEP:
 
 STEP 1: Scan for prohibited elements: "Best Seller" badges, "Amazon's Choice" badges, competitor logos, watermarks, unreadable/illegible text.
 STEP 2: REMOVE only the prohibited elements found in Step 1 by inpainting — fill the area to seamlessly match the surrounding background/content.
@@ -262,6 +357,9 @@ STEP 5: DO NOT remove informational text or callouts — only prohibited promoti
 STEP 6: DO NOT regenerate the product — it must remain pixel-identical.
 OUTPUT: The minimally edited image only. No text response needed.
 ${violationContext}`;
+      break;
+  }
+
   if (identity) {
     prompt += `\n\nPRODUCT IDENTITY (must match exactly):
 - Brand: ${identity.brandName || 'Unknown'}, Product: ${identity.productName || 'Unknown'}
@@ -375,13 +473,13 @@ serve(async (req) => {
     const {
       imageBase64, imageType, generativePrompt, mainImageBase64,
       previousCritique, previousGeneratedImage, productTitle, customPrompt,
-      spatialAnalysis, imageCategory, productIdentity, violations, scoringRationale,
+      spatialAnalysis, imageCategory, imageContentType, productIdentity, violations, scoringRationale,
       fixPlan,
       retryInstructions,
     } = await req.json();
 
     const fixCategory = detectFixCategory(imageCategory, productTitle);
-    console.log(`[generate-fix] Detected category: ${fixCategory}, fixPlan strategy: ${fixPlan?.strategy || 'none'}, retryInstructions: ${(retryInstructions || []).length}`);
+    console.log(`[generate-fix] Detected category: ${fixCategory}, contentType: ${imageContentType || 'UNKNOWN'}, fixPlan strategy: ${fixPlan?.strategy || 'none'}, retryInstructions: ${(retryInstructions || []).length}`);
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
@@ -467,28 +565,34 @@ serve(async (req) => {
 
     } else if (mainImageBase64) {
       // PATTERN C — SECONDARY with main reference
-      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity, violations);
+      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity, violations, imageContentType, fixPlan?.strategy);
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
+      if (fixPlan) {
+        prompt += `\n\nFIX PLAN CONTEXT: strategy=${fixPlan.strategy}, target_rules=${(fixPlan.targetRuleIds || []).join(',')}`;
+      }
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
       contentParts.push({ type: "text", text: prompt });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(mainImageBase64) } });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
-      console.log(`[generate-fix] Pattern C (SECONDARY+REF via ${model}), prompt length: ${prompt.length}`);
+      console.log(`[generate-fix] Pattern C (SECONDARY+REF, contentType=${imageContentType || 'UNKNOWN'}, strategy=${fixPlan?.strategy || 'legacy'}), prompt length: ${prompt.length}`);
 
     } else {
       // PATTERN B — SECONDARY without main reference
-      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity, violations);
+      let prompt = customPrompt || buildSecondaryImagePrompt(productIdentity, violations, imageContentType, fixPlan?.strategy);
       prompt += buildProtectedZonesText();
       prompt += buildRemovalInstructions();
+      if (fixPlan) {
+        prompt += `\n\nFIX PLAN CONTEXT: strategy=${fixPlan.strategy}, target_rules=${(fixPlan.targetRuleIds || []).join(',')}`;
+      }
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
       contentParts.push({ type: "text", text: prompt });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
-      console.log(`[generate-fix] Pattern B (SECONDARY via ${model}), prompt length: ${prompt.length}`);
+      console.log(`[generate-fix] Pattern B (SECONDARY, contentType=${imageContentType || 'UNKNOWN'}, strategy=${fixPlan?.strategy || 'legacy'}), prompt length: ${prompt.length}`);
     }
 
     // ── Append retry corrections if present ───────────────────────
