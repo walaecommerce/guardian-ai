@@ -4,6 +4,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { useAuth } from '@/hooks/useAuth';
 import { RATE_LIMITS } from '@/config/models';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
+import { MultiImageIdentityProfile, IdentityObservation, buildIdentityProfile, fromSingleIdentity } from '@/utils/identityProfile';
 import { runDeterministicAudit } from '@/utils/deterministicAudit';
 import { scrapeAmazonProduct, downloadImage, getImageId, extractAsin, getCanonicalImageKey } from '@/services/amazonScraper';
 import { classifyImage } from '@/services/imageClassifier';
@@ -54,6 +55,7 @@ export function useAuditSession() {
   const [failedDownloads, setFailedDownloads] = useState<FailedDownload[]>([]);
   const [isRetrying, setIsRetrying] = useState(false);
   const [productIdentity, setProductIdentity] = useState<ProductIdentityCard | null>(null);
+  const [identityProfile, setIdentityProfile] = useState<MultiImageIdentityProfile | null>(null);
   const [styleConsistency, setStyleConsistency] = useState<StyleConsistencyResult | null>(null);
   const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
