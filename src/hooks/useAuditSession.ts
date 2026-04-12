@@ -994,6 +994,7 @@ export function useAuditSession() {
               addLog('warning', `🛑 Stopping retries: ${retryDecision.stopReason}`);
               setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
               finalImage = genData.fixedImage;
+              break;
             } else if (attempt < maxAttempts) {
               // Update fix plan with tightened constraints
               fixPlan.strategy = retryDecision.nextStrategy;
