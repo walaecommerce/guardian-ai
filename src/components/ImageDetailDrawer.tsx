@@ -7,8 +7,16 @@ import { ImageAsset, FixMethod } from '@/types';
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
 import { 
   CheckCircle, XCircle, AlertTriangle, Wand2, Download, 
-  RotateCcw, Loader2, Layers, RefreshCw, Paintbrush, Scissors, X, Sparkles
+  RotateCcw, Loader2, Layers, RefreshCw, Paintbrush, Scissors, X, Sparkles,
+  Eye, Cpu, Tag, Link2, ExternalLink, ShieldCheck, ShieldAlert, ShieldX, Activity
 } from 'lucide-react';
+import {
+  extractEvidence,
+  groupFindings,
+  buildDeterministicRuleIdSet,
+  getSourceBadgeLabel,
+  getSourceBadgeClass,
+} from '@/utils/evidenceHelpers';
 
 const FIX_METHOD_CONFIG: Record<FixMethod, { label: string; icon: React.ElementType; className: string }> = {
   'bg-segmentation': { label: 'A1 · BG Seg', icon: Layers, className: 'bg-cyan-500/90 text-white' },
@@ -106,39 +114,96 @@ export function ImageDetailDrawer({
               </div>
             )}
 
+            {/* Policy vs Quality side-by-side */}
+            {result && (result.policyStatus || result.qualityScore !== undefined) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {result.policyStatus && (() => {
+                  const cfg = {
+                    pass: { icon: ShieldCheck, label: 'Policy Pass', cls: 'bg-green-500/15 text-green-400 border-green-500/30' },
+                    warning: { icon: ShieldAlert, label: 'Policy Warning', cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
+                    fail: { icon: ShieldX, label: 'Policy Fail', cls: 'bg-red-500/15 text-red-400 border-red-500/30' },
+                  }[result.policyStatus];
+                  const Icon = cfg.icon;
+                  return (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.cls}`}>
+                      <Icon className="w-3 h-3" /> {cfg.label}
+                    </span>
+                  );
+                })()}
+                {result.qualityScore !== undefined && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border bg-muted/50 text-[10px] font-medium">
+                    <Activity className="w-3 h-3 text-muted-foreground" />
+                    Quality: <span className={`font-bold ${result.qualityScore >= 85 ? 'text-green-400' : result.qualityScore >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>{result.qualityScore}</span>
+                  </span>
+                )}
+              </div>
+            )}
+
             <Separator />
 
-            {/* Violations */}
-            {violations.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Violations ({violations.length})
-                </h4>
-                <div className="space-y-2">
-                  {violations.map((v, i) => (
-                    <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-muted/30 border border-border">
-                      {v.severity === 'critical' ? (
-                        <XCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                      ) : (
-                        <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
-                      )}
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={v.severity === 'critical' ? 'destructive' : 'secondary'} className="text-[10px] h-4">
-                            {v.severity}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">{v.category}</span>
-                        </div>
-                        <p className="text-sm mt-1">{v.message}</p>
-                        {v.recommendation && (
-                          <p className="text-xs text-muted-foreground mt-1">{v.recommendation}</p>
-                        )}
+            {/* Evidence-grouped violations */}
+            {violations.length > 0 && (() => {
+              const detRuleIds = buildDeterministicRuleIdSet(result?.deterministicFindings);
+              const groups = groupFindings(violations, detRuleIds);
+              return (
+                <div className="space-y-4">
+                  {groups.map((group) => (
+                    <div key={group.label} className="space-y-2">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        {group.label} ({group.items.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {group.items.map(({ violation: v, evidence: ev }, i) => (
+                          <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-muted/30 border border-border">
+                            {v.severity === 'critical' ? (
+                              <XCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                            ) : v.severity === 'warning' ? (
+                              <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                            ) : (
+                              <CheckCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant={v.severity === 'critical' ? 'destructive' : 'secondary'} className="text-[10px] h-4">
+                                  {v.severity}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">{v.category}</span>
+                                {ev.ruleId && (
+                                  <span className="font-mono text-[10px] text-foreground/60">{ev.ruleId}</span>
+                                )}
+                                <span className={`inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-medium border ${getSourceBadgeClass(ev.findingSource)}`}>
+                                  {getSourceBadgeLabel(ev.findingSource)}
+                                </span>
+                              </div>
+                              <p className="text-sm mt-1">{v.message}</p>
+                              {/* Evidence details */}
+                              {(ev.whyTriggered || ev.measuredValue !== null || ev.ocrSnippet) && (
+                                <div className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
+                                  {ev.whyTriggered && <p><span className="font-medium">Why:</span> {ev.whyTriggered}</p>}
+                                  {ev.measuredValue !== null && (
+                                    <p>
+                                      <span className="font-medium">Measured:</span> {String(ev.measuredValue)}
+                                      {ev.threshold !== null && <> · <span className="font-medium">Threshold:</span> {String(ev.threshold)}</>}
+                                    </p>
+                                  )}
+                                  {ev.ocrSnippet && <p><span className="font-medium">OCR:</span> "{ev.ocrSnippet}"</p>}
+                                </div>
+                              )}
+                              {ev.fixLikelihood && (
+                                <span className="text-[10px] text-primary/80 font-medium mt-1 inline-block">⚡ {ev.fixLikelihood}</span>
+                              )}
+                              {v.recommendation && (
+                                <p className="text-xs text-muted-foreground mt-1">{v.recommendation}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {violations.length === 0 && result && (
               <div className="text-center py-6 space-y-2">
