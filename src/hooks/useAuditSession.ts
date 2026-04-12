@@ -1391,14 +1391,38 @@ export function useAuditSession() {
   };
 
   const handleBatchFix = async () => {
-    const failedAssets = assets.filter(a => (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage);
-    if (failedAssets.length === 0) return;
+    const candidateAssets = assets.filter(a => (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage);
+    if (candidateAssets.length === 0) return;
+
+    // Partition into fixable vs skipped using fixability layer
+    const { partitionBatchFixTargets } = await import('@/utils/fixability');
+    const { fixable: failedAssets, skipped } = partitionBatchFixTargets(candidateAssets);
+
+    // Mark skipped assets immediately
+    if (skipped.length > 0) {
+      setAssets(prev => prev.map(a => {
+        const skipEntry = skipped.find(s => s.asset.id === a.id);
+        if (skipEntry) {
+          return { ...a, batchFixStatus: 'skipped' as const, batchSkipReason: skipEntry.reason };
+        }
+        return a;
+      }));
+      for (const { asset: skippedAsset, reason } of skipped) {
+        addLog('warning', `⏭️ Skipped ${skippedAsset.name}: ${reason}`);
+      }
+    }
+
+    if (failedAssets.length === 0) {
+      addLog('info', `ℹ️ No auto-fixable images found. ${skipped.length} image(s) require manual review.`);
+      toast({ title: 'No Fixable Images', description: `${skipped.length} image(s) skipped — they require manual review.` });
+      return;
+    }
     
     setIsBatchFixing(true);
     setBatchFixProgress({ current: 0, total: failedAssets.length });
-    addLog('processing', `🔧 Starting Fix All for ${failedAssets.length} failed images...`);
+    addLog('processing', `🔧 Starting Fix All for ${failedAssets.length} fixable images (${skipped.length} skipped)...`);
     
-    // Mark all queue items with their batch status
+    // Mark fixable queue items with their batch status
     setAssets(prev => prev.map(a => {
       const inQueue = failedAssets.some(f => f.id === a.id);
       return inQueue ? { ...a, batchFixStatus: 'pending' as const } : a;
@@ -1448,10 +1472,11 @@ export function useAuditSession() {
     setBatchFixProgress(null);
     // Clear batch status after a short delay so user sees final state
     setTimeout(() => {
-      setAssets(prev => prev.map(a => ({ ...a, batchFixStatus: undefined })));
-    }, 3000);
-    addLog('success', `✅ Fixes complete — ${fixedCount} images corrected`);
-    toast({ title: 'Fix Complete', description: `${fixedCount} images corrected` });
+      setAssets(prev => prev.map(a => ({ ...a, batchFixStatus: undefined, batchSkipReason: undefined })));
+    }, 5000);
+    const skippedMsg = skipped.length > 0 ? ` (${skipped.length} skipped)` : '';
+    addLog('success', `✅ Fixes complete — ${fixedCount} images corrected${skippedMsg}`);
+    toast({ title: 'Fix Complete', description: `${fixedCount} images corrected${skippedMsg}` });
   };
 
   // --- Batch Enhance ---
