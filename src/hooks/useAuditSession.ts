@@ -1379,6 +1379,61 @@ export function useAuditSession() {
         logEvent('fix_generated', { assetName: asset.name, assetId });
         toast({ title: 'Fix Generated', description: 'AI-corrected image is ready and saved' });
         refreshCredits();
+      } else {
+        // No acceptable fix produced — persist as retry-stopped / auto-fix-failed
+        let stopR: string | undefined;
+        setFixProgress(prev => { stopR = prev?.stopReason; return prev; });
+        const unresolvedState = stopR ? 'retry_stopped' as const : 'auto_fix_failed' as const;
+        
+        setAssets(prev => prev.map(a => 
+          a.id === assetId ? { 
+            ...a, 
+            isGeneratingFix: false,
+            fixStopReason: stopR || 'No acceptable fix produced after all attempts',
+            batchFixStatus: 'failed' as const,
+            unresolvedState,
+            fixAttempts: allAttempts.length > 0 ? allAttempts : undefined,
+            lastFixStrategy: lastStrategy,
+          } : a
+        ));
+        setFixProgress(null);
+
+        // Persist to DB
+        const sessionImageId = assetSessionMap.get(assetId);
+        if (sessionImageId && currentSessionId) {
+          const fixReviewData = {
+            attempts: allAttempts.map(a => ({
+              attempt: a.attempt,
+              status: a.status,
+              strategyUsed: a.strategyUsed,
+              isBestAttempt: a.isBestAttempt,
+              verification: a.verification ? {
+                score: a.verification.score,
+                isSatisfactory: a.verification.isSatisfactory,
+                productMatch: a.verification.productMatch,
+                critique: a.verification.critique,
+                passedChecks: a.verification.passedChecks,
+                failedChecks: a.verification.failedChecks,
+                componentScores: a.verification.componentScores,
+              } : undefined,
+              retryDecision: a.retryDecision ? {
+                rationale: a.retryDecision.rationale,
+                nextStrategy: a.retryDecision.nextStrategy,
+                stopReason: a.retryDecision.stopReason,
+              } : undefined,
+            })),
+            stopReason: stopR || 'No acceptable fix produced after all attempts',
+            lastFixStrategy: lastStrategy,
+            unresolvedState,
+          };
+          await supabase.from('session_images').update({
+            status: 'failed',
+            fix_attempts: fixReviewData as any,
+          }).eq('id', sessionImageId);
+        }
+
+        addLog('warning', `⚠️ ${asset.name}: ${stopR || 'No acceptable fix produced after all attempts'}`);
+        toast({ title: 'Fix Incomplete', description: stopR || 'No acceptable fix after all attempts. Image needs manual review.', variant: 'destructive' });
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Fix failed';
