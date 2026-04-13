@@ -99,12 +99,6 @@ export function FixStep({
             {manualReviewAssets.length} Manual Review
           </Badge>
         )}
-        {retryFailedCount > 0 && (
-          <Badge variant="destructive" className="text-[11px]">
-            <ShieldAlert className="w-3 h-3 mr-1" />
-            {retryFailedCount} Failed
-          </Badge>
-        )}
       </div>
 
       {/* Action bar */}
