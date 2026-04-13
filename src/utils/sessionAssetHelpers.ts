@@ -63,6 +63,7 @@ function hydrateFixReview(fixAttemptsJson: unknown): Partial<ImageAsset> {
 /**
  * Infer legacy fix metadata when fix_attempts is empty/missing but fixed_image_url exists.
  * Called by buildAssetFromSessionImage to recover enough state for pre-fix sessions.
+ * Returns empty object if structured metadata already exists.
  */
 function inferLegacyFixMeta(
   hasFixedUrl: boolean,
@@ -74,8 +75,9 @@ function inferLegacyFixMeta(
     const obj = fixAttemptsJson as Record<string, unknown>;
     if (obj.fixMethod || obj.attempts || obj.skipped) return {};
   }
-  // Legacy: has a fixed image but no structured fix_attempts → mark as legacy fix
-  return { fixMethod: 'fix' as const };
+  // Legacy: has a fixed image but no structured fix_attempts
+  // Don't set fixMethod — just ensure fixedImage is used (already handled by buildAssetFromSessionImage)
+  return {};
 }
 
 /**
