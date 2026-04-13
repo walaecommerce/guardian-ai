@@ -313,75 +313,40 @@ const Studio = () => {
     a.click();
   };
 
-  // ── Add to originating session ─────────────────────────────
+  // ── Add to originating session + auto-analyze ──────────────
   const handleAddToSession = async (img: GeneratedImage) => {
     if (!user || !sourceSessionId) return;
     setAddingToSession(img.id);
+    setAttachStep('uploading');
+
     try {
-      // Upload image to session storage
+      // Step 1: Upload image to session storage
       const uploaded = await uploadImage(img.image, sourceSessionId, `${strategySource?.targetRole || img.template}_${Date.now()}`);
       if (!uploaded) throw new Error('Image upload failed');
+
+      setAttachStep('attaching');
 
       // Build image name with role prefix for category detection
       const rolePrefix = (strategySource?.targetRole || img.template).toUpperCase();
       const imageName = `${rolePrefix}_studio_${img.productName.replace(/\s+/g, '_').substring(0, 30)}`;
+      const imageType = img.template === 'hero' ? 'MAIN' : 'SECONDARY';
 
-      // Insert session_image record — include analysis if Studio already ran it
-      const hasAnalysis = img.status === 'analyzed' && img.analysisResult;
-      const { data: insertedImage } = await supabase.from('session_images').insert([{
+      // Step 2: Insert session_image record (always as pending initially)
+      const { data: insertedImage, error: insertErr } = await supabase.from('session_images').insert([{
         session_id: sourceSessionId,
         image_name: imageName,
-        image_type: img.template === 'hero' ? 'MAIN' : 'SECONDARY',
+        image_type: imageType,
         original_image_url: uploaded.url,
-        status: hasAnalysis ? 'analyzed' : 'pending',
+        status: 'pending',
         image_category: rolePrefix,
-        analysis_result: hasAnalysis ? (img.analysisResult as any) : null,
       }]).select('id').maybeSingle();
 
-      // If no analysis yet, trigger one now so strategy coverage updates
-      if (!hasAnalysis && insertedImage) {
-        (async () => {
-          try {
-            const imageType = img.template === 'hero' ? 'MAIN' : 'SECONDARY';
-            const { data: analysisData, error: analysisErr } = await supabase.functions.invoke('analyze-image', {
-              body: {
-                imageBase64: img.image,
-                imageType,
-                listingTitle: img.productName,
-                guidelines: [],
-              },
-            });
-            if (!analysisErr && analysisData && !analysisData.error) {
-              await supabase.from('session_images')
-                .update({ analysis_result: analysisData as any, status: 'analyzed' })
-                .eq('id', insertedImage.id);
-            }
-          } catch { /* non-fatal background analysis */ }
-        })();
-      }
-
-      // Update session counts to reflect the analyzed image
-      if (hasAnalysis && img.analysisResult) {
-        const isPassed = img.analysisResult.status === 'PASS';
-        const { data: sess2 } = await supabase
-          .from('enhancement_sessions')
-          .select('passed_count, failed_count')
-          .eq('id', sourceSessionId)
-          .maybeSingle();
-        if (sess2) {
-          await supabase.from('enhancement_sessions')
-            .update({
-              passed_count: (sess2.passed_count || 0) + (isPassed ? 1 : 0),
-              failed_count: (sess2.failed_count || 0) + (isPassed ? 0 : 1),
-            })
-            .eq('id', sourceSessionId);
-        }
-      }
+      if (insertErr || !insertedImage) throw new Error(insertErr?.message || 'Failed to attach image');
 
       // Update session total_images count
       const { data: sess } = await supabase
         .from('enhancement_sessions')
-        .select('total_images')
+        .select('total_images, listing_title, listing_context')
         .eq('id', sourceSessionId)
         .maybeSingle();
       if (sess) {
@@ -390,19 +355,114 @@ const Studio = () => {
           .eq('id', sourceSessionId);
       }
 
+      // Step 3: Auto-analyze using the standard pipeline
+      // Check credits first — if no credits, image is still attached but unanalyzed
+      const canAnalyze = creditGate('analyze');
+      if (!canAnalyze) {
+        setAttachStep('done_no_credits');
+        logEvent('studio_image_added_to_session', {
+          sessionId: sourceSessionId,
+          targetRole: strategySource?.targetRole,
+          template: img.template,
+          analyzed: false,
+          reason: 'no_credits',
+        });
+        toast({
+          title: 'Added to session (unanalyzed)',
+          description: 'No analysis credits remaining. The image was attached but needs manual audit.',
+        });
+        return;
+      }
+
+      setAttachStep('analyzing');
+
+      // Use listing title from session if available, fallback to Studio product name
+      const analysisTitle = sess?.listing_title || img.productName;
+
+      // Build the idempotency key matching the standard audit pattern
+      const idempotencyKey = `analyze_${insertedImage.id}`;
+
+      const { data: analysisData, error: analysisErr } = await supabase.functions.invoke('analyze-image', {
+        body: {
+          imageBase64: img.image,
+          imageType,
+          listingTitle: analysisTitle,
+          guidelines: [],
+          sessionImageId: insertedImage.id,
+          idempotencyKey,
+        },
+      });
+
+      if (analysisErr || !analysisData || analysisData.error) {
+        // Analysis failed but image is still attached
+        const errMsg = analysisData?.error || analysisErr?.message || 'Analysis failed';
+        const isCreditsExhausted = analysisData?.errorType === 'payment_required';
+
+        if (isCreditsExhausted) {
+          setAttachStep('done_no_credits');
+          toast({
+            title: 'Added but not analyzed',
+            description: 'Analysis credits exhausted. Image attached — run audit later when credits are available.',
+          });
+        } else {
+          setAttachStep('error');
+          toast({
+            title: 'Added but analysis failed',
+            description: `Image attached successfully. Analysis error: ${errMsg}`,
+            variant: 'destructive',
+          });
+        }
+
+        logEvent('studio_image_added_to_session', {
+          sessionId: sourceSessionId,
+          targetRole: strategySource?.targetRole,
+          analyzed: false,
+          reason: isCreditsExhausted ? 'credits_exhausted' : 'analysis_error',
+        });
+        return;
+      }
+
+      // Analysis succeeded — persist results
+      const analysis = analysisData as AnalysisResult;
+      await supabase.from('session_images')
+        .update({ analysis_result: analysis as any, status: 'analyzed' })
+        .eq('id', insertedImage.id);
+
+      // Update session pass/fail counts
+      const isPassed = analysis.status === 'PASS';
+      const { data: sessUpdated } = await supabase
+        .from('enhancement_sessions')
+        .select('passed_count, failed_count')
+        .eq('id', sourceSessionId)
+        .maybeSingle();
+      if (sessUpdated) {
+        await supabase.from('enhancement_sessions')
+          .update({
+            passed_count: (sessUpdated.passed_count || 0) + (isPassed ? 1 : 0),
+            failed_count: (sessUpdated.failed_count || 0) + (isPassed ? 0 : 1),
+          })
+          .eq('id', sourceSessionId);
+      }
+
+      setAttachStep('done');
+
       logEvent('studio_image_added_to_session', {
         sessionId: sourceSessionId,
         targetRole: strategySource?.targetRole,
         template: img.template,
         productName: img.productName,
+        analyzed: true,
+        score: analysis.overallScore,
+        status: analysis.status,
       });
 
-      const analysisNote = hasAnalysis ? ' Analysis included — strategy will update automatically.' : ' Analysis will run in the background.';
       toast({
-        title: 'Added to audit session',
-        description: `${strategySource?.recommendationLabel || img.template} image added.${analysisNote}`,
+        title: '✅ Added & analyzed',
+        description: `${strategySource?.recommendationLabel || img.template} — Score: ${analysis.overallScore}%. Strategy will update automatically.`,
       });
+
     } catch (e) {
+      setAttachStep('error');
       toast({
         title: 'Failed to add to session',
         description: e instanceof Error ? e.message : 'Unknown error',
@@ -412,8 +472,6 @@ const Studio = () => {
       setAddingToSession(null);
     }
   };
-
-  const scoreColor = (score: number) => {
     if (score >= 85) return 'bg-green-500/15 text-green-600 border-green-500/30';
     if (score >= 70) return 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30';
     return 'bg-destructive/15 text-destructive border-destructive/30';
