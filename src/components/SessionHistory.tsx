@@ -313,26 +313,39 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                           {session.listing_title || 'Untitled Session'}
                         </p>
 
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+                        <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground flex-wrap">
                           {session.product_asin && (
-                            <span className="font-mono">{session.product_asin}</span>
+                            <span className="font-mono text-muted-foreground/70">{session.product_asin}</span>
                           )}
+                          {session.product_asin && <span className="text-border">·</span>}
                           <span className="flex items-center gap-0.5">
                             <ImageIcon className="w-3 h-3" /> {session.total_images}
                           </span>
+                          <span className="text-border">│</span>
                           {session.passed_count > 0 && (
-                            <span className="text-success">✓{session.passed_count}</span>
+                            <span className="inline-flex items-center gap-0.5 text-success font-medium">
+                              <CheckCircle2 className="w-3 h-3" />{session.passed_count}
+                            </span>
                           )}
-                          {((session.failed_count - session.fixed_count - (session.unresolved_count || 0)) > 0) && (
-                            <span className="text-destructive">✗{session.failed_count - session.fixed_count - (session.unresolved_count || 0)}</span>
+                          {(() => {
+                            const unfixed = Math.max(0, session.failed_count - session.fixed_count - (session.unresolved_count || 0));
+                            return unfixed > 0 ? (
+                              <span className="inline-flex items-center gap-0.5 text-destructive font-medium">
+                                <XCircle className="w-3 h-3" />{unfixed}
+                              </span>
+                            ) : null;
+                          })()}
+                          {session.fixed_count > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-primary font-medium">
+                              <Wrench className="w-3 h-3" />{session.fixed_count}
+                            </span>
                           )}
                           {(session.unresolved_count || 0) > 0 && (
-                            <span className="text-warning">⚠{session.unresolved_count}</span>
+                            <span className="inline-flex items-center gap-0.5 text-warning font-medium">
+                              <Eye className="w-3 h-3" />{session.unresolved_count}
+                            </span>
                           )}
-                          {session.fixed_count > 0 && (
-                            <span className="text-primary">⚡{session.fixed_count}</span>
-                          )}
-                          <span>·</span>
+                          <span className="text-border">·</span>
                           <span>{formatDistanceToNow(new Date(session.updated_at || session.created_at), { addSuffix: true })}</span>
                         </div>
                       </div>
@@ -402,37 +415,33 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
           {selectedSession && (
             <div className="flex-1 overflow-auto space-y-4">
               {/* Stats row */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                <div className="p-3 rounded-lg bg-muted/50 text-center">
-                  <p className="text-2xl font-bold tabular-nums text-foreground">{selectedSession.total_images}</p>
-                  <p className="text-xs text-muted-foreground">Images</p>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                <div className="p-2.5 rounded-lg bg-muted/50 text-center border border-border/30">
+                  <p className="text-xl font-bold tabular-nums text-foreground">{selectedSession.total_images}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Images</p>
                 </div>
-                <div className="p-3 rounded-lg bg-muted/50 text-center">
-                  <p className={`text-2xl font-bold tabular-nums ${getScoreColor(selectedSession.average_score)}`}>
+                <div className="p-2.5 rounded-lg bg-muted/50 text-center border border-border/30">
+                  <p className={`text-xl font-bold tabular-nums ${getScoreColor(selectedSession.average_score)}`}>
                     {selectedSession.average_score !== null ? `${Math.round(selectedSession.average_score)}%` : '—'}
                   </p>
-                  <p className="text-xs text-muted-foreground">Avg Score</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Score</p>
                 </div>
-                <div className="p-3 rounded-lg bg-muted/50 text-center">
-                  <p className="text-2xl font-bold tabular-nums text-success">{selectedSession.passed_count}</p>
-                  <p className="text-xs text-muted-foreground">Passed</p>
+                <div className="p-2.5 rounded-lg bg-success/5 text-center border border-success/10">
+                  <p className="text-xl font-bold tabular-nums text-success">{selectedSession.passed_count}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-success/70 font-medium">Passed</p>
                 </div>
-                <div className="p-3 rounded-lg bg-muted/50 text-center">
-                  <p className="text-2xl font-bold tabular-nums text-destructive">{Math.max(0, selectedSession.failed_count - selectedSession.fixed_count - (selectedSession.unresolved_count || 0))}</p>
-                  <p className="text-xs text-muted-foreground">Unfixed</p>
+                <div className="p-2.5 rounded-lg bg-destructive/5 text-center border border-destructive/10">
+                  <p className="text-xl font-bold tabular-nums text-destructive">{Math.max(0, selectedSession.failed_count - selectedSession.fixed_count - (selectedSession.unresolved_count || 0))}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-destructive/70 font-medium">Unfixed</p>
                 </div>
-                {selectedSession.fixed_count > 0 && (
-                  <div className="p-3 rounded-lg bg-muted/50 text-center">
-                    <p className="text-2xl font-bold tabular-nums text-primary">{selectedSession.fixed_count}</p>
-                    <p className="text-xs text-muted-foreground">Fixed</p>
-                  </div>
-                )}
-                {(selectedSession.unresolved_count || 0) > 0 && (
-                  <div className="p-3 rounded-lg bg-muted/50 text-center">
-                    <p className="text-2xl font-bold tabular-nums text-warning">{selectedSession.unresolved_count}</p>
-                    <p className="text-xs text-muted-foreground">Needs Review</p>
-                  </div>
-                )}
+                <div className="p-2.5 rounded-lg bg-primary/5 text-center border border-primary/10">
+                  <p className="text-xl font-bold tabular-nums text-primary">{selectedSession.fixed_count}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-primary/70 font-medium">Fixed</p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-warning/5 text-center border border-warning/10">
+                  <p className="text-xl font-bold tabular-nums text-warning">{selectedSession.unresolved_count || 0}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-warning/70 font-medium">Review</p>
+                </div>
               </div>
 
               {selectedSession.amazon_url && (

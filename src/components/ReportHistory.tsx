@@ -88,7 +88,7 @@ export const ReportHistory = ({ onLoadReport }: ReportHistoryProps) => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <History className="h-4 w-4" />
-          Report History
+          Audit Snapshots
         </CardTitle>
         <Button variant="ghost" size="icon" onClick={fetchReports} disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -113,12 +113,15 @@ export const ReportHistory = ({ onLoadReport }: ReportHistoryProps) => {
                         {report.average_score?.toFixed(0) ?? 'N/A'}%
                       </Badge>
                       <span className="text-xs text-muted-foreground truncate">
-                        {report.product_asin || 'Manual Upload'}
+                        {report.listing_title || report.product_asin || 'Manual Upload'}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(report.created_at), 'MMM d, h:mm a')} • 
-                      {report.passed_count}✓ {report.failed_count}✗
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
+                      <span>{format(new Date(report.created_at), 'MMM d, h:mm a')}</span>
+                      <span className="text-border">·</span>
+                      <span className="text-success font-medium">{report.passed_count}✓</span>
+                      <span className="text-destructive font-medium">{report.failed_count}✗</span>
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground/50">snapshot</span>
                     </p>
                   </div>
                   <div className="flex gap-1">
@@ -162,7 +165,7 @@ export const ReportHistory = ({ onLoadReport }: ReportHistoryProps) => {
         <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
             <DialogHeader>
-              <DialogTitle>Compliance Report Details</DialogTitle>
+              <DialogTitle>Audit Snapshot Details</DialogTitle>
             </DialogHeader>
             {selectedReport && (
               <div className="space-y-4">
