@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useCreditGate } from '@/hooks/useCreditGate';
 import { useCredits } from '@/hooks/useCredits';
+import { ListingContext, normalizeListingContext, minimalListingContext, serializeListingContext, deserializeListingContext } from '@/utils/listingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { RATE_LIMITS } from '@/config/models';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
