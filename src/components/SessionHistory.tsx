@@ -402,7 +402,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
           {selectedSession && (
             <div className="flex-1 overflow-auto space-y-4">
               {/* Stats row */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className={`grid grid-cols-2 ${(selectedSession.unresolved_count || 0) > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-3`}>
                 <div className="p-3 rounded-lg bg-muted/50 text-center">
                   <p className="text-2xl font-bold tabular-nums text-foreground">{selectedSession.total_images}</p>
                   <p className="text-xs text-muted-foreground">Images</p>
@@ -418,9 +418,15 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                   <p className="text-xs text-muted-foreground">Passed</p>
                 </div>
                 <div className="p-3 rounded-lg bg-muted/50 text-center">
-                  <p className="text-2xl font-bold tabular-nums text-destructive">{selectedSession.failed_count}</p>
+                  <p className="text-2xl font-bold tabular-nums text-destructive">{selectedSession.failed_count - (selectedSession.unresolved_count || 0)}</p>
                   <p className="text-xs text-muted-foreground">Failed</p>
                 </div>
+                {(selectedSession.unresolved_count || 0) > 0 && (
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-2xl font-bold tabular-nums text-warning">{selectedSession.unresolved_count}</p>
+                    <p className="text-xs text-muted-foreground">Review</p>
+                  </div>
+                )}
               </div>
 
               {selectedSession.amazon_url && (
