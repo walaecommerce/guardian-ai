@@ -12,6 +12,7 @@ import { ActivityLog } from '@/components/ActivityLog';
 import { ManualReviewLane, isManualReviewAsset } from '@/components/ManualReviewLane';
 import { ImageAsset, LogEntry, AnalysisResult, FixAttempt, FixProgressState, ProductIdentityCard } from '@/types';
 import { runFixOrchestration, buildFixReviewPayload } from '@/utils/fixOrchestrator';
+import { computeUnresolvedCounts } from '@/utils/sessionHelpers';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSessionLoader } from '@/hooks/useSessionLoader';
