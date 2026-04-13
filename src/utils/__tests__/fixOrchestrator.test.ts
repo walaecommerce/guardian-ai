@@ -263,6 +263,330 @@ describe('runFixOrchestration', () => {
     const secondGenBody = mockInvoke.mock.calls[2][1].body;
     expect(secondGenBody.retryInstructions).toEqual(['fix the label']);
   });
+
+  // ── Edge-case layer 2 ────────────────────────────────────────
+
+  describe('progress-state accumulation', () => {
+    it('advances attempt number and records attempts with correct status', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockPlanRetry.mockReturnValue({
+        shouldContinue: true, nextStrategy: 'inpaint-edit', rationale: 'r',
+        tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: [],
+      });
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1' }, error: null })
+        .mockResolvedValueOnce({ data: failVerification, error: null })
+        .mockResolvedValueOnce({ data: { fixedImage: 'img2' }, error: null })
+        .mockResolvedValueOnce({ data: passVerification, error: null });
+
+      const cb = makeCallbacks();
+      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      await vi.advanceTimersByTimeAsync(10000);
+      await promise;
+
+      expect(cb.state.attempts).toHaveLength(2);
+      expect(cb.state.attempts[0].status).toBe('failed');
+      expect(cb.state.attempts[1].status).toBe('passed');
+      expect(cb.state.currentStep).toBe('complete');
+    });
+
+    it('stores stopReason in progress state when retries stop', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockPlanRetry.mockReturnValue({
+        shouldContinue: false, nextStrategy: 'bg-cleanup', rationale: 'drift',
+        tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: [],
+        stopReason: 'identity_drift',
+      });
+      mockSelectBestAttempt.mockReturnValue({
+        selectedAttemptIndex: 0, selectedReason: 'Only option', selectionType: 'score-driven',
+      });
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1' }, error: null })
+        .mockResolvedValueOnce({ data: failVerification, error: null });
+
+      const cb = makeCallbacks();
+      await runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+
+      expect(cb.state.stopReason).toBe('identity_drift');
+    });
+
+    it('stores retryDecision on the failed attempt in progress state', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      const decision = {
+        shouldContinue: true, nextStrategy: 'inpaint-edit' as const, rationale: 'try',
+        tightenedPreserve: ['a'], tightenedProhibited: ['b'], additionalInstructions: [],
+      };
+      mockPlanRetry.mockReturnValue(decision);
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1' }, error: null })
+        .mockResolvedValueOnce({ data: failVerification, error: null })
+        .mockResolvedValueOnce({ data: { fixedImage: 'img2' }, error: null })
+        .mockResolvedValueOnce({ data: passVerification, error: null });
+
+      const cb = makeCallbacks();
+      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      await vi.advanceTimersByTimeAsync(10000);
+      await promise;
+
+      expect(cb.state.attempts[0].retryDecision).toBeDefined();
+      expect(cb.state.attempts[0].retryDecision!.rationale).toBe('try');
+    });
+  });
+
+  describe('critique and improvement carry-forward', () => {
+    it('combines critique and improvements into previousCritique for next attempt', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      const failWithImprovements = {
+        ...failVerification,
+        critique: 'Background not white',
+        improvements: ['Remove shadow', 'Increase brightness'],
+      };
+      mockPlanRetry.mockReturnValue({
+        shouldContinue: true, nextStrategy: 'inpaint-edit', rationale: 'r',
+        tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: [],
+      });
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1' }, error: null })
+        .mockResolvedValueOnce({ data: failWithImprovements, error: null })
+        .mockResolvedValueOnce({ data: { fixedImage: 'img2' }, error: null })
+        .mockResolvedValueOnce({ data: passVerification, error: null });
+
+      const cb = makeCallbacks();
+      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      await vi.advanceTimersByTimeAsync(10000);
+      await promise;
+
+      const secondGenBody = mockInvoke.mock.calls[2][1].body;
+      expect(secondGenBody.previousCritique).toContain('Background not white');
+      expect(secondGenBody.previousCritique).toContain('- Remove shadow');
+      expect(secondGenBody.previousCritique).toContain('- Increase brightness');
+    });
+  });
+
+  describe('previous generated image carry-forward', () => {
+    it('passes last generated image to next generate-fix call', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockPlanRetry.mockReturnValue({
+        shouldContinue: true, nextStrategy: 'inpaint-edit', rationale: 'r',
+        tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: [],
+      });
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'generated-v1' }, error: null })
+        .mockResolvedValueOnce({ data: failVerification, error: null })
+        .mockResolvedValueOnce({ data: { fixedImage: 'generated-v2' }, error: null })
+        .mockResolvedValueOnce({ data: passVerification, error: null });
+
+      const cb = makeCallbacks();
+      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      await vi.advanceTimersByTimeAsync(10000);
+      await promise;
+
+      const secondGenBody = mockInvoke.mock.calls[2][1].body;
+      expect(secondGenBody.previousGeneratedImage).toBe('generated-v1');
+    });
+
+    it('uses input previousGeneratedImage for first attempt', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1' }, error: null })
+        .mockResolvedValueOnce({ data: passVerification, error: null });
+
+      const cb = makeCallbacks();
+      await runFixOrchestration({
+        asset: makeAsset(), originalBase64: 'x', previousGeneratedImage: 'prev-img',
+      }, cb);
+
+      const firstGenBody = mockInvoke.mock.calls[0][1].body;
+      expect(firstGenBody.previousGeneratedImage).toBe('prev-img');
+    });
+  });
+
+  describe('fix-method mapping', () => {
+    it('maps usedBackgroundSegmentation to bg-segmentation', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1', usedBackgroundSegmentation: true }, error: null })
+        .mockResolvedValueOnce({ data: passVerification, error: null });
+
+      const cb = makeCallbacks();
+      const result = await runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      expect(result.lastFixMethod).toBe('bg-segmentation');
+    });
+
+    it('maps MAIN without segmentation to full-regeneration', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1' }, error: null })
+        .mockResolvedValueOnce({ data: passVerification, error: null });
+
+      const cb = makeCallbacks();
+      const result = await runFixOrchestration({ asset: makeAsset({ type: 'MAIN' }), originalBase64: 'x' }, cb);
+      expect(result.lastFixMethod).toBe('full-regeneration');
+    });
+
+    it('maps SECONDARY without segmentation to surgical-edit', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1' }, error: null })
+        .mockResolvedValueOnce({ data: passVerification, error: null });
+
+      const cb = makeCallbacks();
+      const result = await runFixOrchestration({ asset: makeAsset({ type: 'SECONDARY' }), originalBase64: 'x' }, cb);
+      expect(result.lastFixMethod).toBe('surgical-edit');
+    });
+  });
+
+  describe('verify-call payload correctness', () => {
+    it('sends expected fields to verify-image', async () => {
+      const plan = basePlan();
+      plan.targetRuleIds = ['R1', 'R2'];
+      plan.category = 'ELECTRONICS';
+      mockBuildFixPlan.mockReturnValue(plan);
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'gen-img' }, error: null })
+        .mockResolvedValueOnce({ data: passVerification, error: null });
+
+      const cb = makeCallbacks();
+      await runFixOrchestration({ asset: makeAsset(), originalBase64: 'orig64' }, cb);
+
+      expect(mockInvoke.mock.calls[1][0]).toBe('verify-image');
+      const verifyBody = mockInvoke.mock.calls[1][1].body;
+      expect(verifyBody.originalImageBase64).toBe('orig64');
+      expect(verifyBody.generatedImageBase64).toBe('gen-img');
+      expect(verifyBody.imageType).toBe('MAIN');
+      expect(verifyBody.imageContentType).toBe('PRODUCT_SHOT');
+      expect(verifyBody.targetRuleIds).toEqual(['R1', 'R2']);
+      expect(verifyBody.fixCategory).toBe('ELECTRONICS');
+    });
+  });
+
+  describe('best-attempt fallback edge cases', () => {
+    it('does not call selectBestAttempt when there are zero attempts', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan('skip'));
+      const cb = makeCallbacks();
+      await runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      expect(mockSelectBestAttempt).not.toHaveBeenCalled();
+    });
+
+    it('preserves stopReason even when best attempt is selected', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockPlanRetry.mockReturnValue({
+        shouldContinue: false, nextStrategy: 'bg-cleanup', rationale: 'drift',
+        tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: [],
+        stopReason: 'repeated_identity_drift',
+      });
+      mockSelectBestAttempt.mockReturnValue({
+        selectedAttemptIndex: 0, selectedReason: 'Highest score', selectionType: 'safety-driven',
+      });
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1' }, error: null })
+        .mockResolvedValueOnce({ data: failVerification, error: null });
+
+      const cb = makeCallbacks();
+      const result = await runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+
+      expect(result.stopReason).toBe('repeated_identity_drift');
+      expect(result.finalImage).toBe('img1');
+      expect(result.bestAttemptSelection).toBeDefined();
+    });
+
+    it('returns no final image when best-attempt has no generated image', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockPlanRetry.mockReturnValue({
+        shouldContinue: false, nextStrategy: 'bg-cleanup', rationale: 'stop',
+        tightenedPreserve: [], tightenedProhibited: [], additionalInstructions: [],
+        stopReason: 'gave_up',
+      });
+      mockSelectBestAttempt.mockReturnValue({
+        selectedAttemptIndex: 0, selectedReason: 'Only', selectionType: 'score-driven',
+      });
+      // Simulate an attempt that somehow has no generatedImage
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1' }, error: null })
+        .mockResolvedValueOnce({ data: failVerification, error: null });
+
+      const cb = makeCallbacks();
+      // Manually corrupt the attempt to have no image to test the guard
+      const origOnProgress = cb.onProgress;
+      cb.onProgress = (updater) => {
+        origOnProgress(updater);
+        // After the stop, remove image from attempts to simulate edge case
+        if (cb.state.currentStep === 'complete' && cb.state.attempts.length > 0) {
+          cb.state.attempts = cb.state.attempts.map(a => ({ ...a, generatedImage: '' }));
+        }
+      };
+      const result = await runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      // Empty string is falsy so selectBestAttempt guard should fail
+      expect(result.finalImage).toBeFalsy();
+    });
+  });
+
+  describe('strategy and preserve/prohibited carry-forward', () => {
+    it('applies tightened preserve/prohibited from retry planner to next fix plan', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockPlanRetry.mockReturnValue({
+        shouldContinue: true, nextStrategy: 'overlay-removal',
+        rationale: 'escalate', tightenedPreserve: ['logo', 'label'],
+        tightenedProhibited: ['watermark'], additionalInstructions: [],
+      });
+      mockInvoke
+        .mockResolvedValueOnce({ data: { fixedImage: 'img1' }, error: null })
+        .mockResolvedValueOnce({ data: failVerification, error: null })
+        .mockResolvedValueOnce({ data: { fixedImage: 'img2' }, error: null })
+        .mockResolvedValueOnce({ data: passVerification, error: null });
+
+      const cb = makeCallbacks();
+      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      await vi.advanceTimersByTimeAsync(10000);
+      const result = await promise;
+
+      // Second gen call should have the updated fix plan
+      const secondGenBody = mockInvoke.mock.calls[2][1].body;
+      expect(secondGenBody.fixPlan.strategy).toBe('overlay-removal');
+      expect(secondGenBody.fixPlan.preserve).toContain('logo');
+      expect(secondGenBody.fixPlan.preserve).toContain('label');
+      expect(secondGenBody.fixPlan.prohibited).toContain('watermark');
+
+      expect(result.lastStrategy).toBe('overlay-removal');
+    });
+  });
+
+  describe('non-payment generation failure', () => {
+    it('retries on generic failure and throws after max attempts', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      mockInvoke
+        .mockResolvedValueOnce({ data: null, error: { message: 'timeout' } })
+        .mockResolvedValueOnce({ data: null, error: { message: 'timeout' } })
+        .mockResolvedValueOnce({ data: null, error: { message: 'timeout' } });
+
+      const cb = makeCallbacks();
+      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      await vi.advanceTimersByTimeAsync(30000);
+
+      await expect(promise).rejects.toThrow();
+      // Should NOT have isPayment
+      try { await promise; } catch (e: any) {
+        expect(e.isPayment).toBeUndefined();
+      }
+    });
+
+    it('does not mislabel non-payment error as payment', async () => {
+      mockBuildFixPlan.mockReturnValue(basePlan());
+      const nonPaymentError = Object.assign(new Error('server error'), {
+        context: { status: 500, body: JSON.stringify({ error: 'Internal error' }) },
+      });
+      mockInvoke
+        .mockResolvedValueOnce({ data: null, error: nonPaymentError })
+        .mockResolvedValueOnce({ data: null, error: nonPaymentError })
+        .mockResolvedValueOnce({ data: null, error: nonPaymentError });
+
+      const cb = makeCallbacks();
+      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      await vi.advanceTimersByTimeAsync(30000);
+
+      await expect(promise).rejects.toThrow('Internal error');
+    });
+  });
 });
 
 // ── Tests: buildFixReviewPayload ──────────────────────────────
