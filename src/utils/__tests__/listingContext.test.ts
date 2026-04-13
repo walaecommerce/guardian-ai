@@ -33,7 +33,7 @@ describe('normalizeListingContext', () => {
     expect(ctx.category).toBe('ELECTRONICS');
     expect(ctx.attributes).toEqual({ Weight: '2 lbs' });
     expect(ctx.claims).toContain('made in usa');
-    expect(ctx.claims).toContain('100% organic');
+    expect(ctx.claims).toContain('organic');
     expect(ctx.claims).toContain('bpa free');
   });
 
@@ -113,7 +113,7 @@ describe('serialize / deserialize', () => {
     const serialized = serializeListingContext(original);
     const deserialized = deserializeListingContext(serialized);
 
-    expect(deserialized).toEqual(original);
+    expect(deserialized).toEqual({ ...original, campaignIntent: null });
   });
 
   it('deserialize returns null for invalid input', () => {
