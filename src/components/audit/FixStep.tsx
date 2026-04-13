@@ -1,11 +1,14 @@
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { RecommendationsPanel } from '@/components/recommendations/RecommendationsPanel';
 import { FixQueuePanel } from '@/components/FixQueuePanel';
+import { ManualReviewLane } from '@/components/ManualReviewLane';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/EmptyState';
 import { ImageAsset } from '@/types';
-import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, Search } from 'lucide-react';
+import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, Search, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { classifyAssetFixability } from '@/utils/fixability';
 
 interface FixStepProps {
   assets: ImageAsset[];
