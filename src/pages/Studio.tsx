@@ -435,11 +435,22 @@ const Studio = () => {
                     Brief prefilled from Image Strategy · {strategySource.priority} priority
                   </p>
                 </div>
+                {sourceSessionId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] gap-1"
+                    onClick={() => navigate(`/audit?session=${sourceSessionId}`)}
+                  >
+                    <ArrowLeft className="w-3 h-3" />
+                    Back to Audit
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-6 text-[10px]"
-                  onClick={() => setStrategySource(null)}
+                  onClick={() => { setStrategySource(null); setSourceSessionId(null); }}
                 >
                   Dismiss
                 </Button>
