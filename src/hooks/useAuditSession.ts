@@ -1532,6 +1532,18 @@ export function useAuditSession() {
 
     setIsBatchEnhancing(false);
     setBatchEnhanceProgress(null);
+
+    // Persist session-level counts and step after batch enhance
+    if (currentSessionId && enhancedCount > 0) {
+      const latestAssets = assets; // use current snapshot for counts
+      const fixedCount = latestAssets.filter(a => a.fixedImage).length + enhancedCount;
+      await supabase.from('enhancement_sessions').update({
+        fixed_count: fixedCount,
+        ...computeUnresolvedCounts(latestAssets),
+      }).eq('id', currentSessionId);
+      persistStep('fix');
+    }
+
     addLog('success', `✅ Enhancement complete — ${enhancedCount} images improved`);
     toast({ title: 'Enhance Complete', description: `${enhancedCount} images enhanced` });
   };
