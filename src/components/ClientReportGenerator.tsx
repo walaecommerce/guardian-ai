@@ -61,7 +61,7 @@ export function ClientReportGenerator({
 
   const toggleSection = (s: Section) => setSections(prev => ({ ...prev, [s]: !prev[s] }));
 
-  const unresolvedAssets = analyzedAssets.filter(isManualReviewAsset);
+  const unresolvedAssets = assets.filter(isManualReviewAsset);
   const scores = analyzedAssets.map(a => a.analysisResult!.overallScore);
   const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   const passed = analyzedAssets.filter(a => a.analysisResult!.status === 'PASS').length;
