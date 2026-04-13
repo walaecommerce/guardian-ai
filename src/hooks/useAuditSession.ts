@@ -1067,6 +1067,7 @@ export function useAuditSession() {
           previousGeneratedImage,
           productIdentity: (identityProfile?.identity || productIdentity) || undefined,
           sessionImageId: fixSessionImageId,
+          listingContext: listingContext ? { title: listingContext.title, brand: listingContext.brand, bullets: listingContext.bullets, claims: listingContext.claims } : undefined,
         },
         {
           onProgress: setFixProgress,
