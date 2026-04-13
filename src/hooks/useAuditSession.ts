@@ -657,12 +657,17 @@ export function useAuditSession() {
     const analyzedAssets = data.assets.filter(a => a.analysisResult);
     const failedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING');
     const fixedAssets = data.assets.filter(a => a.fixedImage);
+    const skippedAssets = data.assets.filter(a => 
+      a.unresolvedState || a.batchFixStatus === 'skipped' || 
+      (a.fixabilityTier === 'manual_review' || a.fixabilityTier === 'warn_only')
+    );
     const step = inferCurrentStep({
       ...data.session,
       passed_count: analyzedAssets.length - failedAssets.length,
       failed_count: failedAssets.length,
       fixed_count: fixedAssets.length,
       total_images: data.assets.length,
+      skipped_count: skippedAssets.length,
     });
     setCurrentStep(step);
 
