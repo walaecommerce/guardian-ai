@@ -210,6 +210,72 @@ export function ClientReportGenerator({
 </div>`;
     };
 
+    const unresolvedLabel = (state?: string) => {
+      switch (state) {
+        case 'manual_review': return 'Manual Review Required';
+        case 'warn_only': return 'Warning — Better Source Needed';
+        case 'retry_stopped': return 'Retry Stopped — Preservation Failure';
+        case 'auto_fix_failed': return 'Auto-fix Failed After Attempts';
+        case 'skipped': return 'Skipped — Safety Rules';
+        default: return 'Needs Review';
+      }
+    };
+
+    const unresolvedColor = (state?: string) => {
+      switch (state) {
+        case 'retry_stopped': case 'auto_fix_failed': return '#ef4444';
+        case 'manual_review': return '#f59e0b';
+        case 'warn_only': return '#eab308';
+        default: return '#6b7280';
+      }
+    };
+
+    const buildUnresolved = () => {
+      if (unresolvedAssets.length === 0) return '';
+      const rows = unresolvedAssets.map(asset => {
+        const contentType = formatContentType(asset.imageCategory || asset.analysisResult?.contentType);
+        const state = asset.unresolvedState;
+        const reason = asset.batchSkipReason || asset.fixStopReason || '';
+        const attempts = asset.fixAttempts?.length || 0;
+        const lastStrategy = asset.lastFixStrategy;
+        const stateLabel = unresolvedLabel(state);
+        const color = unresolvedColor(state);
+
+        return `<div style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #f3f4f6;page-break-inside:avoid">
+          <div style="flex-shrink:0">
+            <img src="${asset.preview}" style="width:80px;height:80px;object-fit:contain;border:1px solid #e5e7eb;border-radius:6px" />
+            <div style="text-align:center;margin-top:4px">
+              <span style="font-size:10px;background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:3px;font-weight:600">${asset.type}</span>
+            </div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span style="font-size:13px;font-weight:600;color:#111827">${asset.name}</span>
+              ${contentType ? `<span style="font-size:10px;padding:2px 8px;border-radius:3px;background:#f3f4f6;color:#6b7280">${contentType}</span>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              <span style="font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;color:#fff;background:${color}">${stateLabel}</span>
+            </div>
+            ${reason ? `<div style="font-size:11px;color:#6b7280;margin-bottom:4px">Reason: ${reason}</div>` : ''}
+            ${attempts > 0 ? `<div style="font-size:10px;color:#9ca3af">${attempts} fix attempt${attempts !== 1 ? 's' : ''} tried${lastStrategy ? ` · Last strategy: ${lastStrategy}` : ''}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      return `
+<div class="page">
+  <div class="section-header" style="border-left-color:#f59e0b">
+    <h2 style="font-size:20px;font-weight:700;color:${theme.accent}">Items Requiring Review</h2>
+  </div>
+  <div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin-bottom:20px;font-size:12px;color:#92400e;line-height:1.5">
+    ${unresolvedAssets.length} image${unresolvedAssets.length !== 1 ? 's' : ''} could not be automatically fixed and require manual attention.
+    These are not generic failures — each has a specific reason why automated correction was not safe or possible.
+  </div>
+  ${rows}
+  <div class="watermark">${brandName}</div>
+</div>`;
+    };
+
     const buildRecommendations = () => {
       if (!suggestionsData) {
         // Fallback to basic recommendations
