@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,10 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 } from '@/components/ui/dialog';
-import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff, Cpu, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
+import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff, Cpu, CheckCircle2, XCircle, RefreshCw, Plus, Minus, BookOpen, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -37,6 +38,17 @@ interface UsageRow {
   credit_type: string;
   edge_function: string | null;
   consumed_at: string;
+}
+
+interface LedgerRow {
+  id: string;
+  user_id: string;
+  credit_type: string;
+  amount: number;
+  balance_after: number;
+  event_type: string;
+  description: string | null;
+  created_at: string;
 }
 
 function AIProviderStatusPanel() {
@@ -166,11 +178,33 @@ export default function Admin() {
   const [activityPage, setActivityPage] = useState(0);
   const [activityTotal, setActivityTotal] = useState(0);
   const [activityLoading, setActivityLoading] = useState(false);
-  const [activityFilter, setActivityFilter] = useState<'all' | 'scrape' | 'analyze' | 'fix'>('all');
+  const [activityFilter, setActivityFilter] = useState<'all' | 'scrape' | 'analyze' | 'fix' | 'enhance'>('all');
   const [loading, setLoading] = useState(true);
   const [editingCredits, setEditingCredits] = useState<Record<string, number>>({});
   const [roleDialog, setRoleDialog] = useState<{ open: boolean; userId: string; action: 'grant' | 'revoke'; userName: string }>({
     open: false, userId: '', action: 'grant', userName: ''
+  });
+
+  // Ledger state
+  const [ledgerEntries, setLedgerEntries] = useState<LedgerRow[]>([]);
+  const [ledgerPage, setLedgerPage] = useState(0);
+  const [ledgerTotal, setLedgerTotal] = useState(0);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerUserFilter, setLedgerUserFilter] = useState<string>('all');
+
+  // Adjustment dialog
+  const [adjustDialog, setAdjustDialog] = useState<{
+    open: boolean; userId: string; userName: string;
+    creditType: string; amount: number; description: string; action: 'grant' | 'debit';
+  }>({
+    open: false, userId: '', userName: '', creditType: 'analyze', amount: 10, description: '', action: 'grant',
+  });
+
+  // Plan change dialog
+  const [planDialog, setPlanDialog] = useState<{
+    open: boolean; userId: string; userName: string; currentPlan: string; newPlan: string;
+  }>({
+    open: false, userId: '', userName: '', currentPlan: 'free', newPlan: 'free',
   });
 
   useEffect(() => {
@@ -180,14 +214,38 @@ export default function Admin() {
   }, [isAdmin, authLoading, navigate]);
 
   const ACTIVITY_PAGE_SIZE = 25;
+  const LEDGER_PAGE_SIZE = 25;
 
   useEffect(() => {
     if (!isAdmin) return;
     fetchAll();
     fetchActivity(0);
+    fetchLedger(0);
   }, [isAdmin]);
 
-  async function fetchActivity(page: number, filter: 'all' | 'scrape' | 'analyze' | 'fix' = activityFilter) {
+  async function fetchLedger(page: number, userFilter: string = ledgerUserFilter) {
+    setLedgerLoading(true);
+    const from = page * LEDGER_PAGE_SIZE;
+    const to = from + LEDGER_PAGE_SIZE - 1;
+
+    let query = supabase
+      .from('credit_ledger')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (userFilter !== 'all') {
+      query = query.eq('user_id', userFilter);
+    }
+
+    const { data, count } = await query;
+    if (data) setLedgerEntries(data as unknown as LedgerRow[]);
+    if (count !== null) setLedgerTotal(count);
+    setLedgerPage(page);
+    setLedgerLoading(false);
+  }
+
+  async function fetchActivity(page: number, filter: typeof activityFilter = activityFilter) {
     setActivityLoading(true);
     const from = page * ACTIVITY_PAGE_SIZE;
     const to = from + ACTIVITY_PAGE_SIZE - 1;
@@ -228,9 +286,7 @@ export default function Admin() {
     const deducted = creditsRes.data?.reduce((sum, c) => sum + c.used_credits, 0) ?? 0;
     const { count: totalLogCount } = await supabase.from('credit_usage_log').select('id', { count: 'exact', head: true });
 
-    // Get admin vs non-admin breakdown
     const adminUserIds = new Set(rolesRes.data?.filter(r => r.role === 'admin').map(r => r.user_id) ?? []);
-    // Fetch all usage log user_ids for breakdown
     const { data: allUsageLogs } = await supabase.from('credit_usage_log').select('user_id');
     const adminCount = allUsageLogs?.filter(l => adminUserIds.has(l.user_id)).length ?? 0;
     const totalCount = totalLogCount ?? deducted;
@@ -258,6 +314,62 @@ export default function Admin() {
       toast.success('Credits updated');
       fetchAll();
     }
+  }
+
+  async function handleAdjustment() {
+    const { userId, creditType, amount, description, action } = adjustDialog;
+    const finalAmount = action === 'debit' ? -amount : amount;
+
+    const { error } = await supabase.rpc('grant_credit', {
+      p_user_id: userId,
+      p_credit_type: creditType,
+      p_amount: finalAmount,
+      p_event_type: action === 'grant' ? 'adjustment' : 'debit',
+      p_description: description || `Admin ${action} of ${amount} ${creditType} credits`,
+    });
+
+    if (error) {
+      toast.error(`Failed to ${action} credits: ${error.message}`);
+    } else {
+      toast.success(`${action === 'grant' ? 'Granted' : 'Debited'} ${amount} ${creditType} credits`);
+
+      // Sync legacy user_credits table
+      const { data: legacyRow } = await supabase
+        .from('user_credits')
+        .select('id, total_credits, used_credits')
+        .eq('user_id', userId)
+        .eq('credit_type', creditType)
+        .single();
+
+      if (legacyRow && action === 'grant') {
+        await supabase
+          .from('user_credits')
+          .update({ total_credits: legacyRow.total_credits + amount })
+          .eq('id', legacyRow.id);
+      }
+
+      fetchAll();
+      fetchLedger(ledgerPage);
+    }
+
+    setAdjustDialog(prev => ({ ...prev, open: false }));
+  }
+
+  async function handlePlanChange() {
+    const { userId, newPlan } = planDialog;
+
+    // Update all credit rows for this user
+    const userCredits = credits.filter(c => c.user_id === userId);
+    for (const c of userCredits) {
+      await supabase
+        .from('user_credits')
+        .update({ plan: newPlan })
+        .eq('id', c.id);
+    }
+
+    toast.success(`Plan changed to ${newPlan}`);
+    fetchAll();
+    setPlanDialog(prev => ({ ...prev, open: false }));
   }
 
   async function toggleRole(userId: string, action: 'grant' | 'revoke') {
@@ -299,7 +411,19 @@ export default function Admin() {
       case 'scrape': return 'default';
       case 'analyze': return 'warning';
       case 'fix': return 'success';
+      case 'enhance': return 'secondary';
       default: return 'secondary';
+    }
+  };
+
+  const eventTypeBadgeVariant = (type: string) => {
+    switch (type) {
+      case 'grant': return 'success';
+      case 'debit': return 'destructive';
+      case 'refund': return 'warning';
+      case 'promo': return 'default';
+      case 'adjustment': return 'secondary';
+      default: return 'outline';
     }
   };
 
@@ -328,6 +452,9 @@ export default function Admin() {
           <TabsTrigger value="credits" className="gap-2">
             <CreditCard className="w-4 h-4" /> Credits
           </TabsTrigger>
+          <TabsTrigger value="ledger" className="gap-2">
+            <BookOpen className="w-4 h-4" /> Ledger
+          </TabsTrigger>
           <TabsTrigger value="activity" className="gap-2">
             <Activity className="w-4 h-4" /> Activity
           </TabsTrigger>
@@ -353,6 +480,7 @@ export default function Admin() {
                       <th className="text-left p-3 text-muted-foreground font-medium">Name</th>
                       <th className="text-left p-3 text-muted-foreground font-medium">Email</th>
                       <th className="text-left p-3 text-muted-foreground font-medium">Role</th>
+                      <th className="text-left p-3 text-muted-foreground font-medium">Plan</th>
                       <th className="text-left p-3 text-muted-foreground font-medium">Sessions</th>
                       <th className="text-left p-3 text-muted-foreground font-medium">Joined</th>
                       <th className="text-left p-3 text-muted-foreground font-medium">Actions</th>
@@ -362,6 +490,8 @@ export default function Admin() {
                     {users.map(u => {
                       const role = getUserRole(u.id);
                       const isSelf = u.id === user?.id;
+                      const userCreds = getUserCredits(u.id);
+                      const plan = userCreds[0]?.plan ?? 'free';
                       return (
                         <tr key={u.id} className="border-b border-border/50 hover:bg-muted/30">
                           <td className="p-3 text-foreground">{u.full_name || '—'}</td>
@@ -371,11 +501,36 @@ export default function Admin() {
                               {role}
                             </Badge>
                           </td>
+                          <td className="p-3">
+                            <Badge
+                              variant="outline"
+                              className="cursor-pointer"
+                              onClick={() => setPlanDialog({
+                                open: true, userId: u.id,
+                                userName: u.full_name || u.email || '',
+                                currentPlan: plan, newPlan: plan,
+                              })}
+                            >
+                              {plan}
+                            </Badge>
+                          </td>
                           <td className="p-3 text-foreground">{sessionCounts[u.id] ?? 0}</td>
                           <td className="p-3 text-muted-foreground">
                             {new Date(u.created_at).toLocaleDateString()}
                           </td>
-                          <td className="p-3">
+                          <td className="p-3 space-x-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => setAdjustDialog({
+                                open: true, userId: u.id,
+                                userName: u.full_name || u.email || '',
+                                creditType: 'analyze', amount: 10, description: '', action: 'grant',
+                              })}
+                            >
+                              <Gift className="w-3 h-3" /> Credits
+                            </Button>
                             {isSelf ? (
                               <span className="text-xs text-muted-foreground">You</span>
                             ) : role === 'admin' ? (
@@ -385,7 +540,7 @@ export default function Admin() {
                                 className="h-7 text-xs gap-1"
                                 onClick={() => setRoleDialog({ open: true, userId: u.id, action: 'revoke', userName: u.full_name || u.email || '' })}
                               >
-                                <ShieldOff className="w-3 h-3" /> Revoke Admin
+                                <ShieldOff className="w-3 h-3" /> Revoke
                               </Button>
                             ) : (
                               <Button
@@ -394,7 +549,7 @@ export default function Admin() {
                                 className="h-7 text-xs gap-1"
                                 onClick={() => setRoleDialog({ open: true, userId: u.id, action: 'grant', userName: u.full_name || u.email || '' })}
                               >
-                                <ShieldCheck className="w-3 h-3" /> Make Admin
+                                <ShieldCheck className="w-3 h-3" /> Admin
                               </Button>
                             )}
                           </td>
@@ -425,7 +580,7 @@ export default function Admin() {
                         <span className="font-medium text-foreground">{u.full_name || u.email}</span>
                         <Badge variant="outline" className="text-xs">{userCredits[0]?.plan}</Badge>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                         {userCredits.map(c => (
                           <div key={c.id} className="flex items-center gap-2">
                             <span className="text-sm text-muted-foreground capitalize w-16">{c.credit_type}</span>
@@ -455,6 +610,81 @@ export default function Admin() {
           </Card>
         </TabsContent>
 
+        {/* Ledger Tab */}
+        <TabsContent value="ledger">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <CardTitle className="text-lg">Credit Ledger</CardTitle>
+              <div className="flex items-center gap-3">
+                <select
+                  value={ledgerUserFilter}
+                  onChange={(e) => {
+                    setLedgerUserFilter(e.target.value);
+                    fetchLedger(0, e.target.value);
+                  }}
+                  className="text-xs bg-background border border-border rounded-md px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="all">All users</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.full_name || u.email || u.id.slice(0, 8)}</option>
+                  ))}
+                </select>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{ledgerTotal} entries</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {ledgerLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+              ) : ledgerEntries.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No ledger entries yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {ledgerEntries.map(entry => (
+                    <div key={entry.id} className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-foreground truncate">
+                            {getUserName(entry.user_id)}
+                          </span>
+                          <Badge variant={eventTypeBadgeVariant(entry.event_type) as any} className="text-xs">
+                            {entry.event_type}
+                          </Badge>
+                          <Badge variant={creditTypeBadgeVariant(entry.credit_type) as any} className="text-xs">
+                            {entry.credit_type}
+                          </Badge>
+                          <span className={`text-sm font-mono font-semibold ${entry.amount > 0 ? 'text-success' : 'text-destructive'}`}>
+                            {entry.amount > 0 ? '+' : ''}{entry.amount}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            bal: {entry.balance_after}
+                          </span>
+                        </div>
+                        {entry.description && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">{entry.description}</p>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {ledgerTotal > LEDGER_PAGE_SIZE && (
+                <div className="flex items-center justify-between pt-4 mt-4 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground">
+                    Page {ledgerPage + 1} of {Math.ceil(ledgerTotal / LEDGER_PAGE_SIZE)}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={ledgerPage === 0} onClick={() => fetchLedger(ledgerPage - 1)}>Previous</Button>
+                    <Button variant="outline" size="sm" disabled={(ledgerPage + 1) * LEDGER_PAGE_SIZE >= ledgerTotal} onClick={() => fetchLedger(ledgerPage + 1)}>Next</Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Activity Tab */}
         <TabsContent value="activity">
           <Card>
@@ -474,6 +704,7 @@ export default function Admin() {
                   <option value="scrape">Scrape</option>
                   <option value="analyze">Analyze</option>
                   <option value="fix">Fix</option>
+                  <option value="enhance">Enhance</option>
                 </select>
                 <span className="text-xs text-muted-foreground whitespace-nowrap">{activityTotal} actions</span>
               </div>
@@ -509,29 +740,14 @@ export default function Admin() {
                   ))}
                 </div>
               )}
-              {/* Pagination */}
               {activityTotal > ACTIVITY_PAGE_SIZE && (
                 <div className="flex items-center justify-between pt-4 mt-4 border-t border-border/50">
                   <span className="text-xs text-muted-foreground">
                     Page {activityPage + 1} of {Math.ceil(activityTotal / ACTIVITY_PAGE_SIZE)}
                   </span>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={activityPage === 0 || activityLoading}
-                      onClick={() => fetchActivity(activityPage - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={(activityPage + 1) * ACTIVITY_PAGE_SIZE >= activityTotal || activityLoading}
-                      onClick={() => fetchActivity(activityPage + 1)}
-                    >
-                      Next
-                    </Button>
+                    <Button variant="outline" size="sm" disabled={activityPage === 0 || activityLoading} onClick={() => fetchActivity(activityPage - 1)}>Previous</Button>
+                    <Button variant="outline" size="sm" disabled={(activityPage + 1) * ACTIVITY_PAGE_SIZE >= activityTotal || activityLoading} onClick={() => fetchActivity(activityPage + 1)}>Next</Button>
                   </div>
                 </div>
               )}
@@ -608,6 +824,111 @@ export default function Admin() {
               onClick={() => toggleRole(roleDialog.userId, roleDialog.action)}
             >
               {roleDialog.action === 'grant' ? 'Grant Admin' : 'Revoke Admin'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credit Adjustment Dialog */}
+      <Dialog open={adjustDialog.open} onOpenChange={(open) => setAdjustDialog(prev => ({ ...prev, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adjust Credits for {adjustDialog.userName}</DialogTitle>
+            <DialogDescription>
+              Grant or debit credits. This will be recorded in the ledger.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex gap-2">
+              <Button
+                variant={adjustDialog.action === 'grant' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAdjustDialog(prev => ({ ...prev, action: 'grant' }))}
+              >
+                <Plus className="w-3 h-3 mr-1" /> Grant
+              </Button>
+              <Button
+                variant={adjustDialog.action === 'debit' ? 'destructive' : 'outline'}
+                size="sm"
+                onClick={() => setAdjustDialog(prev => ({ ...prev, action: 'debit' }))}
+              >
+                <Minus className="w-3 h-3 mr-1" /> Debit
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Credit Type</label>
+                <select
+                  value={adjustDialog.creditType}
+                  onChange={(e) => setAdjustDialog(prev => ({ ...prev, creditType: e.target.value }))}
+                  className="w-full text-sm bg-background border border-border rounded-md px-2 py-1.5 text-foreground"
+                >
+                  <option value="scrape">Scrape</option>
+                  <option value="analyze">Analyze</option>
+                  <option value="fix">Fix</option>
+                  <option value="enhance">Enhance</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Amount</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={adjustDialog.amount}
+                  onChange={(e) => setAdjustDialog(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Description (optional)</label>
+              <Input
+                placeholder="e.g. Promo bonus, billing adjustment..."
+                value={adjustDialog.description}
+                onChange={(e) => setAdjustDialog(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant={adjustDialog.action === 'debit' ? 'destructive' : 'default'}
+              onClick={handleAdjustment}
+            >
+              {adjustDialog.action === 'grant' ? 'Grant Credits' : 'Debit Credits'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Plan Change Dialog */}
+      <Dialog open={planDialog.open} onOpenChange={(open) => setPlanDialog(prev => ({ ...prev, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Plan for {planDialog.userName}</DialogTitle>
+            <DialogDescription>
+              Current plan: <strong>{planDialog.currentPlan}</strong>. This changes the plan label only — credit adjustments should be done separately.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <select
+              value={planDialog.newPlan}
+              onChange={(e) => setPlanDialog(prev => ({ ...prev, newPlan: e.target.value }))}
+              className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 text-foreground"
+            >
+              <option value="free">Free</option>
+              <option value="starter">Starter</option>
+              <option value="pro">Pro</option>
+              <option value="agency">Agency</option>
+            </select>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button onClick={handlePlanChange}>
+              Change Plan
             </Button>
           </DialogFooter>
         </DialogContent>
