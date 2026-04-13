@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ClientReportGenerator } from '@/components/ClientReportGenerator';
 import { CompetitorAudit, CompetitorData, AIComparisonResult } from '@/components/CompetitorAudit';
 import { ComplianceHistory, AuditHistoryEntry } from '@/components/ComplianceHistory';
-import { ExportButton } from '@/components/ExportButton';
+
 import { EmptyState } from '@/components/EmptyState';
 import { ManualReviewLane, isManualReviewAsset } from '@/components/ManualReviewLane';
 import { ImageAsset } from '@/types';
