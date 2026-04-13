@@ -51,7 +51,19 @@ serve(async (req) => {
     const authResult = await requireAuth(req, corsHeaders);
     if (isAuthError(authResult)) return authResult;
 
-    const { imageBase64, mainImageBase64, imageCategory, listingTitle, productAsin } = await req.json();
+    const { imageBase64, mainImageBase64, imageCategory, listingTitle, productAsin, imageType, productCategory } = await req.json();
+
+    // Guard: MAIN images should not be analyzed for enhancement
+    if (imageType === 'MAIN' || imageCategory === 'MAIN') {
+      console.log('[Enhancement] Skipping MAIN/hero image — not eligible for enhancement');
+      return new Response(JSON.stringify({
+        imageCategory: 'MAIN',
+        enhancementOpportunities: [],
+        analysisNotes: 'MAIN/hero images are not eligible for marketing enhancement to preserve white-background compliance.'
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
