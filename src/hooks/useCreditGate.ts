@@ -1,4 +1,4 @@
-import { useCredits } from '@/hooks/useCredits';
+import { useCredits, CreditType } from '@/hooks/useCredits';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -13,11 +13,16 @@ export function useCreditGate() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  const guard = useCallback((type: 'scrape' | 'analyze' | 'fix'): boolean => {
+  const guard = useCallback((type: CreditType): boolean => {
     if (isAdmin) return true;
     if (hasCredits(type)) return true;
 
-    const labels = { scrape: 'Scrape', analyze: 'Analysis', fix: 'Fix' };
+    const labels: Record<CreditType, string> = {
+      scrape: 'Scrape',
+      analyze: 'Analysis',
+      fix: 'Fix',
+      enhance: 'Enhance',
+    };
     toast.error(`No ${labels[type]} credits remaining`, {
       description: 'Upgrade your plan to continue.',
       action: {
