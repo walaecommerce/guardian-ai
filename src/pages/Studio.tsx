@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   Loader2, Sparkles, Download, Send, RotateCcw, Check, X,
   Image as ImageIcon, Camera, LayoutGrid, Ruler, FlaskConical,
-  Grid2X2, Columns2, Package, ChevronDown, ChevronUp, Wand2, ArrowRight, Target,
+  Grid2X2, Columns2, Package, ChevronDown, ChevronUp, Wand2, ArrowRight, Target, ArrowLeft, Plus,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,6 +74,8 @@ const Studio = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
   const [strategySource, setStrategySource] = useState<{ targetRole: string; recommendationLabel: string; priority: string } | null>(null);
+  const [sourceSessionId, setSourceSessionId] = useState<string | null>(null);
+  const [addingToSession, setAddingToSession] = useState<string | null>(null); // tracks img.id being added
 
   const [category, setCategory] = useState('GENERAL');
   const [isGenerating, setIsGenerating] = useState(false);
