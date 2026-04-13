@@ -528,20 +528,22 @@ describe('aggregate count alignment for mixed asset sets', () => {
       stubAsset({ id: '4', unresolvedState: 'retry_stopped', batchFixStatus: 'failed', fixStopReason: 'drift' }),
     ];
 
-    // Session.tsx derives counts like this:
+    // Session.tsx derives counts like this (now excludes fixed assets):
     const manualReviewAssets = assets.filter(isManualReviewAsset);
     const passedCount = assets.filter(a => a.analysisResult?.status === 'PASS').length;
     const failedCount = assets.filter(a =>
-      a.analysisResult?.status === 'FAIL' && !manualReviewAssets.some(m => m.id === a.id),
+      (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING')
+      && !a.fixedImage
+      && !manualReviewAssets.some(m => m.id === a.id),
     ).length;
     const fixedCount = assets.filter(a => a.fixedImage).length;
 
     expect(passedCount).toBe(1);
     expect(fixedCount).toBe(1);
     expect(manualReviewAssets.length).toBe(2);
-    // asset 2 has FAIL status + fixedImage → not in manual review → still counted as failed
+    // asset 2 has FAIL status + fixedImage → excluded from failedCount (it's fixed!)
     // assets 3 & 4 are in manual review → excluded from failedCount
-    expect(failedCount).toBe(1);
+    expect(failedCount).toBe(0);
   });
 });
 
