@@ -1425,20 +1425,35 @@ export function useAuditSession() {
     if (candidateAssets.length === 0) return;
 
     // Partition into fixable vs skipped using fixability layer
-    const { partitionBatchFixTargets } = await import('@/utils/fixability');
+    const { partitionBatchFixTargets, classifyAssetFixability } = await import('@/utils/fixability');
     const { fixable: failedAssets, skipped } = partitionBatchFixTargets(candidateAssets);
 
-    // Mark skipped assets immediately
+    // Mark skipped assets immediately with fixability tier
     if (skipped.length > 0) {
       setAssets(prev => prev.map(a => {
         const skipEntry = skipped.find(s => s.asset.id === a.id);
         if (skipEntry) {
-          return { ...a, batchFixStatus: 'skipped' as const, batchSkipReason: skipEntry.reason };
+          const classification = classifyAssetFixability(a);
+          return { 
+            ...a, 
+            batchFixStatus: 'skipped' as const, 
+            batchSkipReason: skipEntry.reason,
+            fixabilityTier: classification.tier,
+          };
         }
         return a;
       }));
       for (const { asset: skippedAsset, reason } of skipped) {
         addLog('warning', `⏭️ Skipped ${skippedAsset.name}: ${reason}`);
+        // Persist skip state to session_images
+        const sessionImageId = assetSessionMap.get(skippedAsset.id);
+        if (sessionImageId && currentSessionId) {
+          const classification = classifyAssetFixability(skippedAsset);
+          supabase.from('session_images').update({
+            status: 'skipped',
+            fix_attempts: { skipped: true, skipReason: reason, fixabilityTier: classification.tier } as any,
+          }).eq('id', sessionImageId).then(() => {});
+        }
       }
     }
 
@@ -1500,9 +1515,14 @@ export function useAuditSession() {
     
     setIsBatchFixing(false);
     setBatchFixProgress(null);
-    // Clear batch status after a short delay so user sees final state
+    // Clear transient batch statuses (pending/processing) but preserve skipped/fixed/failed
     setTimeout(() => {
-      setAssets(prev => prev.map(a => ({ ...a, batchFixStatus: undefined, batchSkipReason: undefined })));
+      setAssets(prev => prev.map(a => {
+        if (a.batchFixStatus === 'pending' || a.batchFixStatus === 'processing') {
+          return { ...a, batchFixStatus: undefined };
+        }
+        return a;
+      }));
     }, 5000);
     const skippedMsg = skipped.length > 0 ? ` (${skipped.length} skipped)` : '';
     addLog('success', `✅ Fixes complete — ${fixedCount} images corrected${skippedMsg}`);

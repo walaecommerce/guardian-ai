@@ -1,11 +1,14 @@
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { RecommendationsPanel } from '@/components/recommendations/RecommendationsPanel';
 import { FixQueuePanel } from '@/components/FixQueuePanel';
+import { ManualReviewLane } from '@/components/ManualReviewLane';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/EmptyState';
 import { ImageAsset } from '@/types';
-import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, Search } from 'lucide-react';
+import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, Search, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { classifyAssetFixability } from '@/utils/fixability';
 
 interface FixStepProps {
   assets: ImageAsset[];
@@ -29,14 +32,24 @@ export function FixStep({
   listingTitle, onApplyFix,
   onBatchEnhance, isBatchEnhancing = false, batchEnhanceProgress,
 }: FixStepProps) {
+  // Classify manual-review/skipped images
+  const manualReviewAssets = assets.filter(a => {
+    if (a.fixabilityTier === 'manual_review' || a.fixabilityTier === 'warn_only') return true;
+    if (a.batchFixStatus === 'skipped') return true;
+    if (a.fixStopReason && !a.fixedImage) return true;
+    return false;
+  });
+
   const failedAssets = assets.filter(a => 
     (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage
+    && !manualReviewAssets.some(m => m.id === a.id)
   );
   const fixedAssets = assets.filter(a => a.fixedImage);
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const allFixed = failedAssets.length === 0 && fixedAssets.length > 0;
   const enhanceableCount = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
   const hasNoResults = analyzedAssets.length === 0;
+  const retryFailedCount = assets.filter(a => a.batchFixStatus === 'failed').length;
 
   // Build fix queue for visualization
   const fixQueueAssets = assets.filter(a => a.batchFixStatus);
@@ -54,8 +67,8 @@ export function FixStep({
     );
   }
 
-  // If all passed and no fixes needed
-  if (failedAssets.length === 0 && fixedAssets.length === 0) {
+  // If all passed and no fixes needed (but may still have manual review)
+  if (failedAssets.length === 0 && fixedAssets.length === 0 && manualReviewAssets.length === 0) {
     return (
       <div className="text-center py-12 space-y-3 border border-dashed border-success/30 rounded-xl bg-success/5">
         <CheckCircle className="w-10 h-10 text-success mx-auto" />
@@ -73,6 +86,34 @@ export function FixStep({
 
   return (
     <div className="space-y-6">
+      {/* Summary counts bar */}
+      <div className="flex items-center gap-2 flex-wrap text-xs">
+        {failedAssets.length > 0 && (
+          <Badge variant="destructive" className="text-[11px]">
+            <Wand2 className="w-3 h-3 mr-1" />
+            {failedAssets.length} Auto-fixable
+          </Badge>
+        )}
+        {fixedAssets.length > 0 && (
+          <Badge variant="success" className="text-[11px]">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            {fixedAssets.length} Fixed
+          </Badge>
+        )}
+        {manualReviewAssets.length > 0 && (
+          <Badge variant="warning" className="text-[11px]">
+            <AlertTriangle className="w-3 h-3 mr-1" />
+            {manualReviewAssets.length} Manual Review
+          </Badge>
+        )}
+        {retryFailedCount > 0 && (
+          <Badge variant="destructive" className="text-[11px]">
+            <ShieldAlert className="w-3 h-3 mr-1" />
+            {retryFailedCount} Failed
+          </Badge>
+        )}
+      </div>
+
       {/* Action bar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
@@ -130,7 +171,7 @@ export function FixStep({
         </div>
       </div>
 
-      {/* Batch fix queue visualization — replaces the old generic progress bar */}
+      {/* Batch fix queue visualization */}
       {isBatchFixing && fixQueueAssets.length > 0 && (
         <FixQueuePanel
           queue={fixQueueAssets}
@@ -143,12 +184,15 @@ export function FixStep({
       {isBatchEnhancing && batchEnhanceProgress && (
         <div className="space-y-2 p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <Sparkles className="w-4 h-4 animate-pulse text-purple-400" />
+            <Sparkles className="w-4 h-4 animate-pulse text-accent" />
             Enhancing image {batchEnhanceProgress.current} of {batchEnhanceProgress.total}…
           </div>
           <Progress value={(batchEnhanceProgress.current / batchEnhanceProgress.total) * 100} className="h-2" />
         </div>
       )}
+
+      {/* Manual Review Required lane — visually separate from auto-fix */}
+      <ManualReviewLane assets={manualReviewAssets} onViewDetails={onViewDetails} />
 
       {/* Before/After grid */}
       <BatchComparisonView
