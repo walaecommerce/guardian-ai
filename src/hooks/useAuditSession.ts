@@ -1101,7 +1101,8 @@ export function useAuditSession() {
               fix_attempts: fixReviewData as any,
             }).eq('id', sessionImageId);
             await supabase.from('enhancement_sessions').update({ 
-              fixed_count: assets.filter(a => a.fixedImage || a.id === assetId).length
+              fixed_count: assets.filter(a => a.fixedImage || a.id === assetId).length,
+              ...computeUnresolvedCounts(assets),
             }).eq('id', currentSessionId);
           }
         }
@@ -1135,6 +1136,10 @@ export function useAuditSession() {
             status: 'failed',
             fix_attempts: fixReviewData as any,
           }).eq('id', sessionImageId);
+          // Update session-level unresolved counts
+          const updatedAssets = assets.map(a => a.id === assetId ? { ...a, unresolvedState } : a);
+          const counts = computeUnresolvedCounts(updatedAssets);
+          await supabase.from('enhancement_sessions').update(counts).eq('id', currentSessionId);
         }
 
         addLog('warning', `⚠️ ${asset.name}: ${stopR || 'No acceptable fix produced after all attempts'}`);
@@ -1300,7 +1305,8 @@ export function useAuditSession() {
     }
     
     if (currentSessionId) {
-      await supabase.from('enhancement_sessions').update({ status: 'completed' }).eq('id', currentSessionId);
+      const counts = computeUnresolvedCounts(assets);
+      await supabase.from('enhancement_sessions').update({ status: 'completed', ...counts }).eq('id', currentSessionId);
     }
     
     setIsBatchFixing(false);
