@@ -129,6 +129,7 @@ export async function runFixOrchestration(
           fixPlan,
           retryInstructions: retryInstructions.length > 0 ? retryInstructions : undefined,
           sessionImageId,
+          listingContext: listingContext || undefined,
         },
       });
 
