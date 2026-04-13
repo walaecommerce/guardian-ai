@@ -402,7 +402,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
           {selectedSession && (
             <div className="flex-1 overflow-auto space-y-4">
               {/* Stats row */}
-              <div className={`grid grid-cols-2 sm:grid-cols-${3 + (selectedSession.fixed_count > 0 ? 1 : 0) + ((selectedSession.unresolved_count || 0) > 0 ? 1 : 0) + 1} gap-3`}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                 <div className="p-3 rounded-lg bg-muted/50 text-center">
                   <p className="text-2xl font-bold tabular-nums text-foreground">{selectedSession.total_images}</p>
                   <p className="text-xs text-muted-foreground">Images</p>
