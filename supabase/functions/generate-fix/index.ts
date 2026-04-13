@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { MODELS } from "../_shared/models.ts";
-import { useCredit, createAdminClient } from "../_shared/credits.ts";
+import { useCredit, checkCredits, createAdminClient } from "../_shared/credits.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -456,18 +456,23 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     console.log(`[generate-fix] Authenticated user: ${claimsData.claims.sub}`);
+    const userId = claimsData.claims.sub as string;
+    const admin = createAdminClient();
 
+    // Pre-check credits (debit on success only)
     try {
-      const admin = createAdminClient();
-      await useCredit(admin, claimsData.claims.sub as string, 'fix');
-    } catch (creditErr: any) {
-      if (creditErr?.status === 402) {
+      const remaining = await checkCredits(admin, userId, 'fix');
+      const { data: roleData } = await admin
+        .from('user_roles').select('role')
+        .eq('user_id', userId).eq('role', 'admin').maybeSingle();
+      if (!roleData && remaining <= 0) {
         return new Response(
-          JSON.stringify({ error: creditErr.message || 'No fix credits remaining', errorType: 'payment_required' }),
+          JSON.stringify({ error: 'No fix credits remaining. Upgrade your plan to continue.', errorType: 'payment_required' }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      console.warn('[generate-fix] Credit check failed, proceeding:', creditErr);
+    } catch (creditErr: any) {
+      console.warn('[generate-fix] Credit pre-check failed, proceeding:', creditErr);
     }
 
     const {
@@ -476,6 +481,7 @@ serve(async (req) => {
       spatialAnalysis, imageCategory, imageContentType, productIdentity, violations, scoringRationale,
       fixPlan,
       retryInstructions,
+      sessionImageId,
     } = await req.json();
 
     const fixCategory = detectFixCategory(imageCategory, productTitle);
@@ -725,6 +731,9 @@ serve(async (req) => {
             const fbImage = extractImageFromResponse(fbData);
             if (fbImage) {
               console.log(`[generate-fix] ✅ Fallback full regeneration succeeded`);
+              // Debit credit on success
+              const idemKey = sessionImageId ? `fix:${sessionImageId}` : `fix:${userId}:${Date.now()}`;
+              try { await useCredit(admin, userId, 'fix', 'generate-fix', idemKey); } catch (e: any) { console.warn('[generate-fix] Post-success debit failed:', e?.message); }
               return new Response(JSON.stringify({ fixedImage: fbImage, usedBackgroundSegmentation: false }), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
               });
@@ -741,6 +750,10 @@ serve(async (req) => {
     }
 
     console.log(`[generate-fix] ✅ Image generated successfully (bgSeg=${usedBackgroundSegmentation}, model=${model})`);
+
+    // Debit credit on success only
+    const idemKey = sessionImageId ? `fix:${sessionImageId}` : `fix:${userId}:${Date.now()}`;
+    try { await useCredit(admin, userId, 'fix', 'generate-fix', idemKey); } catch (e: any) { console.warn('[generate-fix] Post-success debit failed:', e?.message); }
 
     return new Response(JSON.stringify({
       fixedImage: imageResult,

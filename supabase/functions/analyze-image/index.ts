@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
-import { useCredit, getUserIdFromAuth, createAdminClient } from "../_shared/credits.ts";
+import { useCredit, checkCredits, getUserIdFromAuth, createAdminClient } from "../_shared/credits.ts";
 import { parseJsonBody, requireFields, errorResponse } from "../_shared/validation.ts";
 
 const corsHeaders = {
@@ -552,33 +552,46 @@ serve(async (req) => {
   }
 
   try {
-    // Deduct analyze credit
+    // Authenticate and extract user ID
+    let userId: string;
     try {
-      const userId = await getUserIdFromAuth(req);
-      const admin = createAdminClient();
-      await useCredit(admin, userId, 'analyze');
-    } catch (creditErr: any) {
-      if (creditErr?.status === 402) {
+      userId = await getUserIdFromAuth(req);
+    } catch (authErr: any) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const admin = createAdminClient();
+
+    // Pre-check credits (don't debit yet — debit on success only)
+    try {
+      const remaining = await checkCredits(admin, userId, 'analyze');
+
+      // Check if admin (admins bypass)
+      const { data: roleData } = await admin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (!roleData && remaining <= 0) {
         return new Response(
           JSON.stringify({
-            error: creditErr.message || 'No analyze credits remaining',
+            error: 'No analyze credits remaining. Upgrade your plan to continue.',
             errorType: 'payment_required'
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (creditErr?.status === 401) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      console.warn('[analyze-image] Credit check failed, proceeding:', creditErr);
+    } catch (creditErr: any) {
+      console.warn('[analyze-image] Credit pre-check failed, proceeding:', creditErr);
     }
 
     const bodyOrError = await parseJsonBody(req);
     if (bodyOrError instanceof Response) return bodyOrError;
-    const { imageBase64, imageType, listingTitle, forcedCategory, deterministicFindings } = bodyOrError as Record<string, any>;
+    const { imageBase64, imageType, listingTitle, forcedCategory, deterministicFindings, sessionImageId } = bodyOrError as Record<string, any>;
 
     if (!imageBase64) return errorResponse(400, 'Missing required field: imageBase64', {}, corsHeaders);
 
@@ -783,6 +796,18 @@ IMPORTANT: If a deterministic check FAILED with severity "critical", your overal
       emotionalAppealScore: rawResult.emotional_appeal_score ?? rawResult.emotionalAppealScore ?? null,
       deterministicFindings: deterministicFindings || undefined,
     };
+
+    // ── Debit credit on SUCCESS only ──
+    try {
+      const idemKey = sessionImageId
+        ? `analyze:${sessionImageId}`
+        : `analyze:${userId}:${Date.now()}`;
+      await useCredit(admin, userId, 'analyze', 'analyze-image', idemKey);
+    } catch (debitErr: any) {
+      // If debit fails (e.g. ran out mid-batch), still return the result
+      // but log the failure — the image was already analyzed
+      console.warn('[analyze-image] Post-success credit debit failed:', debitErr?.message);
+    }
 
     return new Response(JSON.stringify(mappedResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

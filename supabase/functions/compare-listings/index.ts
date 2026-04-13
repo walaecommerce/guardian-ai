@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
 import { MODELS } from "../_shared/models.ts";
 import { requireAuth, isAuthError } from "../_shared/auth.ts";
+import { useCredit, checkCredits, createAdminClient } from "../_shared/credits.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +18,24 @@ serve(async (req) => {
     // Auth guard
     const authResult = await requireAuth(req, corsHeaders);
     if (isAuthError(authResult)) return authResult;
+    const userId = authResult.userId;
+    const admin = createAdminClient();
+
+    // Pre-check analyze credits for competitor comparison
+    try {
+      const remaining = await checkCredits(admin, userId, 'analyze');
+      const { data: roleData } = await admin
+        .from('user_roles').select('role')
+        .eq('user_id', userId).eq('role', 'admin').maybeSingle();
+      if (!roleData && remaining <= 0) {
+        return new Response(
+          JSON.stringify({ error: 'No analyze credits remaining. Upgrade your plan to continue.', errorType: 'payment_required' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (creditErr: any) {
+      console.warn('[compare-listings] Credit pre-check failed, proceeding:', creditErr);
+    }
 
     const { yourAnalysis, competitorAnalysis, yourTitle, competitorTitle } = await req.json();
 
@@ -179,6 +198,9 @@ Return ONLY this JSON structure:
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         console.log("[compare-listings] Parsed from content fallback");
+        // Debit credit on success
+        const idemKey = `compare:${userId}:${Date.now()}`;
+        try { await useCredit(admin, userId, 'analyze', 'compare-listings', idemKey); } catch (e: any) { console.warn('[compare-listings] Post-success debit failed:', e?.message); }
         return new Response(JSON.stringify(parsed), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -191,6 +213,10 @@ Return ONLY this JSON structure:
       : toolCall.function.arguments;
 
     console.log("[compare-listings] Success:", result.score_comparison?.winner);
+
+    // Debit credit on success
+    const idemKey = `compare:${userId}:${Date.now()}`;
+    try { await useCredit(admin, userId, 'analyze', 'compare-listings', idemKey); } catch (e: any) { console.warn('[compare-listings] Post-success debit failed:', e?.message); }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

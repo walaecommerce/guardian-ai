@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { useCredit, checkCredits, createAdminClient } from "../_shared/credits.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
 
@@ -113,7 +114,25 @@ serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    console.log(`[generate-enhancement] Authenticated user: ${claimsData.claims.sub}`);
+    const userId = claimsData.claims.sub as string;
+    const admin = createAdminClient();
+    console.log(`[generate-enhancement] Authenticated user: ${userId}`);
+
+    // Pre-check enhance credits (debit on success only)
+    try {
+      const remaining = await checkCredits(admin, userId, 'enhance');
+      const { data: roleData } = await admin
+        .from('user_roles').select('role')
+        .eq('user_id', userId).eq('role', 'admin').maybeSingle();
+      if (!roleData && remaining <= 0) {
+        return new Response(
+          JSON.stringify({ error: 'No enhance credits remaining. Upgrade your plan to continue.', errorType: 'payment_required' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (creditErr: any) {
+      console.warn('[generate-enhancement] Credit pre-check failed, proceeding:', creditErr);
+    }
 
     const {
       originalImage,
@@ -122,7 +141,8 @@ serve(async (req) => {
       enhancementType,
       targetImprovements,
       preserveElements,
-      customPrompt
+      customPrompt,
+      sessionImageId
     } = await req.json();
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
@@ -201,6 +221,10 @@ serve(async (req) => {
     }
 
     console.log("[Enhancement Gen] ✅ Quality-polished image generated successfully");
+
+    // Debit enhance credit on success only
+    const idemKey = sessionImageId ? `enhance:${sessionImageId}` : `enhance:${userId}:${Date.now()}`;
+    try { await useCredit(admin, userId, 'enhance', 'generate-enhancement', idemKey); } catch (e: any) { console.warn('[generate-enhancement] Post-success debit failed:', e?.message); }
 
     return new Response(JSON.stringify({
       enhancedImage: imageResult,

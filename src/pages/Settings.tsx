@@ -129,9 +129,13 @@ function BillingTab() {
     { type: 'scrape' as const, icon: Search, label: 'Scrapes' },
     { type: 'analyze' as const, icon: BarChart3, label: 'Analyses' },
     { type: 'fix' as const, icon: Sparkles, label: 'Fixes' },
+    { type: 'enhance' as const, icon: Sparkles, label: 'Enhancements' },
   ];
 
   const hasUsageData = usageData.some(d => d.scrape + d.analyze + d.fix > 0);
+
+  const [promoCode, setPromoCode] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -208,6 +212,48 @@ function BillingTab() {
               </div>
             );
           })}
+        </CardContent>
+      </Card>
+
+      {/* Promo Code */}
+      <Card className="border-white/5 bg-white/[0.02]">
+        <CardHeader>
+          <CardTitle className="text-lg">Promo Code</CardTitle>
+          <CardDescription>Have a promo code? Redeem it for bonus credits.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter promo code"
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+              className="max-w-xs"
+            />
+            <Button
+              disabled={!promoCode.trim() || promoLoading}
+              onClick={async () => {
+                setPromoLoading(true);
+                try {
+                  const { data, error } = await supabase.functions.invoke('redeem-promo', {
+                    body: { code: promoCode.trim() },
+                  });
+                  if (error) throw error;
+                  if (data?.error) {
+                    toast.error(data.error);
+                  } else {
+                    toast.success(`🎉 +${data.amount} ${data.creditType} credits added!`);
+                    setPromoCode('');
+                  }
+                } catch (err: any) {
+                  toast.error(err?.message || 'Failed to redeem promo code');
+                } finally {
+                  setPromoLoading(false);
+                }
+              }}
+            >
+              {promoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Redeem'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
