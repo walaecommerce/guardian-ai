@@ -9,6 +9,11 @@ function hydrateFixReview(fixAttemptsJson: unknown): Partial<ImageAsset> {
 
   const data = fixAttemptsJson as Record<string, unknown>;
 
+  // Enhancement-only record: { fixMethod: 'enhancement' }
+  if (data.fixMethod === 'enhancement') {
+    return { fixMethod: 'enhancement' };
+  }
+
   // Skipped/manual-review state
   if (data.skipped === true) {
     return {
