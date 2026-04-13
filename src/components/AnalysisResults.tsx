@@ -692,6 +692,10 @@ export function AnalysisResults({
             const summary = getPolicySummary('main', catKey);
             return <PolicyContextBanner summary={summary} />;
           })()}
+          {/* Product knowledge influence note */}
+          {productKnowledge && productKnowledge.isActionable && (
+            <KnowledgeInfluenceNote pk={productKnowledge} />
+          )}
           <div className="flex items-center justify-between">
             <div className="flex gap-6">
               <div className="text-center">
