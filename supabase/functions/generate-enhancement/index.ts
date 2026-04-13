@@ -160,22 +160,12 @@ serve(async (req) => {
       preserveElements || []
     );
 
-    // Inject listing context guardrails if available
+    // Inject product knowledge preservation guidance if available
     if (listingContext && typeof listingContext === 'object') {
-      const parts: string[] = [];
-      if (listingContext.brand) parts.push(`Brand: ${listingContext.brand}`);
-      if (listingContext.title) parts.push(`Product: ${listingContext.title}`);
-      if (Array.isArray(listingContext.claims) && listingContext.claims.length > 0) {
-        parts.push(`Valid claims: ${listingContext.claims.slice(0, 6).join(', ')}`);
-      }
-      if (parts.length > 0) {
-        prompt += `\n\nPRODUCT CONTEXT:
-${parts.join('\n')}
-- Preserve the product's intended positioning and valid claims
-- Do NOT add, remove, or change any text/claims on the product
-- Do NOT create visual elements implying unsupported claims
-- Enhancement is polish only — not redesign`;
-      }
+      const { deriveProductKnowledge, buildKnowledgePreservationSection } = await import("../_shared/productKnowledge.ts");
+      const pk = deriveProductKnowledge(listingContext);
+      const pkSection = buildKnowledgePreservationSection(pk);
+      if (pkSection) prompt += '\n' + pkSection;
     }
 
     const contentParts: any[] = [

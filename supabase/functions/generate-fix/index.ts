@@ -523,26 +523,15 @@ serve(async (req) => {
       return removals.length ? `\n\nSPECIFIC REMOVALS:\n${removals.join('\n')}` : '';
     };
 
-    // ── Build listing context guardrails ──
+    // ── Build listing context guardrails via product knowledge ──
+    let _pkSection: string | null = null;
     const buildListingContextGuardrails = (): string => {
-      if (!listingContext || typeof listingContext !== 'object') return '';
-      const parts: string[] = [];
-      if (listingContext.brand) parts.push(`Brand: ${listingContext.brand}`);
-      if (listingContext.title) parts.push(`Product: ${listingContext.title}`);
-      if (Array.isArray(listingContext.claims) && listingContext.claims.length > 0) {
-        parts.push(`Valid claims on packaging: ${listingContext.claims.slice(0, 6).join(', ')}`);
-      }
-      if (Array.isArray(listingContext.bullets) && listingContext.bullets.length > 0) {
-        parts.push(`Key features: ${listingContext.bullets.slice(0, 3).join('; ')}`);
-      }
-      if (parts.length === 0) return '';
-      return `\n\nLISTING CONTEXT GUARDRAILS:
-${parts.join('\n')}
-RULES:
-- Preserve existing valid printed text, brand name, and claims on the product/packaging
-- Do NOT invent or add new claims, text, or visual elements not already present
-- Do NOT add bullet-point text into the image
-- Do NOT change the product's intended identity or positioning`;
+      if (_pkSection !== null) return _pkSection;
+      if (!listingContext || typeof listingContext !== 'object') { _pkSection = ''; return ''; }
+      // Use synchronous inline version for Deno compatibility in serve handler
+      const pk = deriveProductKnowledgeInline(listingContext);
+      _pkSection = buildKnowledgePreservationSectionInline(pk);
+      return _pkSection;
     };
 
     // ── Build message content parts ──
