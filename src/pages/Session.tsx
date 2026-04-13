@@ -755,11 +755,11 @@ const Session = () => {
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-3 text-sm">
                     <span className="flex items-center gap-1">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       {passedCount} passed
                     </span>
                     <span className="flex items-center gap-1">
-                      <XCircle className="h-4 w-4 text-red-500" />
+                      <XCircle className="h-4 w-4 text-destructive" />
                       {failedCount} failed
                     </span>
                     {fixedCount > 0 && (
