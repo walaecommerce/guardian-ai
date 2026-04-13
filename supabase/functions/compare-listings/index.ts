@@ -198,6 +198,9 @@ Return ONLY this JSON structure:
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         console.log("[compare-listings] Parsed from content fallback");
+        // Debit credit on success
+        const idemKey = `compare:${userId}:${Date.now()}`;
+        try { await useCredit(admin, userId, 'analyze', 'compare-listings', idemKey); } catch (e: any) { console.warn('[compare-listings] Post-success debit failed:', e?.message); }
         return new Response(JSON.stringify(parsed), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -210,6 +213,10 @@ Return ONLY this JSON structure:
       : toolCall.function.arguments;
 
     console.log("[compare-listings] Success:", result.score_comparison?.winner);
+
+    // Debit credit on success
+    const idemKey = `compare:${userId}:${Date.now()}`;
+    try { await useCredit(admin, userId, 'analyze', 'compare-listings', idemKey); } catch (e: any) { console.warn('[compare-listings] Post-success debit failed:', e?.message); }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
