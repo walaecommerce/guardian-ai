@@ -167,7 +167,7 @@ const Studio = () => {
     }
 
     setIsGenerating(true);
-    logEvent('studio_generation_started', { template: selectedTemplate, productName });
+    logEvent('studio_generation_started', { template: selectedTemplate, productName, strategySource: strategySource || undefined });
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-studio-image', {
