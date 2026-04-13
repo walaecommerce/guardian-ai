@@ -103,7 +103,7 @@ describe('deriveCampaignStrategy', () => {
     const strategy = deriveCampaignStrategy(pk, assets);
     const hero = strategy.roleCoverage.find(r => r.role === 'hero');
     expect(hero?.status).toBe('weak');
-    expect(hero?.weakReason).toContain('critical');
+    expect(hero?.weakReason).toContain('Low quality');
   });
 
   it('sets high confidence with complete knowledge and multiple assets', () => {
