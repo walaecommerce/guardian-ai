@@ -321,15 +321,57 @@ const Studio = () => {
       const rolePrefix = (strategySource?.targetRole || img.template).toUpperCase();
       const imageName = `${rolePrefix}_studio_${img.productName.replace(/\s+/g, '_').substring(0, 30)}`;
 
-      // Insert session_image record
-      await supabase.from('session_images').insert([{
+      // Insert session_image record — include analysis if Studio already ran it
+      const hasAnalysis = img.status === 'analyzed' && img.analysisResult;
+      const { data: insertedImage } = await supabase.from('session_images').insert([{
         session_id: sourceSessionId,
         image_name: imageName,
         image_type: img.template === 'hero' ? 'MAIN' : 'SECONDARY',
         original_image_url: uploaded.url,
-        status: 'pending',
+        status: hasAnalysis ? 'analyzed' : 'pending',
         image_category: rolePrefix,
-      }]);
+        analysis_result: hasAnalysis ? (img.analysisResult as any) : null,
+      }]).select('id').maybeSingle();
+
+      // If no analysis yet, trigger one now so strategy coverage updates
+      if (!hasAnalysis && insertedImage) {
+        (async () => {
+          try {
+            const imageType = img.template === 'hero' ? 'MAIN' : 'SECONDARY';
+            const { data: analysisData, error: analysisErr } = await supabase.functions.invoke('analyze-image', {
+              body: {
+                imageBase64: img.image,
+                imageType,
+                listingTitle: img.productName,
+                guidelines: [],
+              },
+            });
+            if (!analysisErr && analysisData && !analysisData.error) {
+              await supabase.from('session_images')
+                .update({ analysis_result: analysisData as any, status: 'analyzed' })
+                .eq('id', insertedImage.id);
+            }
+          } catch { /* non-fatal background analysis */ }
+        })();
+      }
+
+      // Update session counts to reflect the analyzed image
+      if (hasAnalysis && img.analysisResult) {
+        const isPassed = img.analysisResult.status === 'PASS';
+        const { data: sess2 } = await supabase
+          .from('enhancement_sessions')
+          .select('passed_count, failed_count')
+          .eq('id', sourceSessionId)
+          .maybeSingle();
+        if (sess2) {
+          await supabase.from('enhancement_sessions')
+            .update({
+              passed_count: (sess2.passed_count || 0) + (isPassed ? 1 : 0),
+              failed_count: (sess2.failed_count || 0) + (isPassed ? 0 : 1),
+            })
+            .eq('id', sourceSessionId);
+        }
+      }
 
       // Update session total_images count
       const { data: sess } = await supabase
@@ -350,9 +392,10 @@ const Studio = () => {
         productName: img.productName,
       });
 
+      const analysisNote = hasAnalysis ? ' Analysis included — strategy will update automatically.' : ' Analysis will run in the background.';
       toast({
         title: 'Added to audit session',
-        description: `${strategySource?.recommendationLabel || img.template} image added. Return to audit to see updated strategy.`,
+        description: `${strategySource?.recommendationLabel || img.template} image added.${analysisNote}`,
       });
     } catch (e) {
       toast({
