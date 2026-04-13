@@ -539,8 +539,9 @@ describe('aggregate count alignment for mixed asset sets', () => {
     expect(passedCount).toBe(1);
     expect(fixedCount).toBe(1);
     expect(manualReviewAssets.length).toBe(2);
-    // Failed should NOT include manual-review assets
-    expect(failedCount).toBe(0); // both FAIL assets are in manual review
+    // asset 2 has FAIL status + fixedImage → not in manual review → still counted as failed
+    // assets 3 & 4 are in manual review → excluded from failedCount
+    expect(failedCount).toBe(1);
   });
 });
 
