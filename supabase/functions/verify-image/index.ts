@@ -262,6 +262,26 @@ Verify that these specific rule violations are now resolved in the generated ima
       }
     }
 
+    // Build content-type-specific output fields
+    let contentTypeOutputFields = '';
+    if (!isMain) {
+      switch (contentType) {
+        case 'LIFESTYLE':
+        case 'PRODUCT_IN_USE':
+          contentTypeOutputFields = `\n  "context_preservation_score": <0-100 — how well was the scene, setting, people, props preserved?>,`;
+          break;
+        case 'INFOGRAPHIC':
+          contentTypeOutputFields = `\n  "layout_preservation_score": <0-100 — how well was all text, callout layout, and design structure preserved?>,`;
+          break;
+        case 'PACKAGING':
+          contentTypeOutputFields = `\n  "label_fidelity_score": <0-100 — how faithfully was all printed packaging text preserved?>,`;
+          break;
+        case 'DETAIL':
+          contentTypeOutputFields = `\n  "detail_preservation_score": <0-100 — how well were fine product details and textures preserved?>,`;
+          break;
+      }
+    }
+
     const outputSchema = `
 ${rubricDescription}
 ${contentTypeContext}
@@ -275,7 +295,7 @@ Return this EXACT JSON structure:
 {
   "score": <0-100 weighted>,
   "is_satisfactory": <true if score >= 85 AND product identity preserved AND target rules fixed>,
-  "critique": "<concise description of specific issues found>",
+  "critique": "<concise description of specific issues found>",${contentTypeOutputFields}
   "checks": {
     "background_compliant": <boolean>,
     "text_removed": <boolean — prohibited badges/overlays removed>,
@@ -451,11 +471,13 @@ Return this EXACT JSON structure:
         quality: checks.quality_acceptable ? 90 : 50,
         textLayout: checks.label_text_legible ? 90 : 50,
         noAdditions: checks.no_new_elements ? 90 : 40,
-        // Content-type-specific bonus scores for richer retry feedback
+        // Content-type-specific scores derived from AI model output
         contextPreservation: (!isMain && (contentType === 'LIFESTYLE' || contentType === 'PRODUCT_IN_USE'))
-          ? (checks.background_compliant !== false ? 90 : 30) : undefined,
-        labelFidelity: (!isMain && (contentType === 'PACKAGING' || contentType === 'INFOGRAPHIC'))
-          ? (checks.label_text_legible ? 90 : 30) : undefined,
+          ? (rawResult.context_preservation_score ?? (checks.spatial_zones_respected !== false ? 85 : 35)) : undefined,
+        labelFidelity: (!isMain && contentType === 'PACKAGING')
+          ? (rawResult.label_fidelity_score ?? (checks.label_text_legible ? 85 : 30)) : undefined,
+        layoutPreservation: (!isMain && contentType === 'INFOGRAPHIC')
+          ? (rawResult.layout_preservation_score ?? (checks.label_text_legible && checks.no_new_elements ? 85 : 35)) : undefined,
       },
     };
 

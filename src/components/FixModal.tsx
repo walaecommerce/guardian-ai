@@ -565,12 +565,30 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
 
             {/* Component Scores Progress Bars */}
             {componentScores && (
-              <div className="grid grid-cols-5 gap-3">
-                <ScoreBar label="Identity" score={componentScores.identity} />
-                <ScoreBar label="Compliance" score={componentScores.compliance} />
-                <ScoreBar label="Text/Layout" score={componentScores.textLayout ?? componentScores.noNewIssues} />
-                <ScoreBar label="No Additions" score={componentScores.noAdditions ?? 100} />
-                <ScoreBar label="Quality" score={componentScores.quality} />
+              <div className="space-y-2">
+                <div className="grid grid-cols-5 gap-3">
+                  <ScoreBar label="Identity" score={componentScores.identity} />
+                  <ScoreBar label="Compliance" score={componentScores.compliance} />
+                  <ScoreBar label="Text/Layout" score={componentScores.textLayout ?? componentScores.noNewIssues} />
+                  <ScoreBar label="No Additions" score={componentScores.noAdditions ?? 100} />
+                  <ScoreBar label="Quality" score={componentScores.quality} />
+                </div>
+                {/* Content-type-specific subscores */}
+                {(componentScores.contextPreservation !== undefined || 
+                  componentScores.labelFidelity !== undefined || 
+                  componentScores.layoutPreservation !== undefined) && (
+                  <div className="grid grid-cols-3 gap-3 pt-1 border-t border-border/50">
+                    {componentScores.contextPreservation !== undefined && (
+                      <ScoreBar label="Context Preservation" score={componentScores.contextPreservation} />
+                    )}
+                    {componentScores.labelFidelity !== undefined && (
+                      <ScoreBar label="Label Fidelity" score={componentScores.labelFidelity} />
+                    )}
+                    {componentScores.layoutPreservation !== undefined && (
+                      <ScoreBar label="Layout Preservation" score={componentScores.layoutPreservation} />
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -589,6 +607,19 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                 <p className="text-sm text-muted-foreground mb-2">
                   {selectedAttempt.verification.critique}
                 </p>
+                {/* Content-type-specific subscore warnings */}
+                {selectedAttempt.verification.componentScores?.contextPreservation !== undefined && 
+                 selectedAttempt.verification.componentScores.contextPreservation < 70 && (
+                  <p className="text-xs text-warning mb-1">⚠ Lifestyle context altered — scene, setting, or props were changed</p>
+                )}
+                {selectedAttempt.verification.componentScores?.layoutPreservation !== undefined && 
+                 selectedAttempt.verification.componentScores.layoutPreservation < 70 && (
+                  <p className="text-xs text-warning mb-1">⚠ Infographic layout/text changed — informational content was modified</p>
+                )}
+                {selectedAttempt.verification.componentScores?.labelFidelity !== undefined && 
+                 selectedAttempt.verification.componentScores.labelFidelity < 70 && (
+                  <p className="text-xs text-warning mb-1">⚠ Packaging label drift — printed text was altered or hallucinated</p>
+                )}
                 {selectedAttempt.verification.failedChecks?.length > 0 && (
                   <div className="space-y-1">
                     {selectedAttempt.verification.failedChecks.map((check, i) => (
