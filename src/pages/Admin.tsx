@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff, Cpu, CheckCircle2, XCircle, RefreshCw, Plus, Minus, BookOpen, Gift } from 'lucide-react';
 import PromoCodesPanel from '@/components/admin/PromoCodesPanel';
+import UserManagementPanel from '@/components/admin/UserManagementPanel';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
