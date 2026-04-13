@@ -233,7 +233,7 @@ export function ClientReportGenerator({
     const buildUnresolved = () => {
       if (unresolvedAssets.length === 0) return '';
       const rows = unresolvedAssets.map(asset => {
-        const contentType = formatContentType(asset.imageCategory || asset.analysisResult?.contentType);
+        const contentType = formatContentType(extractImageCategory(asset));
         const state = asset.unresolvedState;
         const reason = asset.batchSkipReason || asset.fixStopReason || '';
         const attempts = asset.fixAttempts?.length || 0;
