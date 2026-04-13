@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      affiliates: {
+        Row: {
+          active: boolean
+          commission_fixed: number | null
+          commission_rate: number | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          tag: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          commission_fixed?: number | null
+          commission_rate?: number | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          tag: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          commission_fixed?: number | null
+          commission_rate?: number | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          tag?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       app_events: {
         Row: {
           created_at: string
@@ -388,21 +424,27 @@ export type Database = {
       }
       promo_redemptions: {
         Row: {
+          affiliate_tag: string | null
           created_at: string
+          credits_granted: number
           id: string
           ledger_entry_id: string | null
           promo_code_id: string
           user_id: string
         }
         Insert: {
+          affiliate_tag?: string | null
           created_at?: string
+          credits_granted?: number
           id?: string
           ledger_entry_id?: string | null
           promo_code_id: string
           user_id: string
         }
         Update: {
+          affiliate_tag?: string | null
           created_at?: string
+          credits_granted?: number
           id?: string
           ledger_entry_id?: string | null
           promo_code_id?: string
