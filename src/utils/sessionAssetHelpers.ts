@@ -61,6 +61,26 @@ function hydrateFixReview(fixAttemptsJson: unknown): Partial<ImageAsset> {
 }
 
 /**
+ * Infer legacy fix metadata when fix_attempts is empty/missing but fixed_image_url exists.
+ * Called by buildAssetFromSessionImage to recover enough state for pre-fix sessions.
+ * Returns empty object if structured metadata already exists.
+ */
+function inferLegacyFixMeta(
+  hasFixedUrl: boolean,
+  fixAttemptsJson: unknown,
+): Partial<ImageAsset> {
+  if (!hasFixedUrl) return {};
+  // If fix_attempts already has structured data, don't override
+  if (fixAttemptsJson && typeof fixAttemptsJson === 'object' && !Array.isArray(fixAttemptsJson)) {
+    const obj = fixAttemptsJson as Record<string, unknown>;
+    if (obj.fixMethod || obj.attempts || obj.skipped) return {};
+  }
+  // Legacy: has a fixed image but no structured fix_attempts
+  // Don't set fixMethod — just ensure fixedImage is used (already handled by buildAssetFromSessionImage)
+  return {};
+}
+
+/**
  * Canonical helper for building ImageAsset from a session_images DB row.
  * Used by useSessionLoader for rehydration.
  */
