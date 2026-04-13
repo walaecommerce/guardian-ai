@@ -25,6 +25,7 @@ export interface FixOrchestratorInput {
   previousGeneratedImage?: string;
   productIdentity?: ProductIdentityCard | Record<string, unknown> | null;
   sessionImageId?: string;
+  listingContext?: { title: string; brand: string | null; bullets: string[]; claims: string[] } | null;
 }
 
 export interface FixOrchestratorCallbacks {
@@ -65,7 +66,7 @@ export async function runFixOrchestration(
   input: FixOrchestratorInput,
   callbacks: FixOrchestratorCallbacks,
 ): Promise<FixOrchestratorResult> {
-  const { asset, originalBase64, mainImageBase64, listingTitle, productAsin, customPrompt, previousGeneratedImage, productIdentity, sessionImageId } = input;
+  const { asset, originalBase64, mainImageBase64, listingTitle, productAsin, customPrompt, previousGeneratedImage, productIdentity, sessionImageId, listingContext } = input;
   const { onProgress, onLog } = callbacks;
 
   const maxAttempts = 3;
