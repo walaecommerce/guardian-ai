@@ -31,7 +31,7 @@ describe('Manual Review Lane - fixability classification', () => {
         status: 'FAIL',
         violations: [makeViolation('text overlay')],
         fixRecommendations: [],
-        productCategory: 'SIZE_CHART',
+        imageCategory: 'SIZE_CHART',
       },
     });
     const result = classifyAssetFixability(asset);
@@ -46,7 +46,7 @@ describe('Manual Review Lane - fixability classification', () => {
         status: 'FAIL',
         violations: [makeViolation('some issue')],
         fixRecommendations: [],
-        productCategory: 'COMPARISON',
+        imageCategory: 'COMPARISON',
       },
     });
     const result = classifyAssetFixability(asset);
@@ -75,7 +75,7 @@ describe('Manual Review Lane - fixability classification', () => {
         status: 'FAIL',
         violations: [makeViolation('promotional overlay detected')],
         fixRecommendations: [],
-        productCategory: 'LIFESTYLE',
+        imageCategory: 'LIFESTYLE',
       },
     });
     const result = classifyAssetFixability(asset);
@@ -163,7 +163,7 @@ describe('Skipped images not treated as fixed', () => {
         status: 'FAIL',
         violations: [makeViolation('text overlay')],
         fixRecommendations: [],
-        productCategory: 'SIZE_CHART',
+        imageCategory: 'SIZE_CHART',
       },
     });
     const { fixable, skipped } = partitionBatchFixTargets([sizeChart]);
