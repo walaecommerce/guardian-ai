@@ -78,7 +78,8 @@ const Studio = () => {
   const [customPrompt, setCustomPrompt] = useState('');
   const [strategySource, setStrategySource] = useState<{ targetRole: string; recommendationLabel: string; priority: string } | null>(null);
   const [sourceSessionId, setSourceSessionId] = useState<string | null>(null);
-  const [addingToSession, setAddingToSession] = useState<string | null>(null); // tracks img.id being added
+  const [addingToSession, setAddingToSession] = useState<string | null>(null);
+  const [attachStep, setAttachStep] = useState<SessionAttachStep>('idle');
 
   const [category, setCategory] = useState('GENERAL');
   const [isGenerating, setIsGenerating] = useState(false);
