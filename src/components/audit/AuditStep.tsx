@@ -40,6 +40,7 @@ interface AuditStepProps {
   productKnowledge?: ProductKnowledge | null;
   campaignStrategy?: CampaignStrategy | null;
   listingContext?: ListingContext | null;
+  sessionId?: string | null;
 }
 
 export function AuditStep({
@@ -48,7 +49,7 @@ export function AuditStep({
   isBatchFixing, batchFixProgress, productAsin, competitorData,
   getMatchingPolicyUpdate, onGoToFix, onGoToImport, onRunAudit, onSelectAsset,
   onRetryFailedAnalysis, aiCreditsExhausted, productIdentity, identityProfile,
-  productKnowledge, campaignStrategy, listingContext,
+  productKnowledge, campaignStrategy, listingContext, sessionId,
 }: AuditStepProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const passedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS');
@@ -237,7 +238,7 @@ export function AuditStep({
 
       {/* Campaign Image Strategy */}
       {hasResults && campaignStrategy && (
-        <CampaignStrategyPanel strategy={campaignStrategy} productKnowledge={productKnowledge} listingContext={listingContext} />
+        <CampaignStrategyPanel strategy={campaignStrategy} productKnowledge={productKnowledge} listingContext={listingContext} sessionId={sessionId} />
       )}
 
       {/* Full-width results */}
