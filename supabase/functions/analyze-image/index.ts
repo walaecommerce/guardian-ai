@@ -797,6 +797,18 @@ IMPORTANT: If a deterministic check FAILED with severity "critical", your overal
       deterministicFindings: deterministicFindings || undefined,
     };
 
+    // ── Debit credit on SUCCESS only ──
+    try {
+      const idemKey = sessionImageId
+        ? `analyze:${sessionImageId}`
+        : `analyze:${userId}:${Date.now()}`;
+      await useCredit(admin, userId, 'analyze', 'analyze-image', idemKey);
+    } catch (debitErr: any) {
+      // If debit fails (e.g. ran out mid-batch), still return the result
+      // but log the failure — the image was already analyzed
+      console.warn('[analyze-image] Post-success credit debit failed:', debitErr?.message);
+    }
+
     return new Response(JSON.stringify(mappedResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
