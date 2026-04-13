@@ -141,7 +141,8 @@ serve(async (req) => {
       enhancementType,
       targetImprovements,
       preserveElements,
-      customPrompt
+      customPrompt,
+      sessionImageId
     } = await req.json();
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
