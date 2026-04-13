@@ -323,8 +323,11 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                           {session.passed_count > 0 && (
                             <span className="text-success">✓{session.passed_count}</span>
                           )}
-                          {session.failed_count > 0 && (
-                            <span className="text-destructive">✗{session.failed_count}</span>
+                          {(session.failed_count - (session.unresolved_count || 0)) > 0 && (
+                            <span className="text-destructive">✗{session.failed_count - (session.unresolved_count || 0)}</span>
+                          )}
+                          {(session.unresolved_count || 0) > 0 && (
+                            <span className="text-warning">⚠{session.unresolved_count}</span>
                           )}
                           {session.fixed_count > 0 && (
                             <span className="text-primary">⚡{session.fixed_count}</span>
