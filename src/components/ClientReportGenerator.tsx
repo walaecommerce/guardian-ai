@@ -66,7 +66,11 @@ export function ClientReportGenerator({
   const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   const passed = analyzedAssets.filter(a => a.analysisResult!.status === 'PASS').length;
   const fixedCount = analyzedAssets.filter(a => a.fixedImage).length;
-  const failed = analyzedAssets.length - passed - unresolvedAssets.filter(a => a.analysisResult!.status !== 'PASS').length;
+  const failed = analyzedAssets.filter(a =>
+    (a.analysisResult!.status === 'FAIL' || a.analysisResult!.status === 'WARNING')
+    && !a.fixedImage
+    && !unresolvedAssets.some(u => u.id === a.id)
+  ).length;
   const allViolations = analyzedAssets.flatMap(a => a.analysisResult!.violations || []);
   const status = (failed === 0 && unresolvedAssets.length === 0) ? 'PASS' : 'FAIL';
 
