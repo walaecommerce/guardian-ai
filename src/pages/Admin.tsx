@@ -718,6 +718,11 @@ export default function Admin() {
           <PromoCodesPanel />
         </TabsContent>
 
+        {/* Affiliates Tab */}
+        <TabsContent value="affiliates">
+          <AffiliateReportPanel />
+        </TabsContent>
+
         {/* AI Status Tab */}
         <TabsContent value="ai-status">
           <AIProviderStatusPanel />
