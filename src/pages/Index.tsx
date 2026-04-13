@@ -277,6 +277,7 @@ const Index = () => {
             onImportCompetitor={session.handleImportCompetitor}
             onLoadAudit={handleLoadAudit}
             onGoToAudit={() => session.setCurrentStep('audit')}
+            onViewDetails={handleViewDetails}
           />
         )}
 
