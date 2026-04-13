@@ -1330,7 +1330,11 @@ export function useAuditSession() {
     addLog('processing', `✨ Enhancing ${asset.name}...`);
 
     try {
-      const base64 = await fileToBase64(asset.file);
+      // Use fixed image when available, fall back to original
+      const sourceForEnhancement = asset.fixedImage
+        ? await fetch(asset.fixedImage).then(r => r.blob()).then(b => new File([b], asset.name))
+        : asset.file;
+      const base64 = await fileToBase64(sourceForEnhancement);
       const mainAsset = assets.find(a => a.type === 'MAIN' && a.id !== assetId);
       let mainImageBase64: string | undefined;
       if (mainAsset) {
@@ -1341,6 +1345,11 @@ export function useAuditSession() {
         );
       }
 
+      // Pass image content type (LIFESTYLE, INFOGRAPHIC, etc.) — NOT productCategory
+      const imageContentType = (asset.analysisResult as any)?.imageCategory
+        || extractImageCategory(asset)
+        || 'UNKNOWN';
+
       // Step 1: Enhancement analysis
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke('enhance-analyze-image', {
         body: {
@@ -1348,7 +1357,8 @@ export function useAuditSession() {
           mainImageBase64,
           imageType: asset.type,
           listingTitle,
-          imageCategory: asset.analysisResult?.productCategory || undefined,
+          imageCategory: imageContentType,
+          productCategory: asset.analysisResult?.productCategory || undefined,
         },
       });
 
@@ -1368,7 +1378,8 @@ export function useAuditSession() {
         body: {
           originalImage: base64,
           mainProductImage: mainImageBase64,
-          imageCategory: analysisData.imageCategory || asset.analysisResult?.productCategory || 'UNKNOWN',
+          imageCategory: imageContentType,
+          imageType: asset.type,
           enhancementType: opportunities[0]?.type || 'general',
           targetImprovements: opportunities.map((o: any) => o.description),
           preserveElements: ['product', 'brand-text', 'key-features'],
