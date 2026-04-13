@@ -191,6 +191,18 @@ export function useAuditSession() {
         setTimeout(() => setTitlePulse(false), 500);
       }
 
+      // Build listing context from scraped data
+      const ctx = normalizeListingContext({
+        title: product.title,
+        asin: product.asin !== 'UNKNOWN' ? product.asin : null,
+        sourceUrl: amazonUrl,
+        bullets: product.bullets,
+        description: product.description,
+        brand: product.brand,
+        html: product.html,
+      });
+      setListingContext(ctx);
+
       addLog('processing', '💾 Creating enhancement session...');
       const { data: sessionData, error: sessionError } = await supabase
         .from('enhancement_sessions')
@@ -200,7 +212,8 @@ export function useAuditSession() {
           listing_title: product.title || null,
           total_images: imagesToProcess.length,
           status: 'in_progress',
-          user_id: user?.id
+          user_id: user?.id,
+          listing_context: serializeListingContext(ctx) as any,
         }])
         .select()
         .single();
