@@ -62,6 +62,7 @@ interface GeneratedImage {
 const Studio = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedTemplate, setSelectedTemplate] = useState('hero');
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
@@ -72,11 +73,29 @@ const Studio = () => {
   const [resolution, setResolution] = useState('2K');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
+  const [strategySource, setStrategySource] = useState<{ targetRole: string; recommendationLabel: string; priority: string } | null>(null);
 
   const [category, setCategory] = useState('GENERAL');
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<GeneratedImage[]>([]);
   const [history, setHistory] = useState<GeneratedImage[]>([]);
+
+  // Prefill from strategy recommendation if navigated with brief state
+  const prefillApplied = useRef(false);
+  useEffect(() => {
+    const brief = (location.state as any)?.brief;
+    if (brief && !prefillApplied.current) {
+      prefillApplied.current = true;
+      setSelectedTemplate(brief.templateId || 'hero');
+      setProductName(brief.productName || '');
+      setDescription(brief.description || '');
+      setSelectedClaims(brief.claims || []);
+      setCategory(brief.category || 'GENERAL');
+      if (brief.strategySource) setStrategySource(brief.strategySource);
+      // Clear state so refreshing doesn't re-apply
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Load history from Supabase on mount — resolve signed URLs for stored images
   useEffect(() => {
