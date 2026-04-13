@@ -248,3 +248,50 @@ describe('Skipped images not treated as fixed', () => {
     expect(skipped).toHaveLength(1);
   });
 });
+
+describe('Enhancement hydration', () => {
+  it('hydrateFixReview restores fixMethod: enhancement from persisted data', async () => {
+    const { buildAssetFromSessionImage } = await import('@/utils/sessionAssetHelpers');
+    const file = new File([''], 'test.jpg');
+    const { asset } = buildAssetFromSessionImage(
+      {
+        id: 'img-enh',
+        image_name: 'LIFESTYLE_test.jpg',
+        image_type: 'SECONDARY',
+        analysis_result: { status: 'PASS', overallScore: 80 },
+        fix_attempts: { fixMethod: 'enhancement' },
+        fixed_image_url: 'http://example.com/enhanced.jpg',
+      },
+      file,
+      'http://example.com/original.jpg',
+      'http://example.com/enhanced.jpg',
+    );
+    expect(asset.fixMethod).toBe('enhancement');
+    expect(asset.fixedImage).toBe('http://example.com/enhanced.jpg');
+  });
+
+  it('enhanced assets are excluded from enhanceable count', async () => {
+    const enhanced: ImageAsset = {
+      ...makeAsset({ id: 'enh-1' }),
+      fixedImage: 'http://example.com/enhanced.jpg',
+      fixMethod: 'enhancement',
+      analysisResult: { status: 'PASS', overallScore: 80 } as any,
+    };
+    const notEnhanced: ImageAsset = {
+      ...makeAsset({ id: 'enh-2' }),
+      fixedImage: 'http://example.com/fixed.jpg',
+      fixMethod: 'bg-segmentation',
+      analysisResult: { status: 'PASS', overallScore: 80 } as any,
+    };
+    const mainImage: ImageAsset = {
+      ...makeAsset({ id: 'main-1' }),
+      type: 'MAIN',
+      analysisResult: { status: 'PASS', overallScore: 80 } as any,
+    };
+    const all = [enhanced, notEnhanced, mainImage];
+    // Same filter used in FixStep and useAuditSession
+    const enhanceable = all.filter(a => a.type !== 'MAIN' && a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement'));
+    expect(enhanceable).toHaveLength(1);
+    expect(enhanceable[0].id).toBe('enh-2');
+  });
+});
