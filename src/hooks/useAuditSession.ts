@@ -1502,6 +1502,18 @@ export function useAuditSession() {
           a.id === asset.id ? { ...a, fixedImage: enhanceData.enhancedImage, fixMethod: 'enhancement' as const } : a
         ));
 
+        // Persist enhanced image to session storage + DB
+        const sessionImageId = assetSessionMap.get(asset.id);
+        if (sessionImageId && currentSessionId) {
+          const uploaded = await uploadImage(enhanceData.enhancedImage, currentSessionId, `enhanced_${asset.name}`);
+          if (uploaded) {
+            await supabase.from('session_images').update({
+              fixed_image_url: uploaded.url,
+              status: 'fixed',
+            }).eq('id', sessionImageId);
+          }
+        }
+
         enhancedCount++;
         addLog('success', `   ✨ Enhanced ${asset.name}`);
         refreshCredits();
