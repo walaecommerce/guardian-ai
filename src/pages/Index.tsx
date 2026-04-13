@@ -160,6 +160,9 @@ const Index = () => {
         </div>
         {session.assets.length > 0 && (
           <div className="flex items-center gap-1.5 shrink-0">
+            {analyzedCount > 0 && (
+              <span className="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-medium mr-0.5">Audit:</span>
+            )}
             <Badge variant="secondary" className="font-mono text-[10px] h-5 px-1.5">{session.assets.length} imgs</Badge>
             {analyzedCount > 0 && (
               <Badge variant="outline" className="font-mono text-[10px] h-5 px-1.5 text-success border-success/30">

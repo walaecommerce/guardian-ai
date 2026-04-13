@@ -758,7 +758,7 @@ const Session = () => {
                   </Button>
                 )}
                 {assets.some(a => a.analysisResult) && failedCount === 0 && (
-                  <p className="text-xs text-center text-green-600 font-medium py-1">
+                  <p className="text-xs text-center text-success font-medium py-1">
                     ✓ All images passed — save or export your report.
                   </p>
                 )}
