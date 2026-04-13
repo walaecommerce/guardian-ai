@@ -1008,6 +1008,10 @@ export function useAuditSession() {
           status: 'skipped',
           fix_attempts: { skipped: true, skipReason: fixability.reason, fixabilityTier: fixability.tier, unresolvedState } as any,
         }).eq('id', sessionImageId).then(() => {});
+        // Update session-level unresolved counts
+        const updatedAssets = assets.map(a => a.id === assetId ? { ...a, unresolvedState, batchFixStatus: 'skipped' as const } : a);
+        const counts = computeUnresolvedCounts(updatedAssets);
+        supabase.from('enhancement_sessions').update(counts).eq('id', currentSessionId).then(() => {});
       }
 
       toast({ 
