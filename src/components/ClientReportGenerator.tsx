@@ -4,6 +4,8 @@ import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/con
 import { SuggestionsData } from '@/components/recommendations/types';
 import { ScorecardData } from '@/components/ListingScoreCard';
 import { AIComparisonResult } from '@/components/CompetitorAudit';
+import { isManualReviewAsset } from '@/components/ManualReviewLane';
+import { formatContentType } from '@/utils/sessionResume';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
