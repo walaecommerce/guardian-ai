@@ -95,7 +95,7 @@ const PROGRESS_STEPS = {
   ],
 };
 
-export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixProgress, mode = 'fix', mainProductImage }: FixModalProps) {
+export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixProgress, mode = 'fix', mainProductImage, productKnowledge }: FixModalProps) {
   const [selectedAttemptIndex, setSelectedAttemptIndex] = useState<number | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'live' | 'compare'>('live');
   const [showPromptEditor, setShowPromptEditor] = useState(false);
