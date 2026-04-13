@@ -3,7 +3,7 @@
  * Maps violation evidence to displayable structures and groups findings.
  */
 
-import type { Violation, DeterministicFindingSummary } from '@/types';
+import type { Violation, DeterministicFindingSummary, KnowledgeTag } from '@/types';
 import { getPolicyRule, getSourceTierLabel, getSourceTierBadgeClass, type SourceTier, type PolicySurface } from '@/config/policyRegistry';
 
 // ── Finding source types ──
