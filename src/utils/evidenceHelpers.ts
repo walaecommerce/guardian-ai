@@ -23,6 +23,8 @@ export interface EvidenceDisplay {
   boundingBoxSummary: string | null;
   findingSource: FindingSource;
   fixLikelihood: string | null;
+  knowledgeTag: KnowledgeTag | null;
+  knowledgeDetail: string | null;
 }
 
 export interface FindingGroup {
@@ -102,6 +104,8 @@ export function extractEvidence(violation: Violation, deterministicRuleIds: Set<
     boundingBoxSummary,
     findingSource,
     fixLikelihood,
+    knowledgeTag: violation.knowledge_tag || null,
+    knowledgeDetail: violation.knowledge_detail || null,
   };
 }
 
