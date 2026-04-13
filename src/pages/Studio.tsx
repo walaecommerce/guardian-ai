@@ -308,6 +308,63 @@ const Studio = () => {
     a.click();
   };
 
+  // ── Add to originating session ─────────────────────────────
+  const handleAddToSession = async (img: GeneratedImage) => {
+    if (!user || !sourceSessionId) return;
+    setAddingToSession(img.id);
+    try {
+      // Upload image to session storage
+      const uploaded = await uploadImage(img.image, sourceSessionId, `${strategySource?.targetRole || img.template}_${Date.now()}`);
+      if (!uploaded) throw new Error('Image upload failed');
+
+      // Build image name with role prefix for category detection
+      const rolePrefix = (strategySource?.targetRole || img.template).toUpperCase();
+      const imageName = `${rolePrefix}_studio_${img.productName.replace(/\s+/g, '_').substring(0, 30)}`;
+
+      // Insert session_image record
+      await supabase.from('session_images').insert([{
+        session_id: sourceSessionId,
+        image_name: imageName,
+        image_type: img.template === 'hero' ? 'MAIN' : 'SECONDARY',
+        original_image_url: uploaded.url,
+        status: 'pending',
+        image_category: rolePrefix,
+      }]);
+
+      // Update session total_images count
+      const { data: sess } = await supabase
+        .from('enhancement_sessions')
+        .select('total_images')
+        .eq('id', sourceSessionId)
+        .maybeSingle();
+      if (sess) {
+        await supabase.from('enhancement_sessions')
+          .update({ total_images: (sess.total_images || 0) + 1 })
+          .eq('id', sourceSessionId);
+      }
+
+      logEvent('studio_image_added_to_session', {
+        sessionId: sourceSessionId,
+        targetRole: strategySource?.targetRole,
+        template: img.template,
+        productName: img.productName,
+      });
+
+      toast({
+        title: 'Added to audit session',
+        description: `${strategySource?.recommendationLabel || img.template} image added. Return to audit to see updated strategy.`,
+      });
+    } catch (e) {
+      toast({
+        title: 'Failed to add to session',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setAddingToSession(null);
+    }
+  };
+
   const scoreColor = (score: number) => {
     if (score >= 85) return 'bg-green-500/15 text-green-600 border-green-500/30';
     if (score >= 70) return 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30';
