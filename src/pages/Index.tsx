@@ -75,6 +75,7 @@ function InlineActivityLog({ logs, onClear }: { logs: LogEntry[]; onClear: () =>
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const session = useAuditSession();
+  const productKnowledge = useMemo(() => deriveProductKnowledge(session.listingContext), [session.listingContext]);
   const [drawerAsset, setDrawerAsset] = useState<ImageAsset | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { toast } = useToast();
@@ -254,6 +255,7 @@ const Index = () => {
             aiCreditsExhausted={session.aiCreditsExhausted}
             productIdentity={session.productIdentity}
             identityProfile={session.identityProfile}
+            productKnowledge={productKnowledge}
           />
         )}
 
@@ -309,6 +311,7 @@ const Index = () => {
           session.setSelectedAsset(asset);
           session.setShowFixModal(true);
         }}
+        productKnowledge={productKnowledge}
       />
 
       {/* Full details modal */}
@@ -319,6 +322,7 @@ const Index = () => {
         onRetryFix={(id, prevImage, customPrompt) => session.handleRequestFix(id, prevImage, customPrompt)}
         onDownload={session.handleDownload}
         fixProgress={session.fixProgress || undefined}
+        productKnowledge={productKnowledge}
       />
     </div>
   );
