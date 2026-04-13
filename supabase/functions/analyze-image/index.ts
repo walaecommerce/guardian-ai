@@ -552,28 +552,41 @@ serve(async (req) => {
   }
 
   try {
-    // Deduct analyze credit
+    // Authenticate and extract user ID
+    let userId: string;
     try {
-      const userId = await getUserIdFromAuth(req);
-      const admin = createAdminClient();
-      await useCredit(admin, userId, 'analyze');
-    } catch (creditErr: any) {
-      if (creditErr?.status === 402) {
+      userId = await getUserIdFromAuth(req);
+    } catch (authErr: any) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const admin = createAdminClient();
+
+    // Pre-check credits (don't debit yet — debit on success only)
+    try {
+      const remaining = await checkCredits(admin, userId, 'analyze');
+
+      // Check if admin (admins bypass)
+      const { data: roleData } = await admin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (!roleData && remaining <= 0) {
         return new Response(
           JSON.stringify({
-            error: creditErr.message || 'No analyze credits remaining',
+            error: 'No analyze credits remaining. Upgrade your plan to continue.',
             errorType: 'payment_required'
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (creditErr?.status === 401) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      console.warn('[analyze-image] Credit check failed, proceeding:', creditErr);
+    } catch (creditErr: any) {
+      console.warn('[analyze-image] Credit pre-check failed, proceeding:', creditErr);
     }
 
     const bodyOrError = await parseJsonBody(req);
