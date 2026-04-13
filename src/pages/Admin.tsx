@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 } from '@/components/ui/dialog';
 import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff, Cpu, CheckCircle2, XCircle, RefreshCw, Plus, Minus, BookOpen, Gift } from 'lucide-react';
+import PromoCodesPanel from '@/components/admin/PromoCodesPanel';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -461,6 +462,9 @@ export default function Admin() {
           <TabsTrigger value="stats" className="gap-2">
             <BarChart3 className="w-4 h-4" /> System Stats
           </TabsTrigger>
+          <TabsTrigger value="promos" className="gap-2">
+            <Gift className="w-4 h-4" /> Promos
+          </TabsTrigger>
           <TabsTrigger value="ai-status" className="gap-2">
             <Cpu className="w-4 h-4" /> AI Status
           </TabsTrigger>
@@ -794,6 +798,11 @@ export default function Admin() {
               </Tooltip>
             </TooltipProvider>
           </div>
+        </TabsContent>
+
+        {/* Promos Tab */}
+        <TabsContent value="promos">
+          <PromoCodesPanel />
         </TabsContent>
 
         {/* AI Status Tab */}
