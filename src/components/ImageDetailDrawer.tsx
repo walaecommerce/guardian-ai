@@ -20,7 +20,9 @@ import {
   getSourceTierLabel,
   getSourceTierBadgeClass,
   getSurfaceLabels,
+  getKnowledgeTagConfig,
 } from '@/utils/evidenceHelpers';
+import { Brain } from 'lucide-react';
 import { POLICY_VERSION } from '@/config/policyRegistry';
 import { GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
 import { getPolicySummary } from '@/utils/policySummary';
