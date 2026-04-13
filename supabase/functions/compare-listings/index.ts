@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
 import { MODELS } from "../_shared/models.ts";
 import { requireAuth, isAuthError } from "../_shared/auth.ts";
+import { useCredit, checkCredits, createAdminClient } from "../_shared/credits.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

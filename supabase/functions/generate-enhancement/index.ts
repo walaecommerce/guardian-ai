@@ -222,6 +222,10 @@ serve(async (req) => {
 
     console.log("[Enhancement Gen] ✅ Quality-polished image generated successfully");
 
+    // Debit enhance credit on success only
+    const idemKey = sessionImageId ? `enhance:${sessionImageId}` : `enhance:${userId}:${Date.now()}`;
+    try { await useCredit(admin, userId, 'enhance', 'generate-enhancement', idemKey); } catch (e: any) { console.warn('[generate-enhancement] Post-success debit failed:', e?.message); }
+
     return new Response(JSON.stringify({
       enhancedImage: imageResult,
       enhancementType,
