@@ -11,7 +11,7 @@ import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
 import { ManualReviewLane, isManualReviewAsset } from '@/components/ManualReviewLane';
 import { ImageAsset, LogEntry, AnalysisResult, FixAttempt, FixProgressState, ProductIdentityCard } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
+import { runFixOrchestration, buildFixReviewPayload } from '@/utils/fixOrchestrator';
 import { useToast } from '@/hooks/use-toast';
 import { useSessionLoader } from '@/hooks/useSessionLoader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
