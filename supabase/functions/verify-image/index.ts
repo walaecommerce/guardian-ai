@@ -262,6 +262,26 @@ Verify that these specific rule violations are now resolved in the generated ima
       }
     }
 
+    // Build content-type-specific output fields
+    let contentTypeOutputFields = '';
+    if (!isMain) {
+      switch (contentType) {
+        case 'LIFESTYLE':
+        case 'PRODUCT_IN_USE':
+          contentTypeOutputFields = `\n  "context_preservation_score": <0-100 — how well was the scene, setting, people, props preserved?>,`;
+          break;
+        case 'INFOGRAPHIC':
+          contentTypeOutputFields = `\n  "layout_preservation_score": <0-100 — how well was all text, callout layout, and design structure preserved?>,`;
+          break;
+        case 'PACKAGING':
+          contentTypeOutputFields = `\n  "label_fidelity_score": <0-100 — how faithfully was all printed packaging text preserved?>,`;
+          break;
+        case 'DETAIL':
+          contentTypeOutputFields = `\n  "detail_preservation_score": <0-100 — how well were fine product details and textures preserved?>,`;
+          break;
+      }
+    }
+
     const outputSchema = `
 ${rubricDescription}
 ${contentTypeContext}
@@ -275,7 +295,7 @@ Return this EXACT JSON structure:
 {
   "score": <0-100 weighted>,
   "is_satisfactory": <true if score >= 85 AND product identity preserved AND target rules fixed>,
-  "critique": "<concise description of specific issues found>",
+  "critique": "<concise description of specific issues found>",${contentTypeOutputFields}
   "checks": {
     "background_compliant": <boolean>,
     "text_removed": <boolean — prohibited badges/overlays removed>,
