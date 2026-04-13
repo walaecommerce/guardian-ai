@@ -6,6 +6,7 @@ import { ScorecardData } from '@/components/ListingScoreCard';
 import { AIComparisonResult } from '@/components/CompetitorAudit';
 import { isManualReviewAsset } from '@/components/ManualReviewLane';
 import { formatContentType } from '@/utils/sessionResume';
+import { extractImageCategory } from '@/utils/imageCategory';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
