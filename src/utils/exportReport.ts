@@ -110,6 +110,7 @@ export function generateExportData(
   const fixedCount = assets.filter(a => a.fixedImage).length;
   const failCount = analyzedAssets.filter(a =>
     (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING')
+    && !a.fixedImage
     && !unresolvedAssets.some(u => u.id === a.id)
   ).length;
 
@@ -312,7 +313,7 @@ export function exportToPDFSummary(data: ExportReport): void {
   <div class="summary-bar">
     <div class="stat"><div class="stat-value">${data.total_assets}</div><div class="stat-label">Total Images</div></div>
     <div class="stat"><div class="stat-value" style="color:#22c55e">${data.passed}</div><div class="stat-label">Passed</div></div>
-    <div class="stat"><div class="stat-value" style="color:#ef4444">${data.failed}</div><div class="stat-label">Failed</div></div>
+    <div class="stat"><div class="stat-value" style="color:#ef4444">${data.failed}</div><div class="stat-label">Unfixed</div></div>
     ${data.fixed > 0 ? `<div class="stat"><div class="stat-value" style="color:#3b82f6">${data.fixed}</div><div class="stat-label">Fixed</div></div>` : ''}
     ${(data.unresolved ?? 0) > 0 ? `<div class="stat"><div class="stat-value" style="color:#f59e0b">${data.unresolved}</div><div class="stat-label">Unresolved</div></div>` : ''}
   </div>
@@ -403,7 +404,7 @@ export function exportToPDF(data: ExportReport): void {
   const summaryItems: { label: string; value: string; color?: number[] }[] = [
     { label: 'Total', value: String(data.total_assets) },
     { label: 'Passed', value: String(data.passed), color: [34, 139, 34] },
-    { label: 'Failed', value: String(data.failed), color: [220, 53, 69] },
+    { label: 'Unfixed', value: String(data.failed), color: [220, 53, 69] },
   ];
   if (data.fixed > 0) summaryItems.push({ label: 'Fixed', value: String(data.fixed), color: [59, 130, 246] });
   if ((data.unresolved ?? 0) > 0) summaryItems.push({ label: 'Review', value: String(data.unresolved), color: [245, 158, 11] });
