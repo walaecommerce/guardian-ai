@@ -58,6 +58,8 @@ export interface ImageAsset {
   batchSkipReason?: string;
   /** Fixability classification tier from fixability layer */
   fixabilityTier?: 'auto_fixable' | 'warn_only' | 'manual_review';
+  /** Normalized unresolved state for Manual Review lane */
+  unresolvedState?: 'manual_review' | 'warn_only' | 'retry_stopped' | 'auto_fix_failed' | 'skipped';
   /** Recommended next action for skipped/manual-review images */
   manualReviewAction?: string;
 }

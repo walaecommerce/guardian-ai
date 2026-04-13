@@ -15,6 +15,8 @@ function hydrateFixReview(fixAttemptsJson: unknown): Partial<ImageAsset> {
       batchFixStatus: 'skipped',
       batchSkipReason: data.skipReason as string | undefined,
       fixabilityTier: (data.fixabilityTier as ImageAsset['fixabilityTier']) || 'manual_review',
+      unresolvedState: (data.unresolvedState as ImageAsset['unresolvedState']) || 
+        (data.fixabilityTier === 'warn_only' ? 'warn_only' : 'manual_review'),
     };
   }
 
@@ -38,6 +40,10 @@ function hydrateFixReview(fixAttemptsJson: unknown): Partial<ImageAsset> {
       selectedAttemptIndex: bestAttemptSelection?.selectedAttemptIndex,
       fixStopReason: data.stopReason as string | undefined,
       lastFixStrategy: data.lastFixStrategy as FixStrategy | undefined,
+      unresolvedState: (data.unresolvedState as ImageAsset['unresolvedState']) || 
+        (data.stopReason && !bestAttemptSelection ? 'retry_stopped' : undefined),
+      // If there's a stopReason and no fixed image, mark as failed
+      batchFixStatus: data.unresolvedState ? 'failed' as const : undefined,
     };
   }
 

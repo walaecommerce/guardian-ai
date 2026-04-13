@@ -1,14 +1,13 @@
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { RecommendationsPanel } from '@/components/recommendations/RecommendationsPanel';
 import { FixQueuePanel } from '@/components/FixQueuePanel';
-import { ManualReviewLane } from '@/components/ManualReviewLane';
+import { ManualReviewLane, isManualReviewAsset } from '@/components/ManualReviewLane';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/EmptyState';
 import { ImageAsset } from '@/types';
-import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, Search, AlertTriangle, ShieldAlert } from 'lucide-react';
-import { classifyAssetFixability } from '@/utils/fixability';
+import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, Search, AlertTriangle } from 'lucide-react';
 
 interface FixStepProps {
   assets: ImageAsset[];
@@ -32,13 +31,8 @@ export function FixStep({
   listingTitle, onApplyFix,
   onBatchEnhance, isBatchEnhancing = false, batchEnhanceProgress,
 }: FixStepProps) {
-  // Classify manual-review/skipped images
-  const manualReviewAssets = assets.filter(a => {
-    if (a.fixabilityTier === 'manual_review' || a.fixabilityTier === 'warn_only') return true;
-    if (a.batchFixStatus === 'skipped') return true;
-    if (a.fixStopReason && !a.fixedImage) return true;
-    return false;
-  });
+  // Classify manual-review/skipped/failed images using unified check
+  const manualReviewAssets = assets.filter(isManualReviewAsset);
 
   const failedAssets = assets.filter(a => 
     (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage
@@ -49,7 +43,6 @@ export function FixStep({
   const allFixed = failedAssets.length === 0 && fixedAssets.length > 0;
   const enhanceableCount = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
   const hasNoResults = analyzedAssets.length === 0;
-  const retryFailedCount = assets.filter(a => a.batchFixStatus === 'failed').length;
 
   // Build fix queue for visualization
   const fixQueueAssets = assets.filter(a => a.batchFixStatus);
@@ -104,12 +97,6 @@ export function FixStep({
           <Badge variant="warning" className="text-[11px]">
             <AlertTriangle className="w-3 h-3 mr-1" />
             {manualReviewAssets.length} Manual Review
-          </Badge>
-        )}
-        {retryFailedCount > 0 && (
-          <Badge variant="destructive" className="text-[11px]">
-            <ShieldAlert className="w-3 h-3 mr-1" />
-            {retryFailedCount} Failed
           </Badge>
         )}
       </div>
