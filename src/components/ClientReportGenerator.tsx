@@ -146,6 +146,10 @@ export function ClientReportGenerator({
       <div class="metric-value" style="color:${allViolations.length ? '#ef4444' : '#22c55e'}">${allViolations.length}</div>
       <div class="metric-label">Issues Found</div>
     </div>
+    ${unresolvedAssets.length > 0 ? `<div class="metric-card">
+      <div class="metric-value" style="color:#f59e0b">${unresolvedAssets.length}</div>
+      <div class="metric-label">Needs Review</div>
+    </div>` : ''}
   </div>
   ${dimRows ? `
   <h3 style="font-size:14px;font-weight:600;color:${theme.accent};margin:28px 0 12px">Score Dimensions</h3>
