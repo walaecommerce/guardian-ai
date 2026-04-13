@@ -731,6 +731,9 @@ serve(async (req) => {
             const fbImage = extractImageFromResponse(fbData);
             if (fbImage) {
               console.log(`[generate-fix] ✅ Fallback full regeneration succeeded`);
+              // Debit credit on success
+              const idemKey = sessionImageId ? `fix:${sessionImageId}` : `fix:${userId}:${Date.now()}`;
+              try { await useCredit(admin, userId, 'fix', 'generate-fix', idemKey); } catch (e: any) { console.warn('[generate-fix] Post-success debit failed:', e?.message); }
               return new Response(JSON.stringify({ fixedImage: fbImage, usedBackgroundSegmentation: false }), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
               });
@@ -747,6 +750,10 @@ serve(async (req) => {
     }
 
     console.log(`[generate-fix] ✅ Image generated successfully (bgSeg=${usedBackgroundSegmentation}, model=${model})`);
+
+    // Debit credit on success only
+    const idemKey = sessionImageId ? `fix:${sessionImageId}` : `fix:${userId}:${Date.now()}`;
+    try { await useCredit(admin, userId, 'fix', 'generate-fix', idemKey); } catch (e: any) { console.warn('[generate-fix] Post-success debit failed:', e?.message); }
 
     return new Response(JSON.stringify({
       fixedImage: imageResult,
