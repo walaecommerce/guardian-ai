@@ -2,6 +2,9 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { ImageAsset } from '@/types';
 import { CompetitorData, buildComparisonReport, AIComparisonResult } from '@/components/CompetitorAudit';
+import { isManualReviewAsset } from '@/components/ManualReviewLane';
+import { extractImageCategory } from '@/utils/imageCategory';
+import { formatContentType } from '@/utils/sessionResume';
 
 // Extend jsPDF type to include autoTable
 declare module 'jspdf' {
@@ -11,7 +14,28 @@ declare module 'jspdf' {
   }
 }
 
-// ── JSON Export Schema (matches user spec exactly) ──
+// ── JSON Export Schema ──
+
+export interface ExportAssetEntry {
+  filename: string;
+  type: string;
+  content_type?: string;
+  score: number | undefined;
+  status: string | undefined;
+  severity: string | undefined;
+  violations: any[];
+  fixed: boolean;
+  fixed_score: number | undefined;
+  fix_method?: string;
+  // Unresolved state fields
+  unresolved_state?: string;
+  unresolved_reason?: string;
+  fixability_tier?: string;
+  fix_stop_reason?: string;
+  fix_attempts_count?: number;
+  last_fix_strategy?: string;
+  best_attempt_reason?: string;
+}
 
 export interface ExportReport {
   timestamp: string;
@@ -20,23 +44,22 @@ export interface ExportReport {
   total_assets: number;
   passed: number;
   failed: number;
+  fixed: number;
+  unresolved: number;
   fix_methods?: {
     'bg-segmentation': number;
     'full-regeneration': number;
     'surgical-edit': number;
     'enhancement': number;
   };
-  assets: {
-    filename: string;
-    type: string;
-    score: number | undefined;
-    status: string | undefined;
-    severity: string | undefined;
-    violations: any[];
-    fixed: boolean;
-    fixed_score: number | undefined;
-    fix_method?: string;
-  }[];
+  unresolved_summary?: {
+    manual_review: number;
+    warn_only: number;
+    retry_stopped: number;
+    auto_fix_failed: number;
+    skipped: number;
+  };
+  assets: ExportAssetEntry[];
   competitive_analysis?: {
     competitor_title: string;
     competitor_url: string;
@@ -64,6 +87,17 @@ export interface ExportReport {
 // Legacy compat alias
 export type ExportData = ExportReport;
 
+function mapUnresolvedLabel(state: string | undefined): string {
+  switch (state) {
+    case 'manual_review': return 'Manual Review Required';
+    case 'warn_only': return 'Warning — Better Source Needed';
+    case 'retry_stopped': return 'Retry Stopped — Preservation Failure';
+    case 'auto_fix_failed': return 'Auto-fix Failed After Attempts';
+    case 'skipped': return 'Skipped — Safety Rules';
+    default: return 'Unresolved';
+  }
+}
+
 export function generateExportData(
   assets: ImageAsset[],
   listingTitle: string,
@@ -72,24 +106,41 @@ export function generateExportData(
 ): ExportReport {
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const passCount = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS').length;
-  const failCount = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL').length;
+  const unresolvedAssets = assets.filter(isManualReviewAsset);
+  const fixedCount = assets.filter(a => a.fixedImage).length;
+  const failCount = analyzedAssets.filter(a =>
+    (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING')
+    && !unresolvedAssets.some(u => u.id === a.id)
+  ).length;
+
+  // Build unresolved summary breakdown
+  const unresolvedSummary = { manual_review: 0, warn_only: 0, retry_stopped: 0, auto_fix_failed: 0, skipped: 0 };
+  unresolvedAssets.forEach(a => {
+    const state = a.unresolvedState || (a.batchFixStatus === 'skipped' ? 'skipped' : 'manual_review');
+    if (state in unresolvedSummary) unresolvedSummary[state as keyof typeof unresolvedSummary]++;
+  });
 
   const report: ExportReport = {
     timestamp: new Date().toISOString(),
     listing_title: listingTitle || 'Untitled Listing',
-    overall_status: failCount > 0 ? 'FAIL' : 'PASS',
+    overall_status: (failCount > 0 || unresolvedAssets.length > 0) ? 'FAIL' : 'PASS',
     total_assets: assets.length,
     passed: passCount,
     failed: failCount,
-    assets: analyzedAssets.map(asset => {
+    fixed: fixedCount,
+    unresolved: unresolvedAssets.length,
+    assets: assets.map(asset => {
       const violations = asset.analysisResult?.violations || [];
       const hasCritical = violations.some(v => v.severity === 'critical');
       const hasWarning = violations.some(v => v.severity === 'warning');
       const severity = hasCritical ? 'critical' : hasWarning ? 'warning' : 'info';
+      const isUnresolved = isManualReviewAsset(asset);
+      const contentType = extractImageCategory(asset);
 
-      return {
+      const entry: ExportAssetEntry = {
         filename: asset.file?.name || asset.name,
         type: asset.type,
+        content_type: contentType ? formatContentType(contentType) : undefined,
         score: asset.analysisResult?.overallScore,
         status: asset.analysisResult?.status,
         severity,
@@ -103,6 +154,18 @@ export function generateExportData(
         fixed_score: undefined,
         fix_method: asset.fixMethod,
       };
+
+      if (isUnresolved) {
+        entry.unresolved_state = mapUnresolvedLabel(asset.unresolvedState);
+        entry.unresolved_reason = asset.batchSkipReason || asset.fixStopReason || 'Requires manual review';
+        entry.fixability_tier = asset.fixabilityTier;
+        entry.fix_stop_reason = asset.fixStopReason;
+        entry.fix_attempts_count = asset.fixAttempts?.length;
+        entry.last_fix_strategy = asset.lastFixStrategy;
+        entry.best_attempt_reason = asset.bestAttemptSelection?.selectedReason;
+      }
+
+      return entry;
     }),
   };
 
@@ -114,9 +177,10 @@ export function generateExportData(
     }
   });
   const totalFixes = Object.values(fixMethodCounts).reduce((s, c) => s + c, 0);
-  if (totalFixes > 0) {
-    report.fix_methods = fixMethodCounts;
-  }
+  if (totalFixes > 0) report.fix_methods = fixMethodCounts;
+
+  // Add unresolved summary if any
+  if (unresolvedAssets.length > 0) report.unresolved_summary = unresolvedSummary;
 
   // Add competitive analysis if competitor data exists
   if (competitorData) {
@@ -165,22 +229,42 @@ export function exportToJSON(data: ExportReport): void {
 // ── PDF Summary Export (opens browser print dialog) ──
 
 export function exportToPDFSummary(data: ExportReport): void {
+  const hasUnresolved = (data.unresolved ?? 0) > 0;
   const statusColor = data.overall_status === 'PASS' ? '#22c55e' : '#ef4444';
   const dateStr = new Date(data.timestamp).toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
 
-  const rows = data.assets.map(a => `
+  const rows = data.assets.map(a => {
+    const unresolvedBadge = a.unresolved_state
+      ? `<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:#fef3c7;color:#92400e;font-size:10px;margin-left:4px;">${a.unresolved_state}</span>`
+      : '';
+    return `
     <tr>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">${a.filename}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">${a.type}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">${a.type}${a.content_type ? ` <span style="color:#6b7280;font-size:11px;">(${a.content_type})</span>` : ''}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;">${a.score ?? '—'}%</td>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">
         <span style="color:${a.status === 'PASS' ? '#22c55e' : '#ef4444'};font-weight:700;">${a.status ?? '—'}</span>
+        ${unresolvedBadge}
       </td>
-      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">${a.violations?.[0]?.message?.substring(0, 60) || '—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">${a.unresolved_reason || a.violations?.[0]?.message?.substring(0, 60) || '—'}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
+
+  const unresolvedSection = hasUnresolved && data.unresolved_summary ? `
+    <div style="margin-bottom:24px;">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#92400e;margin-bottom:8px;">⚠ Unresolved Images (${data.unresolved})</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        ${data.unresolved_summary.manual_review > 0 ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:6px 14px;font-size:12px;"><strong>${data.unresolved_summary.manual_review}</strong> Manual Review</div>` : ''}
+        ${data.unresolved_summary.retry_stopped > 0 ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:6px 14px;font-size:12px;"><strong>${data.unresolved_summary.retry_stopped}</strong> Retry Stopped</div>` : ''}
+        ${data.unresolved_summary.auto_fix_failed > 0 ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:6px 14px;font-size:12px;"><strong>${data.unresolved_summary.auto_fix_failed}</strong> Auto-fix Failed</div>` : ''}
+        ${data.unresolved_summary.warn_only > 0 ? `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:6px 14px;font-size:12px;"><strong>${data.unresolved_summary.warn_only}</strong> Warn Only</div>` : ''}
+        ${data.unresolved_summary.skipped > 0 ? `<div style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;padding:6px 14px;font-size:12px;"><strong>${data.unresolved_summary.skipped}</strong> Skipped</div>` : ''}
+      </div>
+    </div>
+  ` : '';
 
   const html = `
 <!DOCTYPE html>
@@ -229,7 +313,11 @@ export function exportToPDFSummary(data: ExportReport): void {
     <div class="stat"><div class="stat-value">${data.total_assets}</div><div class="stat-label">Total Images</div></div>
     <div class="stat"><div class="stat-value" style="color:#22c55e">${data.passed}</div><div class="stat-label">Passed</div></div>
     <div class="stat"><div class="stat-value" style="color:#ef4444">${data.failed}</div><div class="stat-label">Failed</div></div>
+    ${data.fixed > 0 ? `<div class="stat"><div class="stat-value" style="color:#3b82f6">${data.fixed}</div><div class="stat-label">Fixed</div></div>` : ''}
+    ${(data.unresolved ?? 0) > 0 ? `<div class="stat"><div class="stat-value" style="color:#f59e0b">${data.unresolved}</div><div class="stat-label">Unresolved</div></div>` : ''}
   </div>
+
+  ${unresolvedSection}
 
   ${data.fix_methods ? `
   <div style="margin-bottom:24px;">
@@ -250,7 +338,7 @@ export function exportToPDFSummary(data: ExportReport): void {
         <th>Type</th>
         <th>Score</th>
         <th>Status</th>
-        <th>Top Violation</th>
+        <th>Details</th>
       </tr>
     </thead>
     <tbody>
@@ -274,7 +362,7 @@ export function exportToPDFSummary(data: ExportReport): void {
   }
 }
 
-// ── Legacy jsPDF export (kept for backward compat) ──
+// ── Legacy jsPDF export ──
 
 export function exportToPDF(data: ExportReport): void {
   const doc = new jsPDF();
@@ -312,11 +400,13 @@ export function exportToPDF(data: ExportReport): void {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
 
-  const summaryItems = [
+  const summaryItems: { label: string; value: string; color?: number[] }[] = [
     { label: 'Total', value: String(data.total_assets) },
     { label: 'Passed', value: String(data.passed), color: [34, 139, 34] },
     { label: 'Failed', value: String(data.failed), color: [220, 53, 69] },
   ];
+  if (data.fixed > 0) summaryItems.push({ label: 'Fixed', value: String(data.fixed), color: [59, 130, 246] });
+  if ((data.unresolved ?? 0) > 0) summaryItems.push({ label: 'Review', value: String(data.unresolved), color: [245, 158, 11] });
 
   let xPos = 20;
   summaryItems.forEach(item => {
@@ -327,7 +417,7 @@ export function exportToPDF(data: ExportReport): void {
     doc.setFont('helvetica', 'bold');
     doc.text(item.value, xPos + 25, summaryY + 22);
     doc.setFont('helvetica', 'normal');
-    xPos += 45;
+    xPos += 40;
   });
 
   let currentY = summaryY + 45;
@@ -339,9 +429,9 @@ export function exportToPDF(data: ExportReport): void {
 
   const tableData = data.assets.map(asset => [
     (asset.filename || '').length > 25 ? asset.filename.substring(0, 22) + '...' : asset.filename,
-    asset.type,
+    asset.type + (asset.content_type ? ` (${asset.content_type})` : ''),
     `${asset.score ?? 0}%`,
-    asset.status || '—',
+    asset.unresolved_state ? 'REVIEW' : (asset.status || '—'),
     String((asset.violations || []).length),
   ]);
 
@@ -352,11 +442,43 @@ export function exportToPDF(data: ExportReport): void {
     theme: 'striped',
     headStyles: { fillColor: [35, 47, 62], textColor: 255, fontStyle: 'bold' },
     bodyStyles: { textColor: [50, 50, 50] },
-    columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 30 }, 2: { cellWidth: 25 }, 3: { cellWidth: 25 }, 4: { cellWidth: 25 } },
+    columnStyles: { 0: { cellWidth: 55 }, 1: { cellWidth: 40 }, 2: { cellWidth: 20 }, 3: { cellWidth: 25 }, 4: { cellWidth: 20 } },
     margin: { left: 14, right: 14 },
   });
 
   currentY = doc.lastAutoTable.finalY + 15;
+
+  // Unresolved images section
+  const unresolvedAssets = data.assets.filter(a => a.unresolved_state);
+  if (unresolvedAssets.length > 0) {
+    if (currentY > doc.internal.pageSize.getHeight() - 60) { doc.addPage(); currentY = 20; }
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(146, 64, 14);
+    doc.text(`Unresolved Images (${unresolvedAssets.length})`, 14, currentY);
+    currentY += 8;
+
+    const unresolvedData = unresolvedAssets.map(a => [
+      (a.filename || '').length > 20 ? a.filename.substring(0, 17) + '...' : a.filename,
+      a.content_type || a.type,
+      a.unresolved_state || '',
+      (a.unresolved_reason || '').length > 45 ? a.unresolved_reason!.substring(0, 42) + '...' : (a.unresolved_reason || ''),
+      a.fix_attempts_count != null ? `${a.fix_attempts_count} tries` : '—',
+    ]);
+
+    doc.autoTable({
+      startY: currentY,
+      head: [['Image', 'Content Type', 'State', 'Reason', 'Attempts']],
+      body: unresolvedData,
+      theme: 'plain',
+      headStyles: { fillColor: [254, 243, 199], textColor: [146, 64, 14], fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 8, textColor: [80, 80, 80] },
+      columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 25 }, 2: { cellWidth: 35 }, 3: { cellWidth: 55 }, 4: { cellWidth: 20 } },
+      margin: { left: 14, right: 14 },
+    });
+    currentY = doc.lastAutoTable.finalY + 15;
+  }
 
   // Fix Methods Used section
   if (data.fix_methods) {
