@@ -666,4 +666,15 @@ describe('buildFixReviewPayload', () => {
     expect(payload.attempts[0].retryDecision).toBeUndefined();
     expect(payload.lastFixStrategy).toBe('bg-cleanup');
   });
+
+  it('preserves isBestAttempt, strategyUsed, and status per attempt', () => {
+    const attempts: FixAttempt[] = [
+      { attempt: 1, generatedImage: 'a', status: 'failed', strategyUsed: 'bg-cleanup', isBestAttempt: false },
+      { attempt: 2, generatedImage: 'b', status: 'failed', strategyUsed: 'inpaint-edit', isBestAttempt: true },
+    ];
+    const payload = buildFixReviewPayload(attempts, undefined, 'max_retries', 'inpaint-edit');
+    expect(payload.attempts[0]).toMatchObject({ attempt: 1, status: 'failed', strategyUsed: 'bg-cleanup', isBestAttempt: false });
+    expect(payload.attempts[1]).toMatchObject({ attempt: 2, status: 'failed', strategyUsed: 'inpaint-edit', isBestAttempt: true });
+    expect(payload.stopReason).toBe('max_retries');
+  });
 });
