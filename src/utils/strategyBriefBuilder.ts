@@ -24,6 +24,8 @@ export interface GenerationBrief {
     recommendationLabel: string;
     priority: string;
   };
+  /** Originating audit session ID for round-trip import */
+  sourceSessionId?: string;
 }
 
 // ── Role → Studio template mapping ──────────────────────────────
@@ -128,6 +130,7 @@ export function buildGenerationBrief(
   rec: StrategyRecommendation,
   pk: ProductKnowledge | null | undefined,
   ctx: ListingContext | null | undefined,
+  sessionId?: string | null,
 ): GenerationBrief {
   const safePk: ProductKnowledge = pk ?? {
     identitySummary: '',
@@ -166,5 +169,6 @@ export function buildGenerationBrief(
       recommendationLabel: rec.label,
       priority: rec.priority,
     },
+    ...(sessionId ? { sourceSessionId: sessionId } : {}),
   };
 }
