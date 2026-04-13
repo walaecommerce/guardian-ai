@@ -7,6 +7,7 @@ import { ImageAsset, LogEntry, ProductIdentityCard } from '@/types';
 import { MultiImageIdentityProfile } from '@/utils/identityProfile';
 import type { ProductKnowledge } from '@/utils/productKnowledge';
 import type { CampaignStrategy } from '@/utils/campaignStrategy';
+import type { ListingContext } from '@/utils/listingContext';
 import { CompetitorData } from '@/components/CompetitorAudit';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
