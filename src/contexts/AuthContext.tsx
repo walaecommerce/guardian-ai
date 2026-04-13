@@ -9,6 +9,7 @@ export interface UserProfile {
   avatar_url: string | null;
   amazon_store_url: string | null;
   onboarding_complete: boolean;
+  disabled: boolean;
 }
 
 interface AuthContextType {
@@ -16,6 +17,7 @@ interface AuthContextType {
   session: Session | null;
   profile: UserProfile | null;
   isAdmin: boolean;
+  isDisabled: boolean;
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -73,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             avatar_url: userMeta?.avatar_url || userMeta?.picture || null,
             amazon_store_url: null,
             onboarding_complete: false,
+            disabled: false,
           });
           return;
         }
@@ -91,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatar_url: userMeta?.avatar_url || userMeta?.picture || null,
           amazon_store_url: null,
           onboarding_complete: false,
+          disabled: false,
         });
         return;
       }
@@ -105,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatar_url: null,
         amazon_store_url: null,
         onboarding_complete: false,
+        disabled: false,
       });
     }
   }, []);
@@ -196,8 +201,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [fetchProfile, fetchAdminRole]);
 
+  const isDisabled = profile?.disabled ?? false;
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, isAdmin, isLoading, signOut, refreshProfile, markOnboardingComplete }}>
+    <AuthContext.Provider value={{ user, session, profile, isAdmin, isDisabled, isLoading, signOut, refreshProfile, markOnboardingComplete }}>
       {children}
     </AuthContext.Provider>
   );

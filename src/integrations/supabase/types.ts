@@ -653,6 +653,7 @@ export type Database = {
           amazon_store_url: string | null
           avatar_url: string | null
           created_at: string
+          disabled: boolean
           email: string | null
           full_name: string | null
           id: string
@@ -663,6 +664,7 @@ export type Database = {
           amazon_store_url?: string | null
           avatar_url?: string | null
           created_at?: string
+          disabled?: boolean
           email?: string | null
           full_name?: string | null
           id: string
@@ -673,6 +675,7 @@ export type Database = {
           amazon_store_url?: string | null
           avatar_url?: string | null
           created_at?: string
+          disabled?: boolean
           email?: string | null
           full_name?: string | null
           id?: string

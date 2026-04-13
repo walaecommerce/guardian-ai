@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff, Cpu, CheckCircle2, XCircle, RefreshCw, Plus, Minus, BookOpen, Gift } from 'lucide-react';
 import PromoCodesPanel from '@/components/admin/PromoCodesPanel';
+import UserManagementPanel from '@/components/admin/UserManagementPanel';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -472,99 +473,7 @@ export default function Admin() {
 
         {/* Users Tab */}
         <TabsContent value="users">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">All Users ({users.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left p-3 text-muted-foreground font-medium">Name</th>
-                      <th className="text-left p-3 text-muted-foreground font-medium">Email</th>
-                      <th className="text-left p-3 text-muted-foreground font-medium">Role</th>
-                      <th className="text-left p-3 text-muted-foreground font-medium">Plan</th>
-                      <th className="text-left p-3 text-muted-foreground font-medium">Sessions</th>
-                      <th className="text-left p-3 text-muted-foreground font-medium">Joined</th>
-                      <th className="text-left p-3 text-muted-foreground font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map(u => {
-                      const role = getUserRole(u.id);
-                      const isSelf = u.id === user?.id;
-                      const userCreds = getUserCredits(u.id);
-                      const plan = userCreds[0]?.plan ?? 'free';
-                      return (
-                        <tr key={u.id} className="border-b border-border/50 hover:bg-muted/30">
-                          <td className="p-3 text-foreground">{u.full_name || '—'}</td>
-                          <td className="p-3 text-muted-foreground">{u.email}</td>
-                          <td className="p-3">
-                            <Badge variant={role === 'admin' ? 'default' : 'secondary'}>
-                              {role}
-                            </Badge>
-                          </td>
-                          <td className="p-3">
-                            <Badge
-                              variant="outline"
-                              className="cursor-pointer"
-                              onClick={() => setPlanDialog({
-                                open: true, userId: u.id,
-                                userName: u.full_name || u.email || '',
-                                currentPlan: plan, newPlan: plan,
-                              })}
-                            >
-                              {plan}
-                            </Badge>
-                          </td>
-                          <td className="p-3 text-foreground">{sessionCounts[u.id] ?? 0}</td>
-                          <td className="p-3 text-muted-foreground">
-                            {new Date(u.created_at).toLocaleDateString()}
-                          </td>
-                          <td className="p-3 space-x-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs gap-1"
-                              onClick={() => setAdjustDialog({
-                                open: true, userId: u.id,
-                                userName: u.full_name || u.email || '',
-                                creditType: 'analyze', amount: 10, description: '', action: 'grant',
-                              })}
-                            >
-                              <Gift className="w-3 h-3" /> Credits
-                            </Button>
-                            {isSelf ? (
-                              <span className="text-xs text-muted-foreground">You</span>
-                            ) : role === 'admin' ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs gap-1"
-                                onClick={() => setRoleDialog({ open: true, userId: u.id, action: 'revoke', userName: u.full_name || u.email || '' })}
-                              >
-                                <ShieldOff className="w-3 h-3" /> Revoke
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs gap-1"
-                                onClick={() => setRoleDialog({ open: true, userId: u.id, action: 'grant', userName: u.full_name || u.email || '' })}
-                              >
-                                <ShieldCheck className="w-3 h-3" /> Admin
-                              </Button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <UserManagementPanel currentUserId={user?.id} />
         </TabsContent>
 
         {/* Credits Tab */}

@@ -10,7 +10,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { user, profile, isLoading } = useAuth();
+  const { user, profile, isLoading, isDisabled, signOut } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -28,6 +28,24 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!user) {
     return <Navigate to="/landing" replace />;
+  }
+
+  // Disabled account screen
+  if (isDisabled) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-md text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center">
+            <Shield className="w-8 h-8 text-destructive" />
+          </div>
+          <h1 className="text-xl font-bold text-foreground">Account Disabled</h1>
+          <p className="text-sm text-muted-foreground">
+            Your account has been disabled by an administrator. If you believe this is an error, please contact support.
+          </p>
+          <Button variant="outline" onClick={() => signOut()}>Sign Out</Button>
+        </div>
+      </div>
+    );
   }
 
   // User exists but profile still loading
