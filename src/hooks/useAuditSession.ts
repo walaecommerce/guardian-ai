@@ -966,6 +966,26 @@ export function useAuditSession() {
     const fixability = classifyAssetFixability(asset);
     if (fixability.tier === 'manual_review' || fixability.tier === 'warn_only') {
       addLog('warning', `⏭️ ${asset.name}: ${fixability.reason}`);
+      
+      // Persist manual-review state on asset
+      const unresolvedState = fixability.tier === 'manual_review' ? 'manual_review' as const : 'warn_only' as const;
+      setAssets(prev => prev.map(a => a.id === assetId ? { 
+        ...a, 
+        fixabilityTier: fixability.tier,
+        unresolvedState,
+        batchFixStatus: 'skipped' as const,
+        batchSkipReason: fixability.reason,
+      } : a));
+
+      // Persist to DB
+      const sessionImageId = assetSessionMap.get(assetId);
+      if (sessionImageId && currentSessionId) {
+        supabase.from('session_images').update({
+          status: 'skipped',
+          fix_attempts: { skipped: true, skipReason: fixability.reason, fixabilityTier: fixability.tier, unresolvedState } as any,
+        }).eq('id', sessionImageId).then(() => {});
+      }
+
       toast({ 
         title: fixability.tier === 'manual_review' ? 'Manual Review Required' : 'Cannot Auto-Fix', 
         description: fixability.reason, 
