@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             avatar_url: userMeta?.avatar_url || userMeta?.picture || null,
             amazon_store_url: null,
             onboarding_complete: false,
+            disabled: false,
           });
           return;
         }
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatar_url: userMeta?.avatar_url || userMeta?.picture || null,
           amazon_store_url: null,
           onboarding_complete: false,
+          disabled: false,
         });
         return;
       }
@@ -107,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatar_url: null,
         amazon_store_url: null,
         onboarding_complete: false,
+        disabled: false,
       });
     }
   }, []);
@@ -198,8 +201,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [fetchProfile, fetchAdminRole]);
 
+  const isDisabled = profile?.disabled ?? false;
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, isAdmin, isLoading, signOut, refreshProfile, markOnboardingComplete }}>
+    <AuthContext.Provider value={{ user, session, profile, isAdmin, isDisabled, isLoading, signOut, refreshProfile, markOnboardingComplete }}>
       {children}
     </AuthContext.Provider>
   );
