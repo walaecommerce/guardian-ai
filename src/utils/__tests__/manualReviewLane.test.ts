@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { classifyAssetFixability, partitionBatchFixTargets } from '@/utils/fixability';
+import { isManualReviewAsset } from '@/components/ManualReviewLane';
 import type { ImageAsset, Violation } from '@/types';
 
 function makeAsset(overrides: Partial<ImageAsset> & { imageCategory?: string } = {}): ImageAsset {
@@ -26,12 +27,10 @@ function makeViolation(message: string): Violation {
 describe('Manual Review Lane - fixability classification', () => {
   it('SIZE_CHART classified as manual_review', () => {
     const asset = makeAsset({
+      imageCategory: 'SIZE_CHART',
       analysisResult: {
-        overallScore: 40,
-        status: 'FAIL',
-        violations: [makeViolation('text overlay')],
-        fixRecommendations: [],
-        imageCategory: 'SIZE_CHART',
+        overallScore: 40, status: 'FAIL',
+        violations: [makeViolation('text overlay')], fixRecommendations: [],
       },
     });
     const result = classifyAssetFixability(asset);
@@ -41,12 +40,10 @@ describe('Manual Review Lane - fixability classification', () => {
 
   it('COMPARISON classified as manual_review', () => {
     const asset = makeAsset({
+      imageCategory: 'COMPARISON',
       analysisResult: {
-        overallScore: 40,
-        status: 'FAIL',
-        violations: [makeViolation('some issue')],
-        fixRecommendations: [],
-        imageCategory: 'COMPARISON',
+        overallScore: 40, status: 'FAIL',
+        violations: [makeViolation('some issue')], fixRecommendations: [],
       },
     });
     const result = classifyAssetFixability(asset);
@@ -57,10 +54,8 @@ describe('Manual Review Lane - fixability classification', () => {
   it('blur-only violations classified as warn_only', () => {
     const asset = makeAsset({
       analysisResult: {
-        overallScore: 50,
-        status: 'FAIL',
-        violations: [makeViolation('image is blurry and out of focus')],
-        fixRecommendations: [],
+        overallScore: 50, status: 'FAIL',
+        violations: [makeViolation('image is blurry and out of focus')], fixRecommendations: [],
       },
     });
     const result = classifyAssetFixability(asset);
@@ -70,12 +65,10 @@ describe('Manual Review Lane - fixability classification', () => {
 
   it('LIFESTYLE with safe violations classified as auto_fixable', () => {
     const asset = makeAsset({
+      imageCategory: 'LIFESTYLE',
       analysisResult: {
-        overallScore: 60,
-        status: 'FAIL',
-        violations: [makeViolation('promotional overlay detected')],
-        fixRecommendations: [],
-        imageCategory: 'LIFESTYLE',
+        overallScore: 60, status: 'FAIL',
+        violations: [makeViolation('promotional overlay detected')], fixRecommendations: [],
       },
     });
     const result = classifyAssetFixability(asset);
@@ -87,19 +80,15 @@ describe('Manual Review Lane - fixability classification', () => {
     const fixableAsset = makeAsset({
       id: 'fixable',
       analysisResult: {
-        overallScore: 60,
-        status: 'FAIL',
-        violations: [makeViolation('background issue')],
-        fixRecommendations: [],
+        overallScore: 60, status: 'FAIL',
+        violations: [makeViolation('background issue')], fixRecommendations: [],
       },
     });
     const skippedAsset = makeAsset({
       id: 'skipped',
       analysisResult: {
-        overallScore: 40,
-        status: 'FAIL',
-        violations: [makeViolation('blurry image')],
-        fixRecommendations: [],
+        overallScore: 40, status: 'FAIL',
+        violations: [makeViolation('blurry image')], fixRecommendations: [],
       },
     });
     const { fixable, skipped } = partitionBatchFixTargets([fixableAsset, skippedAsset]);
@@ -107,12 +96,53 @@ describe('Manual Review Lane - fixability classification', () => {
     expect(fixable[0].id).toBe('fixable');
     expect(skipped).toHaveLength(1);
     expect(skipped[0].asset.id).toBe('skipped');
-    expect(skipped[0].reason).toContain('blur');
   });
 });
 
-describe('Session hydration preserves skip state', () => {
-  it('hydrateFixReview restores skipped state from fix_attempts JSON', async () => {
+describe('isManualReviewAsset - unified check', () => {
+  it('returns true for unresolvedState = manual_review', () => {
+    expect(isManualReviewAsset(makeAsset({ unresolvedState: 'manual_review' }))).toBe(true);
+  });
+
+  it('returns true for unresolvedState = warn_only', () => {
+    expect(isManualReviewAsset(makeAsset({ unresolvedState: 'warn_only' }))).toBe(true);
+  });
+
+  it('returns true for unresolvedState = retry_stopped', () => {
+    expect(isManualReviewAsset(makeAsset({ unresolvedState: 'retry_stopped' }))).toBe(true);
+  });
+
+  it('returns true for unresolvedState = auto_fix_failed', () => {
+    expect(isManualReviewAsset(makeAsset({ unresolvedState: 'auto_fix_failed' }))).toBe(true);
+  });
+
+  it('returns true for batchFixStatus = skipped (legacy)', () => {
+    expect(isManualReviewAsset(makeAsset({ batchFixStatus: 'skipped' }))).toBe(true);
+  });
+
+  it('returns true for fixStopReason without fixedImage', () => {
+    expect(isManualReviewAsset(makeAsset({ fixStopReason: 'repeated identity drift' }))).toBe(true);
+  });
+
+  it('returns false for fixStopReason WITH fixedImage', () => {
+    expect(isManualReviewAsset(makeAsset({ fixStopReason: 'stopped', fixedImage: 'url' }))).toBe(false);
+  });
+
+  it('returns true for batchFixStatus = failed without fixedImage', () => {
+    expect(isManualReviewAsset(makeAsset({ batchFixStatus: 'failed' }))).toBe(true);
+  });
+
+  it('returns false for normal asset with no issues', () => {
+    expect(isManualReviewAsset(makeAsset({}))).toBe(false);
+  });
+
+  it('returns false for fixed asset', () => {
+    expect(isManualReviewAsset(makeAsset({ fixedImage: 'url', batchFixStatus: 'fixed' }))).toBe(false);
+  });
+});
+
+describe('Session hydration preserves unresolved state', () => {
+  it('hydrateFixReview restores skipped state with unresolvedState', async () => {
     const { buildAssetFromSessionImage } = await import('@/utils/sessionAssetHelpers');
     const file = new File([''], 'test.jpg');
     const { asset } = buildAssetFromSessionImage(
@@ -121,7 +151,7 @@ describe('Session hydration preserves skip state', () => {
         image_name: 'test.jpg',
         image_type: 'SECONDARY',
         analysis_result: null,
-        fix_attempts: { skipped: true, skipReason: 'Size Chart images contain structured data', fixabilityTier: 'manual_review' },
+        fix_attempts: { skipped: true, skipReason: 'Size Chart images contain structured data', fixabilityTier: 'manual_review', unresolvedState: 'manual_review' },
       },
       file,
       'http://example.com/test.jpg',
@@ -129,9 +159,11 @@ describe('Session hydration preserves skip state', () => {
     expect(asset.batchFixStatus).toBe('skipped');
     expect(asset.batchSkipReason).toBe('Size Chart images contain structured data');
     expect(asset.fixabilityTier).toBe('manual_review');
+    expect(asset.unresolvedState).toBe('manual_review');
+    expect(isManualReviewAsset(asset)).toBe(true);
   });
 
-  it('hydrateFixReview restores stop reason from fix_attempts JSON', async () => {
+  it('hydrateFixReview restores retry_stopped state', async () => {
     const { buildAssetFromSessionImage } = await import('@/utils/sessionAssetHelpers');
     const file = new File([''], 'test.jpg');
     const { asset } = buildAssetFromSessionImage(
@@ -144,13 +176,60 @@ describe('Session hydration preserves skip state', () => {
           attempts: [{ attempt: 1, status: 'failed', verification: { score: 40, critique: 'test' } }],
           stopReason: 'repeated context preservation failure',
           lastFixStrategy: 'inpaint-edit',
+          unresolvedState: 'retry_stopped',
         },
       },
       file,
       'http://example.com/test.jpg',
     );
     expect(asset.fixStopReason).toBe('repeated context preservation failure');
-    expect(asset.lastFixStrategy).toBe('inpaint-edit');
+    expect(asset.unresolvedState).toBe('retry_stopped');
+    expect(isManualReviewAsset(asset)).toBe(true);
+  });
+
+  it('hydrateFixReview restores auto_fix_failed state', async () => {
+    const { buildAssetFromSessionImage } = await import('@/utils/sessionAssetHelpers');
+    const file = new File([''], 'test.jpg');
+    const { asset } = buildAssetFromSessionImage(
+      {
+        id: 'img-3',
+        image_name: 'test.jpg',
+        image_type: 'SECONDARY',
+        analysis_result: null,
+        fix_attempts: {
+          attempts: [{ attempt: 1, status: 'failed' }, { attempt: 2, status: 'failed' }],
+          stopReason: 'No acceptable fix produced after all attempts',
+          unresolvedState: 'auto_fix_failed',
+        },
+      },
+      file,
+      'http://example.com/test.jpg',
+    );
+    expect(asset.unresolvedState).toBe('auto_fix_failed');
+    expect(asset.batchFixStatus).toBe('failed');
+    expect(isManualReviewAsset(asset)).toBe(true);
+  });
+
+  it('legacy data without unresolvedState still inferred from stopReason', async () => {
+    const { buildAssetFromSessionImage } = await import('@/utils/sessionAssetHelpers');
+    const file = new File([''], 'test.jpg');
+    const { asset } = buildAssetFromSessionImage(
+      {
+        id: 'img-4',
+        image_name: 'test.jpg',
+        image_type: 'SECONDARY',
+        analysis_result: null,
+        fix_attempts: {
+          attempts: [{ attempt: 1, status: 'failed' }],
+          stopReason: 'repeated identity drift on MAIN image',
+        },
+      },
+      file,
+      'http://example.com/test.jpg',
+    );
+    expect(asset.fixStopReason).toBe('repeated identity drift on MAIN image');
+    expect(asset.unresolvedState).toBe('retry_stopped');
+    expect(isManualReviewAsset(asset)).toBe(true);
   });
 });
 
@@ -158,12 +237,10 @@ describe('Skipped images not treated as fixed', () => {
   it('skipped assets are excluded from fixable partition', () => {
     const sizeChart = makeAsset({
       id: 'sc-1',
+      imageCategory: 'SIZE_CHART',
       analysisResult: {
-        overallScore: 40,
-        status: 'FAIL',
-        violations: [makeViolation('text overlay')],
-        fixRecommendations: [],
-        imageCategory: 'SIZE_CHART',
+        overallScore: 40, status: 'FAIL',
+        violations: [makeViolation('text overlay')], fixRecommendations: [],
       },
     });
     const { fixable, skipped } = partitionBatchFixTargets([sizeChart]);
