@@ -94,6 +94,7 @@ const Studio = () => {
       setSelectedClaims(brief.claims || []);
       setCategory(brief.category || 'GENERAL');
       if (brief.strategySource) setStrategySource(brief.strategySource);
+      if (brief.sourceSessionId) setSourceSessionId(brief.sourceSessionId);
       // Clear state so refreshing doesn't re-apply
       window.history.replaceState({}, document.title);
     }
