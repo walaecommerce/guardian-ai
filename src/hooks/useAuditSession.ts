@@ -557,6 +557,7 @@ export function useAuditSession() {
           forcedCategory: selectedCategory !== 'AUTO' ? selectedCategory : undefined,
           deterministicFindings,
           sessionImageId,
+          listingContext: listingContext ? { title: listingContext.title, brand: listingContext.brand, bullets: listingContext.bullets, description: listingContext.description, claims: listingContext.claims } : undefined,
         }
       });
 
