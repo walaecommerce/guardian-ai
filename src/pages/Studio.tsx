@@ -137,6 +137,7 @@ const Studio = () => {
   
 
   const { toast } = useToast();
+  const { guard: creditGate } = useCreditGate();
 
   const toggleClaim = (claim: string) => {
     setSelectedClaims(prev =>
