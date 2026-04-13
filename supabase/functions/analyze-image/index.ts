@@ -591,7 +591,7 @@ serve(async (req) => {
 
     const bodyOrError = await parseJsonBody(req);
     if (bodyOrError instanceof Response) return bodyOrError;
-    const { imageBase64, imageType, listingTitle, forcedCategory, deterministicFindings, sessionImageId } = bodyOrError as Record<string, any>;
+    const { imageBase64, imageType, listingTitle, forcedCategory, deterministicFindings, sessionImageId, listingContext } = bodyOrError as Record<string, any>;
 
     if (!imageBase64) return errorResponse(400, 'Missing required field: imageBase64', {}, corsHeaders);
 
@@ -614,7 +614,34 @@ ${passedFindings.length > 0 ? `PASSED checks:\n${passedFindings.map((f: any) => 
 IMPORTANT: If a deterministic check FAILED with severity "critical", your overall score MUST reflect this. Do not override deterministic failures with a passing score.`;
     }
 
-    const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/APPAREL/FOOTWEAR/JEWELRY/HANDBAGS_LUGGAGE/HARDLINES/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}${deterministicContext}`;
+    // Build listing context section if provided
+    let listingContextSection = '';
+    if (listingContext && typeof listingContext === 'object') {
+      const parts: string[] = [];
+      if (listingContext.brand) parts.push(`Brand: ${listingContext.brand}`);
+      if (listingContext.title) parts.push(`Product: ${listingContext.title}`);
+      if (Array.isArray(listingContext.bullets) && listingContext.bullets.length > 0) {
+        parts.push(`Key bullets:\n${listingContext.bullets.slice(0, 5).map((b: string) => `  - ${b}`).join('\n')}`);
+      }
+      if (Array.isArray(listingContext.claims) && listingContext.claims.length > 0) {
+        parts.push(`Known claims: ${listingContext.claims.slice(0, 8).join(', ')}`);
+      }
+      if (listingContext.description) {
+        parts.push(`Description excerpt: ${String(listingContext.description).substring(0, 200)}`);
+      }
+      if (parts.length > 0) {
+        listingContextSection = `\n\nLISTING CONTEXT (use to understand the product — do NOT require every claim to appear visually):
+${parts.join('\n')}
+Use this context to:
+- Understand what the product IS (identity, brand, intended positioning)
+- Interpret whether visible text/claims on packaging align with the listing
+- Avoid misclassifying a product when the listing clearly explains it
+- Evaluate content consistency between packaging and listing claims
+Do NOT penalize images for missing bullet-point text that wouldn't normally appear on packaging.`;
+      }
+    }
+
+    const userPrompt = `Analyze this ${imageType} image. ${forcedCategory ? `Category is FORCED to ${forcedCategory}.` : 'First detect the product category (FOOD_BEVERAGE/PET_SUPPLIES/SUPPLEMENTS/BEAUTY_PERSONAL_CARE/ELECTRONICS/APPAREL/FOOTWEAR/JEWELRY/HANDBAGS_LUGGAGE/HARDLINES/GENERAL_MERCHANDISE),'} then apply ALL universal rules plus the matching category-specific rules. Perform full OCR extraction on any visible packaging text. Listing title for cross-reference: ${titleRef}${deterministicContext}${listingContextSection}`;
 
     const response = await fetchGemini({
       model: MODELS.analysis,

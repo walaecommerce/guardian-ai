@@ -482,6 +482,7 @@ serve(async (req) => {
       fixPlan,
       retryInstructions,
       sessionImageId,
+      listingContext,
     } = await req.json();
 
     const fixCategory = detectFixCategory(imageCategory, productTitle);
