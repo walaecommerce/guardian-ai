@@ -4,6 +4,7 @@ import { CompetitorAudit, CompetitorData, AIComparisonResult } from '@/component
 import { ComplianceHistory, AuditHistoryEntry } from '@/components/ComplianceHistory';
 import { ExportButton } from '@/components/ExportButton';
 import { EmptyState } from '@/components/EmptyState';
+import { ManualReviewLane, isManualReviewAsset } from '@/components/ManualReviewLane';
 import { ImageAsset } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -28,6 +29,7 @@ interface ReviewStepProps {
   onImportCompetitor: (url: string) => void;
   onLoadAudit: (entry: AuditHistoryEntry) => void;
   onGoToAudit?: () => void;
+  onViewDetails?: (asset: ImageAsset) => void;
 }
 
 function CompetitorUrlInput({
@@ -105,17 +107,22 @@ export function ReviewStep({
   competitorData, aiComparison, isLoadingAIComparison,
   isImportingCompetitor, competitorProgress,
   onSaveReport, onImportCompetitor, onLoadAudit, onGoToAudit,
+  onViewDetails,
 }: ReviewStepProps) {
   const [subTab, setSubTab] = useState('reports');
   const hasResults = assets.some(a => a.analysisResult);
 
   const analyzedAssets = assets.filter(a => a.analysisResult);
+  const unresolvedAssets = assets.filter(isManualReviewAsset);
   const passedCount = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS').length;
-  const failedCount = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING').length;
+  const failedCount = analyzedAssets.filter(a =>
+    (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING')
+    && !unresolvedAssets.some(u => u.id === a.id)
+  ).length;
   const fixedCount = assets.filter(a => a.fixedImage).length;
   const scores = analyzedAssets.map(a => a.analysisResult?.overallScore || 0);
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-  const allClean = failedCount === 0 || fixedCount >= failedCount;
+  const allClean = failedCount === 0 && unresolvedAssets.length === 0;
 
   if (!hasResults) {
     return (
@@ -132,31 +139,48 @@ export function ReviewStep({
   return (
     <div className="space-y-4">
       {/* Completion summary */}
-      <Card className={allClean ? 'border-green-500/20 bg-green-500/5' : 'border-yellow-500/20 bg-yellow-500/5'}>
+      <Card className={allClean ? 'border-success/20 bg-success/5' : 'border-warning/20 bg-warning/5'}>
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-3">
             {allClean ? (
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+              <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />
             ) : (
-              <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+              <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0" />
             )}
             <div className="flex-1">
               <p className="text-sm font-semibold">
-                {allClean ? 'All Clear — Export or Save Your Report' : `${failedCount - fixedCount} issue${failedCount - fixedCount !== 1 ? 's' : ''} still need fixing`}
+                {allClean
+                  ? 'All Clear — Export or Save Your Report'
+                  : unresolvedAssets.length > 0 && failedCount === 0
+                    ? `${unresolvedAssets.length} image${unresolvedAssets.length !== 1 ? 's' : ''} need manual review`
+                    : `${failedCount} issue${failedCount !== 1 ? 's' : ''} still need fixing${unresolvedAssets.length > 0 ? `, ${unresolvedAssets.length} need review` : ''}`
+                }
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {analyzedAssets.length} images · {avgScore}% avg score
                 {fixedCount > 0 && ` · ${fixedCount} fixed`}
+                {unresolvedAssets.length > 0 && ` · ${unresolvedAssets.length} unresolved`}
               </p>
             </div>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
               <Badge variant="outline" className="text-xs">{passedCount} passed</Badge>
               {failedCount > 0 && <Badge variant="destructive" className="text-xs">{failedCount} failed</Badge>}
               {fixedCount > 0 && <Badge className="bg-primary/15 text-primary border-primary/30 text-xs">{fixedCount} fixed</Badge>}
+              {unresolvedAssets.length > 0 && (
+                <Badge variant="warning" className="text-xs">
+                  <AlertTriangle className="w-3 h-3 mr-0.5" />
+                  {unresolvedAssets.length} review
+                </Badge>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Unresolved / Manual Review section */}
+      {unresolvedAssets.length > 0 && onViewDetails && (
+        <ManualReviewLane assets={unresolvedAssets} onViewDetails={onViewDetails} />
+      )}
 
       {/* Top action bar */}
       <div className="flex items-center justify-between flex-wrap gap-2">
