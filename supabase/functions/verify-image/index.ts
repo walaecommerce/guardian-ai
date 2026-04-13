@@ -283,10 +283,18 @@ Verify that these specific rule violations are now resolved in the generated ima
       }
     }
 
+    // Build product knowledge verification section
+    let knowledgeSection = '';
+    if (listingContext && typeof listingContext === 'object') {
+      const { deriveProductKnowledge, buildKnowledgeVerificationSection } = await import("../_shared/productKnowledge.ts");
+      const pk = deriveProductKnowledge(listingContext);
+      knowledgeSection = buildKnowledgeVerificationSection(pk);
+    }
+
     const outputSchema = `
 ${rubricDescription}
 ${contentTypeContext}
-${identitySection}${spatialContext}${targetRulesSection}${categoryIdentitySection}
+${identitySection}${spatialContext}${targetRulesSection}${categoryIdentitySection}${knowledgeSection}
 
 ADDITIONAL CHECKS:
 - Target rule violations fixed: ${targetRuleIds?.length > 0 ? 'YES — verify each target rule is now passing' : 'N/A'}
