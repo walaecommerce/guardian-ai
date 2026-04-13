@@ -60,12 +60,14 @@ export function ClientReportGenerator({
 
   const toggleSection = (s: Section) => setSections(prev => ({ ...prev, [s]: !prev[s] }));
 
+  const unresolvedAssets = analyzedAssets.filter(isManualReviewAsset);
   const scores = analyzedAssets.map(a => a.analysisResult!.overallScore);
   const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   const passed = analyzedAssets.filter(a => a.analysisResult!.status === 'PASS').length;
-  const failed = analyzedAssets.length - passed;
+  const fixedCount = analyzedAssets.filter(a => a.fixedImage).length;
+  const failed = analyzedAssets.length - passed - unresolvedAssets.filter(a => a.analysisResult!.status !== 'PASS').length;
   const allViolations = analyzedAssets.flatMap(a => a.analysisResult!.violations || []);
-  const status = failed === 0 ? 'PASS' : 'FAIL';
+  const status = (failed === 0 && unresolvedAssets.length === 0) ? 'PASS' : 'FAIL';
 
   const generateReport = () => {
     const theme = THEME_COLORS[colorTheme];
