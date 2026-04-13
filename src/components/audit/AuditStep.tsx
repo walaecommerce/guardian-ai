@@ -2,9 +2,11 @@ import { AnalysisResults } from '@/components/AnalysisResults';
 import { ComplianceReportCard } from '@/components/ComplianceReportCard';
 import { EmptyState } from '@/components/EmptyState';
 import { ProductIdentityPanel } from '@/components/ProductIdentityPanel';
+import { CampaignStrategyPanel } from '@/components/CampaignStrategyPanel';
 import { ImageAsset, LogEntry, ProductIdentityCard } from '@/types';
 import { MultiImageIdentityProfile } from '@/utils/identityProfile';
 import type { ProductKnowledge } from '@/utils/productKnowledge';
+import type { CampaignStrategy } from '@/utils/campaignStrategy';
 import { CompetitorData } from '@/components/CompetitorAudit';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +37,7 @@ interface AuditStepProps {
   productIdentity?: ProductIdentityCard | null;
   identityProfile?: MultiImageIdentityProfile | null;
   productKnowledge?: ProductKnowledge | null;
+  campaignStrategy?: CampaignStrategy | null;
 }
 
 export function AuditStep({
@@ -43,7 +46,7 @@ export function AuditStep({
   isBatchFixing, batchFixProgress, productAsin, competitorData,
   getMatchingPolicyUpdate, onGoToFix, onGoToImport, onRunAudit, onSelectAsset,
   onRetryFailedAnalysis, aiCreditsExhausted, productIdentity, identityProfile,
-  productKnowledge,
+  productKnowledge, campaignStrategy,
 }: AuditStepProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const passedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS');
