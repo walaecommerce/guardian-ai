@@ -329,6 +329,21 @@ export async function scrapeAmazonProduct(
     emit('info', `📦 Title: ${title.substring(0, 80)}${title.length > 80 ? '...' : ''}`);
   }
 
+  // ── Step 4b: Extract listing text context ──
+  let bullets: string[] = [];
+  let description: string | undefined;
+  let brand: string | undefined;
+  try {
+    const { extractBulletsFromHtml, extractDescriptionFromHtml, extractBrandFromHtml } = await import('@/utils/listingContext');
+    bullets = extractBulletsFromHtml(html);
+    description = extractDescriptionFromHtml(html) || undefined;
+    brand = extractBrandFromHtml(html) || undefined;
+    if (bullets.length > 0) emit('info', `📝 Extracted ${bullets.length} bullet points`);
+    if (brand) emit('info', `🏷️ Brand: ${brand}`);
+  } catch {
+    // Non-critical — listing context extraction is best-effort
+  }
+
   // ── Step 5: Extract gallery images (BUG 2 fix — gallery-only) ──
   emit('processing', 'Discovering product gallery images...');
   const rawUrls = extractProductImages(html);
@@ -408,6 +423,10 @@ export async function scrapeAmazonProduct(
     asin: asin || 'UNKNOWN',
     title,
     images,
+    bullets,
+    description,
+    brand,
+    html,
   };
 }
 

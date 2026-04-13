@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useCreditGate } from '@/hooks/useCreditGate';
 import { useCredits } from '@/hooks/useCredits';
+import { ListingContext, normalizeListingContext, minimalListingContext, serializeListingContext, deserializeListingContext } from '@/utils/listingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { RATE_LIMITS } from '@/config/models';
 import { ImageAsset, LogEntry, AnalysisResult, ImageCategory, FixAttempt, FixProgressState, FailedDownload, ProductIdentityCard, StyleConsistencyResult } from '@/types';
@@ -72,6 +73,7 @@ export function useAuditSession() {
   const [aiCreditsExhausted, setAiCreditsExhausted] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importMetadata, setImportMetadata] = useState<ImportMetadata | null>(null);
+  const [listingContext, setListingContext] = useState<ListingContext | null>(null);
 
   // Stepper state
   const [currentStep, setCurrentStep] = useState<AuditStep>('import');
@@ -189,6 +191,18 @@ export function useAuditSession() {
         setTimeout(() => setTitlePulse(false), 500);
       }
 
+      // Build listing context from scraped data
+      const ctx = normalizeListingContext({
+        title: product.title,
+        asin: product.asin !== 'UNKNOWN' ? product.asin : null,
+        sourceUrl: amazonUrl,
+        bullets: product.bullets,
+        description: product.description,
+        brand: product.brand,
+        html: product.html,
+      });
+      setListingContext(ctx);
+
       addLog('processing', '💾 Creating enhancement session...');
       const { data: sessionData, error: sessionError } = await supabase
         .from('enhancement_sessions')
@@ -198,7 +212,8 @@ export function useAuditSession() {
           listing_title: product.title || null,
           total_images: imagesToProcess.length,
           status: 'in_progress',
-          user_id: user?.id
+          user_id: user?.id,
+          listing_context: serializeListingContext(ctx) as any,
         }])
         .select()
         .single();
@@ -542,6 +557,7 @@ export function useAuditSession() {
           forcedCategory: selectedCategory !== 'AUTO' ? selectedCategory : undefined,
           deterministicFindings,
           sessionImageId,
+          listingContext: listingContext ? { title: listingContext.title, brand: listingContext.brand, bullets: listingContext.bullets, description: listingContext.description, claims: listingContext.claims } : undefined,
         }
       });
 
@@ -642,6 +658,7 @@ export function useAuditSession() {
     setAmazonUrl(data.session.amazon_url || '');
     setProductAsin(data.session.product_asin);
     if (data.productIdentity) setProductIdentity(data.productIdentity);
+    if (data.listingContext) setListingContext(data.listingContext);
 
     // Build import metadata from session data
     const meta: ImportMetadata = {
@@ -1050,6 +1067,7 @@ export function useAuditSession() {
           previousGeneratedImage,
           productIdentity: (identityProfile?.identity || productIdentity) || undefined,
           sessionImageId: fixSessionImageId,
+          listingContext: listingContext ? { title: listingContext.title, brand: listingContext.brand, bullets: listingContext.bullets, claims: listingContext.claims } : undefined,
         },
         {
           onProgress: setFixProgress,
@@ -1389,6 +1407,7 @@ export function useAuditSession() {
           targetImprovements: opportunities.map((o: any) => o.description),
           preserveElements: ['product', 'brand-text', 'key-features'],
           sessionImageId: enhanceSessionImageId,
+          listingContext: listingContext ? { title: listingContext.title, brand: listingContext.brand, bullets: listingContext.bullets, claims: listingContext.claims } : undefined,
         },
       });
 
@@ -1511,6 +1530,7 @@ export function useAuditSession() {
             targetImprovements: opportunities.map((o: any) => o.description),
             preserveElements: ['product', 'brand-text', 'key-features'],
             sessionImageId: batchSessionImageId,
+            listingContext: listingContext ? { title: listingContext.title, brand: listingContext.brand, bullets: listingContext.bullets, claims: listingContext.claims } : undefined,
           },
         });
 
@@ -1883,6 +1903,7 @@ export function useAuditSession() {
     importError,
     importMetadata,
     isHydrating,
+    listingContext,
 
     // Handlers
     addLog,

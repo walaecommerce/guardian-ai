@@ -190,6 +190,7 @@ export type Database = {
           failed_count: number
           fixed_count: number
           id: string
+          listing_context: Json | null
           listing_title: string | null
           passed_count: number
           product_asin: string | null
@@ -208,6 +209,7 @@ export type Database = {
           failed_count?: number
           fixed_count?: number
           id?: string
+          listing_context?: Json | null
           listing_title?: string | null
           passed_count?: number
           product_asin?: string | null
@@ -226,6 +228,7 @@ export type Database = {
           failed_count?: number
           fixed_count?: number
           id?: string
+          listing_context?: Json | null
           listing_title?: string | null
           passed_count?: number
           product_asin?: string | null

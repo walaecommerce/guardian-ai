@@ -1,0 +1,1 @@
+ALTER TABLE public.enhancement_sessions ADD COLUMN IF NOT EXISTS listing_context jsonb DEFAULT NULL;
