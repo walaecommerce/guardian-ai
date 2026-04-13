@@ -155,8 +155,10 @@ export type Database = {
           passed_count: number
           product_asin: string | null
           product_identity: Json | null
+          skipped_count: number
           status: string
           total_images: number
+          unresolved_count: number
           updated_at: string
           user_id: string | null
         }
@@ -171,8 +173,10 @@ export type Database = {
           passed_count?: number
           product_asin?: string | null
           product_identity?: Json | null
+          skipped_count?: number
           status?: string
           total_images?: number
+          unresolved_count?: number
           updated_at?: string
           user_id?: string | null
         }
@@ -187,8 +191,10 @@ export type Database = {
           passed_count?: number
           product_asin?: string | null
           product_identity?: Json | null
+          skipped_count?: number
           status?: string
           total_images?: number
+          unresolved_count?: number
           updated_at?: string
           user_id?: string | null
         }
