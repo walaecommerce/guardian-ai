@@ -583,6 +583,7 @@ RULES:
           const cleanCritique = previousCritique.replace('[BG-SEG-IDENTITY-FAIL]', '').trim();
           if (cleanCritique) prompt += `\n\nPREVIOUS ISSUES TO FIX: ${cleanCritique}`;
         }
+        prompt += buildListingContextGuardrails();
         contentParts.push({ type: "text", text: prompt });
         if (imageBase64) {
           contentParts.push({

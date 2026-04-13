@@ -183,6 +183,13 @@ const Index = () => {
         )}
       </div>
 
+      {/* Listing context panel — compact, above step content */}
+      {session.listingContext && session.assets.length > 0 && (
+        <div className="px-6 pb-2">
+          <ListingContextPanel context={session.listingContext} />
+        </div>
+      )}
+
       <AICreditsExhaustedBanner
         visible={session.aiCreditsExhausted}
         analyzedCount={session.assets.filter(a => a.analysisResult).length}
