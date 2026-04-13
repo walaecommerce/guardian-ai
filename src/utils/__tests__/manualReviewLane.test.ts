@@ -2,14 +2,20 @@ import { describe, it, expect } from 'vitest';
 import { classifyAssetFixability, partitionBatchFixTargets } from '@/utils/fixability';
 import type { ImageAsset, Violation } from '@/types';
 
-function makeAsset(overrides: Partial<ImageAsset> = {}): ImageAsset {
+function makeAsset(overrides: Partial<ImageAsset> & { imageCategory?: string } = {}): ImageAsset {
+  const { imageCategory, ...rest } = overrides;
+  const analysisResult = rest.analysisResult ? {
+    ...rest.analysisResult,
+    ...(imageCategory ? { imageCategory } : {}),
+  } : rest.analysisResult;
   return {
     id: '1',
     file: new File([''], 'test.jpg'),
     preview: 'test.jpg',
     type: 'SECONDARY',
     name: 'test.jpg',
-    ...overrides,
+    ...rest,
+    ...(analysisResult ? { analysisResult } : {}),
   } as ImageAsset;
 }
 
