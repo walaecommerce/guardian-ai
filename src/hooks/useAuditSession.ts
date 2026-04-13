@@ -1038,6 +1038,7 @@ export function useAuditSession() {
       const originalBase64 = await fileToBase64(asset.file);
 
       const { runFixOrchestration, buildFixReviewPayload } = await import('@/utils/fixOrchestrator');
+      const fixSessionImageId = assetSessionMap.get(assetId);
       const result = await runFixOrchestration(
         {
           asset,
@@ -1048,6 +1049,7 @@ export function useAuditSession() {
           customPrompt,
           previousGeneratedImage,
           productIdentity: (identityProfile?.identity || productIdentity) || undefined,
+          sessionImageId: fixSessionImageId,
         },
         {
           onProgress: setFixProgress,
