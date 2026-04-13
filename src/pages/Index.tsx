@@ -19,6 +19,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { AICreditsExhaustedBanner } from '@/components/AICreditsExhaustedBanner';
 import { ListingContextPanel } from '@/components/ListingContextPanel';
+import { deriveProductKnowledge } from '@/utils/productKnowledge';
 
 function InlineActivityLog({ logs, onClear }: { logs: LogEntry[]; onClear: () => void }) {
   const [open, setOpen] = useState(false);
@@ -74,6 +75,7 @@ function InlineActivityLog({ logs, onClear }: { logs: LogEntry[]; onClear: () =>
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const session = useAuditSession();
+  const productKnowledge = useMemo(() => deriveProductKnowledge(session.listingContext), [session.listingContext]);
   const [drawerAsset, setDrawerAsset] = useState<ImageAsset | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { toast } = useToast();
@@ -253,6 +255,7 @@ const Index = () => {
             aiCreditsExhausted={session.aiCreditsExhausted}
             productIdentity={session.productIdentity}
             identityProfile={session.identityProfile}
+            productKnowledge={productKnowledge}
           />
         )}
 
@@ -308,6 +311,7 @@ const Index = () => {
           session.setSelectedAsset(asset);
           session.setShowFixModal(true);
         }}
+        productKnowledge={productKnowledge}
       />
 
       {/* Full details modal */}
@@ -318,6 +322,7 @@ const Index = () => {
         onRetryFix={(id, prevImage, customPrompt) => session.handleRequestFix(id, prevImage, customPrompt)}
         onDownload={session.handleDownload}
         fixProgress={session.fixProgress || undefined}
+        productKnowledge={productKnowledge}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
-import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Scissors, AlertOctagon, Sparkles, Shield, ShieldCheck, ShieldAlert, ShieldX, Activity, ExternalLink, Eye, Cpu, Tag, Link2 } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Wand2, Loader2, RotateCcw, ChevronDown, ChevronUp, Layers, RefreshCw, Scissors, AlertOctagon, Sparkles, Shield, ShieldCheck, ShieldAlert, ShieldX, Activity, ExternalLink, Eye, Cpu, Tag, Link2, Brain } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,8 @@ import {
   type FindingGroup,
 } from '@/utils/evidenceHelpers';
 import { getPolicySummary, type PolicySummary } from '@/utils/policySummary';
+import type { ProductKnowledge } from '@/utils/productKnowledge';
+import { KnowledgeInfluenceNote } from '@/components/KnowledgeInfluenceNote';
 
 const getFixMethodConfig = (method: FixMethod) => {
   switch (method) {
@@ -56,6 +58,7 @@ interface AnalysisResultsProps {
   competitorData?: CompetitorData | null;
   getMatchingPolicyUpdate?: (message: string, category: string) => PolicyUpdate | null;
   aiCreditsExhausted?: boolean;
+  productKnowledge?: ProductKnowledge | null;
 }
 
 // ── Score Gauge with animated counter + circular ring ──
@@ -588,6 +591,7 @@ export function AnalysisResults({
   competitorData,
   getMatchingPolicyUpdate,
   aiCreditsExhausted,
+  productKnowledge,
 }: AnalysisResultsProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult || a.isAnalyzing);
   const failedAssets = assets.filter(a => a.analysisError && !a.analysisResult && !a.isAnalyzing);
@@ -688,6 +692,10 @@ export function AnalysisResults({
             const summary = getPolicySummary('main', catKey);
             return <PolicyContextBanner summary={summary} />;
           })()}
+          {/* Product knowledge influence note */}
+          {productKnowledge && productKnowledge.isActionable && (
+            <KnowledgeInfluenceNote pk={productKnowledge} />
+          )}
           <div className="flex items-center justify-between">
             <div className="flex gap-6">
               <div className="text-center">

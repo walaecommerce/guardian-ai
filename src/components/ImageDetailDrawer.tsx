@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ImageAsset, FixMethod } from '@/types';
+import type { ProductKnowledge } from '@/utils/productKnowledge';
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
 import { 
   CheckCircle, XCircle, AlertTriangle, Wand2, Download, 
@@ -39,10 +40,11 @@ interface ImageDetailDrawerProps {
   onReverify: (assetId: string) => void;
   onDownload: (url: string, filename: string) => void;
   onViewFullDetails: (asset: ImageAsset) => void;
+  productKnowledge?: ProductKnowledge | null;
 }
 
 export function ImageDetailDrawer({
-  asset, isOpen, onClose, onRequestFix, onReverify, onDownload, onViewFullDetails,
+  asset, isOpen, onClose, onRequestFix, onReverify, onDownload, onViewFullDetails, productKnowledge,
 }: ImageDetailDrawerProps) {
   if (!asset) return null;
 
@@ -164,6 +166,19 @@ export function ImageDetailDrawer({
                 </div>
               );
             })()}
+
+            {/* Product knowledge influence */}
+            {productKnowledge && productKnowledge.isActionable && (
+              <div className="flex items-start gap-1.5 px-2 py-1.5 rounded-md bg-primary/5 border border-primary/20 text-[11px] text-muted-foreground">
+                <span className="w-3 h-3 text-primary shrink-0 mt-0.5">🧠</span>
+                <span>
+                  Audit guided by listing context
+                  {productKnowledge.brand && <> — brand "{productKnowledge.brand}" text treated as legitimate</>}
+                  {productKnowledge.supportedClaims.length > 0 && <>, {productKnowledge.supportedClaims.length} claims recognized</>}
+                  .
+                </span>
+              </div>
+            )}
 
             <Separator />
 
