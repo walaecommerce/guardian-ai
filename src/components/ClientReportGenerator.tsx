@@ -4,6 +4,9 @@ import { CATEGORY_RULES, GEMINI_CATEGORY_MAP, type ProductCategory } from '@/con
 import { SuggestionsData } from '@/components/recommendations/types';
 import { ScorecardData } from '@/components/ListingScoreCard';
 import { AIComparisonResult } from '@/components/CompetitorAudit';
+import { isManualReviewAsset } from '@/components/ManualReviewLane';
+import { formatContentType } from '@/utils/sessionResume';
+import { extractImageCategory } from '@/utils/imageCategory';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,12 +61,14 @@ export function ClientReportGenerator({
 
   const toggleSection = (s: Section) => setSections(prev => ({ ...prev, [s]: !prev[s] }));
 
+  const unresolvedAssets = analyzedAssets.filter(isManualReviewAsset);
   const scores = analyzedAssets.map(a => a.analysisResult!.overallScore);
   const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   const passed = analyzedAssets.filter(a => a.analysisResult!.status === 'PASS').length;
-  const failed = analyzedAssets.length - passed;
+  const fixedCount = analyzedAssets.filter(a => a.fixedImage).length;
+  const failed = analyzedAssets.length - passed - unresolvedAssets.filter(a => a.analysisResult!.status !== 'PASS').length;
   const allViolations = analyzedAssets.flatMap(a => a.analysisResult!.violations || []);
-  const status = failed === 0 ? 'PASS' : 'FAIL';
+  const status = (failed === 0 && unresolvedAssets.length === 0) ? 'PASS' : 'FAIL';
 
   const generateReport = () => {
     const theme = THEME_COLORS[colorTheme];
@@ -142,6 +147,10 @@ export function ClientReportGenerator({
       <div class="metric-value" style="color:${allViolations.length ? '#ef4444' : '#22c55e'}">${allViolations.length}</div>
       <div class="metric-label">Issues Found</div>
     </div>
+    ${unresolvedAssets.length > 0 ? `<div class="metric-card">
+      <div class="metric-value" style="color:#f59e0b">${unresolvedAssets.length}</div>
+      <div class="metric-label">Needs Review</div>
+    </div>` : ''}
   </div>
   ${dimRows ? `
   <h3 style="font-size:14px;font-weight:600;color:${theme.accent};margin:28px 0 12px">Score Dimensions</h3>
@@ -196,6 +205,72 @@ export function ClientReportGenerator({
 <div class="page">
   <div class="section-header" style="border-left-color:${theme.primary}">
     <h2 style="font-size:20px;font-weight:700;color:${theme.accent}">Image-by-Image Analysis</h2>
+  </div>
+  ${rows}
+  <div class="watermark">${brandName}</div>
+</div>`;
+    };
+
+    const unresolvedLabel = (state?: string) => {
+      switch (state) {
+        case 'manual_review': return 'Manual Review Required';
+        case 'warn_only': return 'Warning — Better Source Needed';
+        case 'retry_stopped': return 'Retry Stopped — Preservation Failure';
+        case 'auto_fix_failed': return 'Auto-fix Failed After Attempts';
+        case 'skipped': return 'Skipped — Safety Rules';
+        default: return 'Needs Review';
+      }
+    };
+
+    const unresolvedColor = (state?: string) => {
+      switch (state) {
+        case 'retry_stopped': case 'auto_fix_failed': return '#ef4444';
+        case 'manual_review': return '#f59e0b';
+        case 'warn_only': return '#eab308';
+        default: return '#6b7280';
+      }
+    };
+
+    const buildUnresolved = () => {
+      if (unresolvedAssets.length === 0) return '';
+      const rows = unresolvedAssets.map(asset => {
+        const contentType = formatContentType(extractImageCategory(asset));
+        const state = asset.unresolvedState;
+        const reason = asset.batchSkipReason || asset.fixStopReason || '';
+        const attempts = asset.fixAttempts?.length || 0;
+        const lastStrategy = asset.lastFixStrategy;
+        const stateLabel = unresolvedLabel(state);
+        const color = unresolvedColor(state);
+
+        return `<div style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #f3f4f6;page-break-inside:avoid">
+          <div style="flex-shrink:0">
+            <img src="${asset.preview}" style="width:80px;height:80px;object-fit:contain;border:1px solid #e5e7eb;border-radius:6px" />
+            <div style="text-align:center;margin-top:4px">
+              <span style="font-size:10px;background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:3px;font-weight:600">${asset.type}</span>
+            </div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span style="font-size:13px;font-weight:600;color:#111827">${asset.name}</span>
+              ${contentType ? `<span style="font-size:10px;padding:2px 8px;border-radius:3px;background:#f3f4f6;color:#6b7280">${contentType}</span>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              <span style="font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;color:#fff;background:${color}">${stateLabel}</span>
+            </div>
+            ${reason ? `<div style="font-size:11px;color:#6b7280;margin-bottom:4px">Reason: ${reason}</div>` : ''}
+            ${attempts > 0 ? `<div style="font-size:10px;color:#9ca3af">${attempts} fix attempt${attempts !== 1 ? 's' : ''} tried${lastStrategy ? ` · Last strategy: ${lastStrategy}` : ''}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      return `
+<div class="page">
+  <div class="section-header" style="border-left-color:#f59e0b">
+    <h2 style="font-size:20px;font-weight:700;color:${theme.accent}">Items Requiring Review</h2>
+  </div>
+  <div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin-bottom:20px;font-size:12px;color:#92400e;line-height:1.5">
+    ${unresolvedAssets.length} image${unresolvedAssets.length !== 1 ? 's' : ''} could not be automatically fixed and require manual attention.
+    These are not generic failures — each has a specific reason why automated correction was not safe or possible.
   </div>
   ${rows}
   <div class="watermark">${brandName}</div>
@@ -307,13 +382,27 @@ export function ClientReportGenerator({
         health_score: healthScore,
         status,
         total_images: analyzedAssets.length,
-        passed, failed,
+        passed, failed, fixed: fixedCount,
+        unresolved: unresolvedAssets.length,
+        unresolved_summary: unresolvedAssets.length > 0 ? {
+          manual_review: unresolvedAssets.filter(a => a.unresolvedState === 'manual_review').length || undefined,
+          warn_only: unresolvedAssets.filter(a => a.unresolvedState === 'warn_only').length || undefined,
+          retry_stopped: unresolvedAssets.filter(a => a.unresolvedState === 'retry_stopped').length || undefined,
+          auto_fix_failed: unresolvedAssets.filter(a => a.unresolvedState === 'auto_fix_failed').length || undefined,
+          skipped: unresolvedAssets.filter(a => a.unresolvedState === 'skipped').length || undefined,
+        } : undefined,
         scorecard: scorecardData || null,
         assets: analyzedAssets.map(a => ({
           name: a.name, type: a.type,
           score: a.analysisResult!.overallScore,
           status: a.analysisResult!.status,
           violations: a.analysisResult!.violations,
+          ...(a.unresolvedState ? {
+            unresolved_state: unresolvedLabel(a.unresolvedState),
+            unresolved_reason: a.batchSkipReason || a.fixStopReason || undefined,
+            fix_attempts_count: a.fixAttempts?.length || undefined,
+            last_fix_strategy: a.lastFixStrategy || undefined,
+          } : {}),
         })),
       }, null, 2);
 
@@ -365,6 +454,7 @@ export function ClientReportGenerator({
     const pages = [buildCover()];
     if (sections.executive) pages.push(buildExecutive());
     if (sections.images) pages.push(buildImages());
+    if (unresolvedAssets.length > 0) pages.push(buildUnresolved());
     if (sections.recommendations) pages.push(buildRecommendations());
     if (sections.competitor && competitorData) pages.push(buildCompetitor());
     if (sections.appendix) pages.push(buildAppendix());
@@ -521,6 +611,7 @@ ${pages.join('\n')}
             <div>📄 Cover — {agencyName || 'Guardian AI'} branding, PASS/FAIL badge</div>
             {sections.executive && <div>📊 Executive Summary — Health score, 6 dimensions</div>}
             {sections.images && <div>🖼️ Image Analysis — {analyzedAssets.length} images with violations</div>}
+            {unresolvedAssets.length > 0 && <div>⚠️ Items Requiring Review — {unresolvedAssets.length} unresolved images</div>}
             {sections.recommendations && <div>💡 Recommendations — Missing types, quick wins, title fixes</div>}
             {sections.competitor && competitorData && <div>⚔️ Competitor Analysis — Side-by-side comparison</div>}
             {sections.appendix && <div>📋 Appendix — Full JSON data & methodology</div>}
