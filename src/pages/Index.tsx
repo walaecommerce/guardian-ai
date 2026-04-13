@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { AICreditsExhaustedBanner } from '@/components/AICreditsExhaustedBanner';
 import { ListingContextPanel } from '@/components/ListingContextPanel';
 import { deriveProductKnowledge } from '@/utils/productKnowledge';
+import { deriveCampaignStrategy } from '@/utils/campaignStrategy';
 
 function InlineActivityLog({ logs, onClear }: { logs: LogEntry[]; onClear: () => void }) {
   const [open, setOpen] = useState(false);
@@ -76,6 +77,7 @@ const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const session = useAuditSession();
   const productKnowledge = useMemo(() => deriveProductKnowledge(session.listingContext), [session.listingContext]);
+  const campaignStrategy = useMemo(() => deriveCampaignStrategy(productKnowledge, session.assets), [productKnowledge, session.assets]);
   const [drawerAsset, setDrawerAsset] = useState<ImageAsset | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { toast } = useToast();
@@ -256,6 +258,7 @@ const Index = () => {
             productIdentity={session.productIdentity}
             identityProfile={session.identityProfile}
             productKnowledge={productKnowledge}
+            campaignStrategy={campaignStrategy}
           />
         )}
 
