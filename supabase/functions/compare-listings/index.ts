@@ -37,7 +37,7 @@ serve(async (req) => {
       console.warn('[compare-listings] Credit pre-check failed, proceeding:', creditErr);
     }
 
-    const { yourAnalysis, competitorAnalysis, yourTitle, competitorTitle } = await req.json();
+    const { yourAnalysis, competitorAnalysis, yourTitle, competitorTitle, sessionId, competitorKey } = await req.json();
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
@@ -198,8 +198,8 @@ Return ONLY this JSON structure:
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         console.log("[compare-listings] Parsed from content fallback");
-        // Debit credit on success
-        const idemKey = `compare:${userId}:${Date.now()}`;
+        // Debit credit on success — stable idempotency key
+        const idemKey = sessionId && competitorKey ? `compare:${sessionId}:${competitorKey}` : `compare:${userId}:${(yourTitle || '').substring(0, 30)}:${(competitorTitle || '').substring(0, 30)}`;
         try { await useCredit(admin, userId, 'analyze', 'compare-listings', idemKey); } catch (e: any) { console.warn('[compare-listings] Post-success debit failed:', e?.message); }
         return new Response(JSON.stringify(parsed), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -214,8 +214,8 @@ Return ONLY this JSON structure:
 
     console.log("[compare-listings] Success:", result.score_comparison?.winner);
 
-    // Debit credit on success
-    const idemKey = `compare:${userId}:${Date.now()}`;
+    // Debit credit on success — stable idempotency key
+    const idemKey = sessionId && competitorKey ? `compare:${sessionId}:${competitorKey}` : `compare:${userId}:${(yourTitle || '').substring(0, 30)}:${(competitorTitle || '').substring(0, 30)}`;
     try { await useCredit(admin, userId, 'analyze', 'compare-listings', idemKey); } catch (e: any) { console.warn('[compare-listings] Post-success debit failed:', e?.message); }
 
     return new Response(JSON.stringify(result), {

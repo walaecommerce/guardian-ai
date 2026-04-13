@@ -533,6 +533,7 @@ export function useAuditSession() {
         console.error('Deterministic audit error (non-fatal):', detErr);
       }
 
+      const sessionImageId = assetSessionMap.get(asset.id);
       const { data, error } = await supabase.functions.invoke('analyze-image', {
         body: {
           imageBase64: base64,
@@ -540,6 +541,7 @@ export function useAuditSession() {
           listingTitle,
           forcedCategory: selectedCategory !== 'AUTO' ? selectedCategory : undefined,
           deterministicFindings,
+          sessionImageId,
         }
       });
 
@@ -1036,6 +1038,7 @@ export function useAuditSession() {
       const originalBase64 = await fileToBase64(asset.file);
 
       const { runFixOrchestration, buildFixReviewPayload } = await import('@/utils/fixOrchestrator');
+      const fixSessionImageId = assetSessionMap.get(assetId);
       const result = await runFixOrchestration(
         {
           asset,
@@ -1046,6 +1049,7 @@ export function useAuditSession() {
           customPrompt,
           previousGeneratedImage,
           productIdentity: (identityProfile?.identity || productIdentity) || undefined,
+          sessionImageId: fixSessionImageId,
         },
         {
           onProgress: setFixProgress,
@@ -1374,6 +1378,7 @@ export function useAuditSession() {
       }
 
       // Step 2: Generate enhancement
+      const enhanceSessionImageId = assetSessionMap.get(assetId);
       const { data: enhanceData, error: enhanceError } = await supabase.functions.invoke('generate-enhancement', {
         body: {
           originalImage: base64,
@@ -1383,6 +1388,7 @@ export function useAuditSession() {
           enhancementType: opportunities[0]?.type || 'general',
           targetImprovements: opportunities.map((o: any) => o.description),
           preserveElements: ['product', 'brand-text', 'key-features'],
+          sessionImageId: enhanceSessionImageId,
         },
       });
 
@@ -1494,6 +1500,7 @@ export function useAuditSession() {
         addLog('processing', `   🎨 Generating enhanced version (${opportunities.length} improvements)...`);
 
         // Step 2: Generate enhancement
+        const batchSessionImageId = assetSessionMap.get(asset.id);
         const { data: enhanceData, error: enhanceError } = await supabase.functions.invoke('generate-enhancement', {
           body: {
             originalImage: base64,
@@ -1503,6 +1510,7 @@ export function useAuditSession() {
             enhancementType: opportunities[0]?.type || 'general',
             targetImprovements: opportunities.map((o: any) => o.description),
             preserveElements: ['product', 'brand-text', 'key-features'],
+            sessionImageId: batchSessionImageId,
           },
         });
 
@@ -1574,6 +1582,7 @@ export function useAuditSession() {
   };
 
   const triggerAIComparison = async (compData: CompetitorData) => {
+    if (!creditGate('analyze')) return;
     setIsLoadingAIComparison(true);
     setAiComparison(null);
     addLog('processing', '🧠 Running AI competitive intelligence analysis...');
@@ -1603,8 +1612,10 @@ export function useAuditSession() {
         })),
       };
 
+      // Use stable idempotency: sessionId + competitor ASIN (or title hash)
+      const compKey = compData.asin || compData.title.replace(/\s+/g, '-').substring(0, 40);
       const { data, error } = await supabase.functions.invoke('compare-listings', {
-        body: { yourAnalysis, competitorAnalysis, yourTitle: listingTitle, competitorTitle: compData.title },
+        body: { yourAnalysis, competitorAnalysis, yourTitle: listingTitle, competitorTitle: compData.title, sessionId: currentSessionId, competitorKey: compKey },
       });
 
       if (error) throw error;
