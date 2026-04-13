@@ -193,3 +193,56 @@ describe('getSourceTierLabel', () => {
     expect(getSourceTierLabel(undefined)).toBe('Official');
   });
 });
+
+describe('knowledge tag metadata', () => {
+  it('extracts knowledge_tag and knowledge_detail from violation', () => {
+    const v = makeViolation({
+      knowledge_tag: 'supported_by_listing_context',
+      knowledge_detail: 'Brand text matched listing context.',
+    });
+    const ev = extractEvidence(v, new Set());
+    expect(ev.knowledgeTag).toBe('supported_by_listing_context');
+    expect(ev.knowledgeDetail).toBe('Brand text matched listing context.');
+  });
+
+  it('returns null knowledge fields when not present', () => {
+    const v = makeViolation({});
+    const ev = extractEvidence(v, new Set());
+    expect(ev.knowledgeTag).toBeNull();
+    expect(ev.knowledgeDetail).toBeNull();
+  });
+
+  it('returns null for knowledge_not_used tag', () => {
+    const v = makeViolation({ knowledge_tag: 'knowledge_not_used' });
+    const ev = extractEvidence(v, new Set());
+    expect(ev.knowledgeTag).toBe('knowledge_not_used');
+    expect(getKnowledgeTagConfig(ev.knowledgeTag)).toBeNull();
+  });
+});
+
+describe('getKnowledgeTagConfig', () => {
+  it('returns config for supported_by_listing_context', () => {
+    const cfg = getKnowledgeTagConfig('supported_by_listing_context');
+    expect(cfg).not.toBeNull();
+    expect(cfg!.label).toBe('Supported by listing');
+  });
+
+  it('returns config for claim_unverified', () => {
+    const cfg = getKnowledgeTagConfig('claim_unverified');
+    expect(cfg).not.toBeNull();
+    expect(cfg!.label).toBe('Claim unverified');
+  });
+
+  it('returns config for suspicious_promotional_overlay', () => {
+    const cfg = getKnowledgeTagConfig('suspicious_promotional_overlay');
+    expect(cfg!.label).toBe('Suspicious overlay');
+  });
+
+  it('returns null for null tag', () => {
+    expect(getKnowledgeTagConfig(null)).toBeNull();
+  });
+
+  it('returns null for knowledge_not_used', () => {
+    expect(getKnowledgeTagConfig('knowledge_not_used')).toBeNull();
+  });
+});
