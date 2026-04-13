@@ -1530,6 +1530,7 @@ export function useAuditSession() {
             targetImprovements: opportunities.map((o: any) => o.description),
             preserveElements: ['product', 'brand-text', 'key-features'],
             sessionImageId: batchSessionImageId,
+            listingContext: listingContext ? { title: listingContext.title, brand: listingContext.brand, bullets: listingContext.bullets, claims: listingContext.claims } : undefined,
           },
         });
 
