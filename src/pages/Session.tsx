@@ -642,7 +642,8 @@ const Session = () => {
   };
 
   const passedCount = assets.filter(a => a.analysisResult?.status === 'PASS').length;
-  const failedCount = assets.filter(a => a.analysisResult?.status === 'FAIL').length;
+  const manualReviewAssets = assets.filter(isManualReviewAsset);
+  const failedCount = assets.filter(a => a.analysisResult?.status === 'FAIL' && !manualReviewAssets.some(m => m.id === a.id)).length;
   const fixedCount = assets.filter(a => a.fixedImage).length;
 
   // Loading state
