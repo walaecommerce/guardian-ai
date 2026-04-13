@@ -29,6 +29,7 @@ import { logEvent } from '@/services/eventLog';
 import { saveAuditToHistory } from '@/components/ComplianceHistory';
 import { MaxImagesOption } from '@/components/ImageUploader';
 import { CompetitorData, buildComparisonReport, AIComparisonResult } from '@/components/CompetitorAudit';
+import { computeUnresolvedCounts } from '@/utils/sessionHelpers';
 
 type AssetSessionMap = Map<string, string>;
 
@@ -989,6 +990,10 @@ export function useAuditSession() {
           status: 'skipped',
           fix_attempts: { skipped: true, skipReason: fixability.reason, fixabilityTier: fixability.tier, unresolvedState } as any,
         }).eq('id', sessionImageId).then(() => {});
+        // Update session-level unresolved counts
+        const updatedAssets = assets.map(a => a.id === assetId ? { ...a, unresolvedState, batchFixStatus: 'skipped' as const } : a);
+        const counts = computeUnresolvedCounts(updatedAssets);
+        supabase.from('enhancement_sessions').update(counts).eq('id', currentSessionId).then(() => {});
       }
 
       toast({ 
@@ -1078,7 +1083,8 @@ export function useAuditSession() {
               fix_attempts: fixReviewData as any,
             }).eq('id', sessionImageId);
             await supabase.from('enhancement_sessions').update({ 
-              fixed_count: assets.filter(a => a.fixedImage || a.id === assetId).length
+              fixed_count: assets.filter(a => a.fixedImage || a.id === assetId).length,
+              ...computeUnresolvedCounts(assets),
             }).eq('id', currentSessionId);
           }
         }
@@ -1112,6 +1118,10 @@ export function useAuditSession() {
             status: 'failed',
             fix_attempts: fixReviewData as any,
           }).eq('id', sessionImageId);
+          // Update session-level unresolved counts
+          const updatedAssets = assets.map(a => a.id === assetId ? { ...a, unresolvedState } : a);
+          const counts = computeUnresolvedCounts(updatedAssets);
+          await supabase.from('enhancement_sessions').update(counts).eq('id', currentSessionId);
         }
 
         addLog('warning', `⚠️ ${asset.name}: ${stopR || 'No acceptable fix produced after all attempts'}`);
@@ -1222,6 +1232,19 @@ export function useAuditSession() {
           }).eq('id', sessionImageId).then(() => {});
         }
       }
+      // Persist aggregate unresolved counts to session
+      if (currentSessionId) {
+        const updatedAssets = assets.map(a => {
+          const skipEntry = skipped.find(s => s.asset.id === a.id);
+          if (skipEntry) {
+            const c = classifyAssetFixability(a);
+            return { ...a, unresolvedState: (c.tier === 'warn_only' ? 'warn_only' : 'manual_review') as ImageAsset['unresolvedState'], batchFixStatus: 'skipped' as const };
+          }
+          return a;
+        });
+        const counts = computeUnresolvedCounts(updatedAssets);
+        supabase.from('enhancement_sessions').update(counts).eq('id', currentSessionId).then(() => {});
+      }
     }
 
     if (failedAssets.length === 0) {
@@ -1277,7 +1300,8 @@ export function useAuditSession() {
     }
     
     if (currentSessionId) {
-      await supabase.from('enhancement_sessions').update({ status: 'completed' }).eq('id', currentSessionId);
+      const counts = computeUnresolvedCounts(assets);
+      await supabase.from('enhancement_sessions').update({ status: 'completed', ...counts }).eq('id', currentSessionId);
     }
     
     setIsBatchFixing(false);

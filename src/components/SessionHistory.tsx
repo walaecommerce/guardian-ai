@@ -50,6 +50,8 @@ interface EnhancementSession {
   passed_count: number;
   failed_count: number;
   fixed_count: number;
+  skipped_count: number;
+  unresolved_count: number;
   average_score: number | null;
   status: string;
   created_at: string;
@@ -234,7 +236,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                 const thumbs = thumbnailCache.get(session.id) || [];
                 const heroThumb = thumbs.find(t => t.image_type === 'MAIN') || thumbs[0];
                 const supportThumbs = thumbs.filter(t => t !== heroThumb).slice(0, 3);
-                const step = inferCurrentStep(session);
+                const step = inferCurrentStep({ ...session, skipped_count: session.skipped_count || 0 });
 
                 return (
                   <div
@@ -321,8 +323,11 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                           {session.passed_count > 0 && (
                             <span className="text-success">✓{session.passed_count}</span>
                           )}
-                          {session.failed_count > 0 && (
-                            <span className="text-destructive">✗{session.failed_count}</span>
+                          {(session.failed_count - (session.unresolved_count || 0)) > 0 && (
+                            <span className="text-destructive">✗{session.failed_count - (session.unresolved_count || 0)}</span>
+                          )}
+                          {(session.unresolved_count || 0) > 0 && (
+                            <span className="text-warning">⚠{session.unresolved_count}</span>
                           )}
                           {session.fixed_count > 0 && (
                             <span className="text-primary">⚡{session.fixed_count}</span>
@@ -397,7 +402,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
           {selectedSession && (
             <div className="flex-1 overflow-auto space-y-4">
               {/* Stats row */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className={`grid grid-cols-2 ${(selectedSession.unresolved_count || 0) > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-3`}>
                 <div className="p-3 rounded-lg bg-muted/50 text-center">
                   <p className="text-2xl font-bold tabular-nums text-foreground">{selectedSession.total_images}</p>
                   <p className="text-xs text-muted-foreground">Images</p>
@@ -413,9 +418,15 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                   <p className="text-xs text-muted-foreground">Passed</p>
                 </div>
                 <div className="p-3 rounded-lg bg-muted/50 text-center">
-                  <p className="text-2xl font-bold tabular-nums text-destructive">{selectedSession.failed_count}</p>
+                  <p className="text-2xl font-bold tabular-nums text-destructive">{selectedSession.failed_count - (selectedSession.unresolved_count || 0)}</p>
                   <p className="text-xs text-muted-foreground">Failed</p>
                 </div>
+                {(selectedSession.unresolved_count || 0) > 0 && (
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-2xl font-bold tabular-nums text-warning">{selectedSession.unresolved_count}</p>
+                    <p className="text-xs text-muted-foreground">Review</p>
+                  </div>
+                )}
               </div>
 
               {selectedSession.amazon_url && (

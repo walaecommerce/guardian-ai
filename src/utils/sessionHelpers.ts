@@ -2,6 +2,27 @@
  * Helpers for session status labels and workflow state.
  */
 
+import { ImageAsset } from '@/types';
+
+/** Compute unresolved/skipped counts from current assets for session persistence */
+export function computeUnresolvedCounts(currentAssets: ImageAsset[]): { skipped_count: number; unresolved_count: number } {
+  let skipped = 0;
+  let unresolved = 0;
+  for (const a of currentAssets) {
+    if (a.unresolvedState) {
+      unresolved++;
+      if (a.batchFixStatus === 'skipped') skipped++;
+    } else if (a.fixabilityTier === 'manual_review' || a.fixabilityTier === 'warn_only') {
+      unresolved++;
+      skipped++;
+    } else if (a.batchFixStatus === 'skipped') {
+      skipped++;
+      unresolved++;
+    }
+  }
+  return { skipped_count: skipped, unresolved_count: unresolved };
+}
+
 /** Returns a human-readable label for session status */
 export function humanizeSessionStatus(status: string): string {
   switch (status) {
