@@ -113,4 +113,19 @@ describe('buildGenerationBrief', () => {
     const brief = buildGenerationBrief(mockRec, mockPk, longCtx);
     expect(brief.productName.length).toBeLessThanOrEqual(82); // 80 + '…'
   });
+
+  it('includes sourceSessionId when provided', () => {
+    const brief = buildGenerationBrief(mockRec, mockPk, mockCtx, 'session-abc');
+    expect(brief.sourceSessionId).toBe('session-abc');
+  });
+
+  it('omits sourceSessionId when not provided', () => {
+    const brief = buildGenerationBrief(mockRec, mockPk, mockCtx);
+    expect(brief.sourceSessionId).toBeUndefined();
+  });
+
+  it('omits sourceSessionId when null', () => {
+    const brief = buildGenerationBrief(mockRec, mockPk, mockCtx, null);
+    expect(brief.sourceSessionId).toBeUndefined();
+  });
 });

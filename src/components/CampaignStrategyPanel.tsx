@@ -15,6 +15,7 @@ interface CampaignStrategyPanelProps {
   strategy: CampaignStrategy;
   productKnowledge?: ProductKnowledge | null;
   listingContext?: ListingContext | null;
+  sessionId?: string | null;
 }
 
 function PriorityBadge({ priority }: { priority: string }) {
@@ -98,7 +99,7 @@ function RecommendationItem({
   );
 }
 
-export function CampaignStrategyPanel({ strategy, productKnowledge, listingContext }: CampaignStrategyPanelProps) {
+export function CampaignStrategyPanel({ strategy, productKnowledge, listingContext, sessionId }: CampaignStrategyPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -109,7 +110,7 @@ export function CampaignStrategyPanel({ strategy, productKnowledge, listingConte
   const coveragePercent = totalRoles > 0 ? Math.round((strategy.coveredCount / totalRoles) * 100) : 0;
 
   const handleGenerate = (rec: StrategyRecommendation) => {
-    const brief = buildGenerationBrief(rec, productKnowledge, listingContext);
+    const brief = buildGenerationBrief(rec, productKnowledge, listingContext, sessionId);
     toast({
       title: `Generating: ${rec.label}`,
       description: 'Opening Studio with a prefilled brief…',

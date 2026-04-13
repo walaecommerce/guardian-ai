@@ -260,6 +260,7 @@ const Index = () => {
             productKnowledge={productKnowledge}
             campaignStrategy={campaignStrategy}
             listingContext={session.listingContext}
+            sessionId={session.currentSessionId}
           />
         )}
 

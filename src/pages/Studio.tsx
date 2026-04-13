@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   Loader2, Sparkles, Download, Send, RotateCcw, Check, X,
   Image as ImageIcon, Camera, LayoutGrid, Ruler, FlaskConical,
-  Grid2X2, Columns2, Package, ChevronDown, ChevronUp, Wand2, ArrowRight, Target,
+  Grid2X2, Columns2, Package, ChevronDown, ChevronUp, Wand2, ArrowRight, Target, ArrowLeft, Plus,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,6 +74,8 @@ const Studio = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
   const [strategySource, setStrategySource] = useState<{ targetRole: string; recommendationLabel: string; priority: string } | null>(null);
+  const [sourceSessionId, setSourceSessionId] = useState<string | null>(null);
+  const [addingToSession, setAddingToSession] = useState<string | null>(null); // tracks img.id being added
 
   const [category, setCategory] = useState('GENERAL');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -92,6 +94,7 @@ const Studio = () => {
       setSelectedClaims(brief.claims || []);
       setCategory(brief.category || 'GENERAL');
       if (brief.strategySource) setStrategySource(brief.strategySource);
+      if (brief.sourceSessionId) setSourceSessionId(brief.sourceSessionId);
       // Clear state so refreshing doesn't re-apply
       window.history.replaceState({}, document.title);
     }
@@ -305,6 +308,63 @@ const Studio = () => {
     a.click();
   };
 
+  // ── Add to originating session ─────────────────────────────
+  const handleAddToSession = async (img: GeneratedImage) => {
+    if (!user || !sourceSessionId) return;
+    setAddingToSession(img.id);
+    try {
+      // Upload image to session storage
+      const uploaded = await uploadImage(img.image, sourceSessionId, `${strategySource?.targetRole || img.template}_${Date.now()}`);
+      if (!uploaded) throw new Error('Image upload failed');
+
+      // Build image name with role prefix for category detection
+      const rolePrefix = (strategySource?.targetRole || img.template).toUpperCase();
+      const imageName = `${rolePrefix}_studio_${img.productName.replace(/\s+/g, '_').substring(0, 30)}`;
+
+      // Insert session_image record
+      await supabase.from('session_images').insert([{
+        session_id: sourceSessionId,
+        image_name: imageName,
+        image_type: img.template === 'hero' ? 'MAIN' : 'SECONDARY',
+        original_image_url: uploaded.url,
+        status: 'pending',
+        image_category: rolePrefix,
+      }]);
+
+      // Update session total_images count
+      const { data: sess } = await supabase
+        .from('enhancement_sessions')
+        .select('total_images')
+        .eq('id', sourceSessionId)
+        .maybeSingle();
+      if (sess) {
+        await supabase.from('enhancement_sessions')
+          .update({ total_images: (sess.total_images || 0) + 1 })
+          .eq('id', sourceSessionId);
+      }
+
+      logEvent('studio_image_added_to_session', {
+        sessionId: sourceSessionId,
+        targetRole: strategySource?.targetRole,
+        template: img.template,
+        productName: img.productName,
+      });
+
+      toast({
+        title: 'Added to audit session',
+        description: `${strategySource?.recommendationLabel || img.template} image added. Return to audit to see updated strategy.`,
+      });
+    } catch (e) {
+      toast({
+        title: 'Failed to add to session',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setAddingToSession(null);
+    }
+  };
+
   const scoreColor = (score: number) => {
     if (score >= 85) return 'bg-green-500/15 text-green-600 border-green-500/30';
     if (score >= 70) return 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30';
@@ -375,11 +435,22 @@ const Studio = () => {
                     Brief prefilled from Image Strategy · {strategySource.priority} priority
                   </p>
                 </div>
+                {sourceSessionId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] gap-1"
+                    onClick={() => navigate(`/audit?session=${sourceSessionId}`)}
+                  >
+                    <ArrowLeft className="w-3 h-3" />
+                    Back to Audit
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-6 text-[10px]"
-                  onClick={() => setStrategySource(null)}
+                  onClick={() => { setStrategySource(null); setSourceSessionId(null); }}
                 >
                   Dismiss
                 </Button>
@@ -690,6 +761,22 @@ const Studio = () => {
                         onClick={() => downloadImage(img)}
                       >
                         <Download className="w-3 h-3" /> Compliant — Download
+                      </Button>
+                    )}
+                    {/* Add to originating audit session */}
+                    {sourceSessionId && img.status === 'analyzed' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs h-7 gap-1 border-primary/30 text-primary hover:bg-primary/5"
+                        disabled={addingToSession === img.id}
+                        onClick={() => handleAddToSession(img)}
+                      >
+                        {addingToSession === img.id ? (
+                          <><Loader2 className="w-3 h-3 animate-spin" /> Adding…</>
+                        ) : (
+                          <><Plus className="w-3 h-3" /> Add to Audit Session</>
+                        )}
                       </Button>
                     )}
                   </CardContent>

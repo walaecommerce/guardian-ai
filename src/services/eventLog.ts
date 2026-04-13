@@ -13,6 +13,7 @@ export type AppEventType =
   | 'studio_generation_started'
   | 'studio_generation_completed'
   | 'studio_generation_failed'
+  | 'studio_image_added_to_session'
   | 'notification_sent'
   | 'notification_failed';
 
