@@ -172,8 +172,8 @@ export function CampaignStrategyPanel({ strategy, productKnowledge, listingConte
   useEffect(() => {
     const roles = getGeneratingRoles(sessionId);
     // Auto-clear roles that are now covered
-    const coveredRoles = new Set(
-      strategy.roleCoverage.filter(rc => rc.status === 'covered').map(rc => rc.role),
+    const coveredRoles = new Set<string>(
+      strategy.roleCoverage.filter(rc => rc.status === 'covered').map(rc => rc.role as string),
     );
     let cleaned = false;
     roles.forEach(role => {
