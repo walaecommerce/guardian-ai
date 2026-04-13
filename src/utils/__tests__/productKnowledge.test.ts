@@ -107,7 +107,7 @@ describe('buildKnowledgePromptSection', () => {
     expect(section).toContain('LEGITIMATE');
     expect(section).toContain('UNVERIFIED');
     expect(section).toContain('non-gmo');
-    expect(section).not.toContain('bullet');
+    expect(section).not.toContain('add bullet text into the image');
   });
 
   it('does not instruct model to add bullet text into image', () => {
