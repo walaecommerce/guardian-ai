@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   Loader2, Sparkles, Download, Send, RotateCcw, Check, X,
   Image as ImageIcon, Camera, LayoutGrid, Ruler, FlaskConical,
-  Grid2X2, Columns2, Package, ChevronDown, ChevronUp, Wand2, ArrowRight,
+  Grid2X2, Columns2, Package, ChevronDown, ChevronUp, Wand2, ArrowRight, Target,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
