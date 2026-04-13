@@ -41,7 +41,7 @@ export function FixStep({
   const fixedAssets = assets.filter(a => a.fixedImage);
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const allFixed = failedAssets.length === 0 && fixedAssets.length > 0;
-  const enhanceableCount = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
+  const enhanceableCount = assets.filter(a => a.type !== 'MAIN' && a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
   const hasNoResults = analyzedAssets.length === 0;
 
   // Build fix queue for visualization

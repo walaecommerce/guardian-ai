@@ -138,16 +138,39 @@ ${improvementsSection}${preserveSection}
 OUTPUT: Professional size chart with clear, accurate measurements.`,
   };
 
-  return categoryPrompts[category] || `Enhance this product image:
+  // Guard: MAIN/hero images should never be destructively enhanced
+  if (category === 'MAIN' || category === 'HERO') {
+    return `This is a MAIN/HERO product image. Do NOT add graphics, text overlays, infographic elements, or lifestyle context.
 
-GOAL: Improve overall quality and effectiveness.
+GOAL: Minor quality polish ONLY — subtle lighting, sharpness, color balance improvements.
+
+CRITICAL RULES:
+- MUST keep pure white background (RGB 255,255,255)
+- MUST NOT add any text, callouts, badges, or graphics
+- MUST NOT change product appearance, color, shape, or positioning
+- MUST NOT add lifestyle context or props
+- Product must remain the sole subject on white background
+${improvementsSection}${preserveSection}
+
+OUTPUT: Minimally polished hero product image on pure white background.`;
+  }
+
+  return `Enhance this product image with conservative quality improvements:
+
+GOAL: Improve image quality without changing content structure or adding new elements.
 
 ENHANCEMENT TYPE: ${enhancementType}
+
+CRITICAL RULES:
+- Do NOT add infographic elements, text overlays, or callout graphics
+- Do NOT change the image's fundamental composition or content type
+- Focus on: lighting, color accuracy, sharpness, contrast, product visibility
+- Preserve the existing style and layout
 ${improvementsSection}${preserveSection}
 
 MAIN PRODUCT REFERENCE: Ensure product consistency.
 
-OUTPUT: Enhanced, professional product image.`;
+OUTPUT: Quality-polished version of the original image, same style and composition.`;
 };
 
 serve(async (req) => {
