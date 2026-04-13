@@ -117,6 +117,7 @@ export function ReviewStep({
   const passedCount = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS').length;
   const failedCount = analyzedAssets.filter(a =>
     (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING')
+    && !a.fixedImage
     && !unresolvedAssets.some(u => u.id === a.id)
   ).length;
   const fixedCount = assets.filter(a => a.fixedImage).length;
