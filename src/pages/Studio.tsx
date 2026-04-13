@@ -363,6 +363,29 @@ const Studio = () => {
               </p>
             </div>
 
+            {/* Strategy recommendation banner */}
+            {strategySource && (
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                <Target className="w-4 h-4 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-foreground">
+                    Generating: {strategySource.recommendationLabel}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Brief prefilled from Image Strategy · {strategySource.priority} priority
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px]"
+                  onClick={() => setStrategySource(null)}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            )}
+
             <Card>
               <CardContent className="pt-5 space-y-4">
                 {/* Product Name */}
