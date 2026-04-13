@@ -611,6 +611,7 @@ ${pages.join('\n')}
             <div>📄 Cover — {agencyName || 'Guardian AI'} branding, PASS/FAIL badge</div>
             {sections.executive && <div>📊 Executive Summary — Health score, 6 dimensions</div>}
             {sections.images && <div>🖼️ Image Analysis — {analyzedAssets.length} images with violations</div>}
+            {unresolvedAssets.length > 0 && <div>⚠️ Items Requiring Review — {unresolvedAssets.length} unresolved images</div>}
             {sections.recommendations && <div>💡 Recommendations — Missing types, quick wins, title fixes</div>}
             {sections.competitor && competitorData && <div>⚔️ Competitor Analysis — Side-by-side comparison</div>}
             {sections.appendix && <div>📋 Appendix — Full JSON data & methodology</div>}
