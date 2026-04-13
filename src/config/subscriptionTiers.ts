@@ -12,6 +12,7 @@ export interface SubscriptionTier {
     scrape: number;
     analyze: number;
     fix: number;
+    enhance: number;
   };
   features: string[];
 }
@@ -26,11 +27,12 @@ export const TIERS: SubscriptionTier[] = [
     priceId: null,
     productId: null,
     highlight: false,
-    credits: { scrape: 5, analyze: 10, fix: 2 },
+    credits: { scrape: 5, analyze: 10, fix: 2, enhance: 2 },
     features: [
       '5 scrape credits / month',
       '10 analyze credits / month',
       '2 fix credits / month',
+      '2 enhance credits / month',
       'Single image audit',
       'Basic compliance checks',
     ],
@@ -44,11 +46,12 @@ export const TIERS: SubscriptionTier[] = [
     priceId: 'price_1TJA0gK7EbmlgD7cWaWYpBIw',
     productId: 'prod_UHjTdlsO5RUwtK',
     highlight: false,
-    credits: { scrape: 50, analyze: 100, fix: 20 },
+    credits: { scrape: 50, analyze: 100, fix: 20, enhance: 20 },
     features: [
       '50 scrape credits / month',
       '100 analyze credits / month',
       '20 fix credits / month',
+      '20 enhance credits / month',
       'Campaign batch audit',
       'Export PDF reports',
       'Email support',
@@ -64,11 +67,12 @@ export const TIERS: SubscriptionTier[] = [
     productId: 'prod_UHjUUnk2kWv6VF',
     highlight: true,
     badge: 'Most Popular',
-    credits: { scrape: 200, analyze: 500, fix: 100 },
+    credits: { scrape: 200, analyze: 500, fix: 100, enhance: 100 },
     features: [
       '200 scrape credits / month',
       '500 analyze credits / month',
       '100 fix credits / month',
+      '100 enhance credits / month',
       'AI Studio image generation',
       'Policy change alerts',
       'Priority support',
@@ -83,11 +87,12 @@ export const TIERS: SubscriptionTier[] = [
     priceId: 'price_1TJA1bK7EbmlgD7cfbHfM2A3',
     productId: 'prod_UHjUHD5BsRtLHe',
     highlight: false,
-    credits: { scrape: 1000, analyze: 2500, fix: 500 },
+    credits: { scrape: 1000, analyze: 2500, fix: 500, enhance: 500 },
     features: [
       '1,000 scrape credits / month',
       '2,500 analyze credits / month',
       '500 fix credits / month',
+      '500 enhance credits / month',
       'Everything in Pro',
       'Client report branding',
       'Dedicated support',

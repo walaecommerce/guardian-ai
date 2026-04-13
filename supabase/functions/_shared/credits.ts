@@ -1,35 +1,47 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-type CreditType = 'scrape' | 'analyze' | 'fix';
+type CreditType = 'scrape' | 'analyze' | 'fix' | 'enhance';
 
 /**
- * Check remaining credits for a user + type.
+ * Check remaining credits for a user + type via the ledger.
  */
 export async function checkCredits(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string,
   creditType: CreditType,
 ): Promise<number> {
-  const { data, error } = await supabaseAdmin
-    .from('user_credits')
-    .select('total_credits, used_credits')
-    .eq('user_id', userId)
-    .eq('credit_type', creditType)
-    .single();
+  const { data, error } = await supabaseAdmin.rpc('get_credit_balance', {
+    p_user_id: userId,
+    p_credit_type: creditType,
+  });
 
-  if (error || !data) return 0;
-  return Math.max(0, data.total_credits - data.used_credits);
+  if (error) {
+    // Fallback to legacy table if RPC not available
+    const { data: row, error: fetchErr } = await supabaseAdmin
+      .from('user_credits')
+      .select('total_credits, used_credits')
+      .eq('user_id', userId)
+      .eq('credit_type', creditType)
+      .single();
+    if (fetchErr || !row) return 0;
+    return Math.max(0, row.total_credits - row.used_credits);
+  }
+
+  return data ?? 0;
 }
 
 /**
- * Atomically consume 1 credit. Returns remaining count.
- * Throws with status 402 if exhausted.
+ * Atomically consume 1 credit using the ledger with idempotency.
+ * Returns remaining count. Throws with status 402 if exhausted.
+ *
+ * @param idempotencyKey - unique key to prevent double-charge (e.g. `fix:${imageId}:${sessionId}`)
  */
 export async function useCredit(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string,
   creditType: CreditType,
   edgeFunction?: string,
+  idempotencyKey?: string,
 ): Promise<{ remaining: number }> {
   // Check if user is admin — skip credit deduction
   const { data: roleData } = await supabaseAdmin
@@ -49,17 +61,19 @@ export async function useCredit(
     return { remaining: 999999 };
   }
 
-  // Atomic: only increment if used < total
-  const { data, error } = await supabaseAdmin.rpc('use_credit', {
+  // Generate idempotency key if not provided
+  const idemKey = idempotencyKey ?? `${creditType}:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+
+  // Use ledger-based atomic debit
+  const { data, error } = await supabaseAdmin.rpc('debit_credit', {
     p_user_id: userId,
     p_credit_type: creditType,
+    p_idempotency_key: idemKey,
+    p_description: edgeFunction ? `Used by ${edgeFunction}` : null,
   });
 
-  let remaining = 0;
-
-  // Fallback if RPC doesn't exist yet — do manual update
-  if (error?.code === '42883' || error?.message?.includes('function')) {
-    // Function doesn't exist, use manual approach
+  if (error) {
+    // Fallback to legacy approach if RPC not available
     const { data: row, error: fetchErr } = await supabaseAdmin
       .from('user_credits')
       .select('id, total_credits, used_credits')
@@ -79,17 +93,49 @@ export async function useCredit(
       .from('user_credits')
       .update({ used_credits: row.used_credits + 1 })
       .eq('id', row.id)
-      .eq('used_credits', row.used_credits); // optimistic lock
+      .eq('used_credits', row.used_credits);
 
     if (updateErr) {
       throw { status: 402, message: `Failed to deduct credit` };
     }
 
-    remaining = row.total_credits - row.used_credits - 1;
-  } else if (error) {
-    throw { status: 402, message: error.message };
-  } else {
-    remaining = data ?? 0;
+    // Also sync to legacy user_credits
+    await supabaseAdmin.from('credit_usage_log').insert({
+      user_id: userId,
+      credit_type: creditType,
+      edge_function: edgeFunction ?? null,
+    });
+
+    return { remaining: row.total_credits - row.used_credits - 1 };
+  }
+
+  const remaining = data ?? 0;
+
+  if (remaining === -1) {
+    throw { status: 402, message: `No ${creditType} credits remaining. Upgrade your plan to continue.` };
+  }
+
+  // Also update legacy user_credits for backward compat
+  await supabaseAdmin
+    .from('user_credits')
+    .update({ used_credits: supabaseAdmin.rpc ? undefined : 0 })
+    .eq('user_id', userId)
+    .eq('credit_type', creditType);
+
+  // Sync used_credits in legacy table
+  const balance = remaining;
+  const { data: legacyRow } = await supabaseAdmin
+    .from('user_credits')
+    .select('total_credits')
+    .eq('user_id', userId)
+    .eq('credit_type', creditType)
+    .single();
+  if (legacyRow) {
+    await supabaseAdmin
+      .from('user_credits')
+      .update({ used_credits: legacyRow.total_credits - balance })
+      .eq('user_id', userId)
+      .eq('credit_type', creditType);
   }
 
   // Log consumption for usage history

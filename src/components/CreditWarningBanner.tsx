@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, XCircle, X } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useCredits } from '@/hooks/useCredits';
+import { useCredits, CreditType } from '@/hooks/useCredits';
 
-const CREDIT_TYPES = ['scrape', 'analyze', 'fix'] as const;
+const CREDIT_TYPES: CreditType[] = ['scrape', 'analyze', 'fix', 'enhance'];
 
 export function CreditWarningBanner() {
   const { remainingCredits, totalCredits, loading } = useCredits();

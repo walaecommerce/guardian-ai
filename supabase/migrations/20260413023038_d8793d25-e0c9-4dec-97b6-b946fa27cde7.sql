@@ -1,0 +1,1 @@
+ALTER TYPE public.credit_type ADD VALUE IF NOT EXISTS 'enhance';

@@ -9,6 +9,18 @@ interface CreditRow {
   plan: string;
 }
 
+export interface LedgerEntry {
+  id: string;
+  credit_type: string;
+  amount: number;
+  balance_after: number;
+  event_type: string;
+  description: string | null;
+  created_at: string;
+}
+
+export type CreditType = 'scrape' | 'analyze' | 'fix' | 'enhance';
+
 export function useCredits() {
   const { user, isAdmin } = useAuth();
   const [credits, setCredits] = useState<CreditRow[]>([]);
@@ -36,18 +48,18 @@ export function useCredits() {
     fetchCredits();
   }, [fetchCredits]);
 
-  const remainingCredits = useCallback((type: 'scrape' | 'analyze' | 'fix') => {
+  const remainingCredits = useCallback((type: CreditType) => {
     const row = credits.find(c => c.credit_type === type);
     if (!row) return 0;
     return Math.max(0, row.total_credits - row.used_credits);
   }, [credits]);
 
-  const hasCredits = useCallback((type: 'scrape' | 'analyze' | 'fix') => {
+  const hasCredits = useCallback((type: CreditType) => {
     if (isAdmin) return true;
     return remainingCredits(type) > 0;
   }, [remainingCredits, isAdmin]);
 
-  const totalCredits = useCallback((type: 'scrape' | 'analyze' | 'fix') => {
+  const totalCredits = useCallback((type: CreditType) => {
     const row = credits.find(c => c.credit_type === type);
     return row?.total_credits ?? 0;
   }, [credits]);

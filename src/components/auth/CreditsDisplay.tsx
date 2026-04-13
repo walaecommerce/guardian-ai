@@ -1,6 +1,6 @@
-import { useCredits } from '@/hooks/useCredits';
+import { useCredits, CreditType } from '@/hooks/useCredits';
 import { useAuth } from '@/hooks/useAuth';
-import { Search, BarChart3, Paintbrush } from 'lucide-react';
+import { Search, BarChart3, Paintbrush, Sparkles } from 'lucide-react';
 
 export function CreditsDisplay() {
   const { user } = useAuth();
@@ -8,10 +8,11 @@ export function CreditsDisplay() {
 
   if (!user || loading) return null;
 
-  const credits = [
-    { type: 'scrape' as const, icon: Search, label: 'Scrapes' },
-    { type: 'analyze' as const, icon: BarChart3, label: 'Analyses' },
-    { type: 'fix' as const, icon: Paintbrush, label: 'Fixes' },
+  const credits: { type: CreditType; icon: typeof Search; label: string }[] = [
+    { type: 'scrape', icon: Search, label: 'Scrapes' },
+    { type: 'analyze', icon: BarChart3, label: 'Analyses' },
+    { type: 'fix', icon: Paintbrush, label: 'Fixes' },
+    { type: 'enhance', icon: Sparkles, label: 'Enhancements' },
   ];
 
   return (
