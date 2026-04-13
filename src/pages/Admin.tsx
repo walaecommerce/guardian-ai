@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 } from '@/components/ui/dialog';
-import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff, Cpu, CheckCircle2, XCircle, RefreshCw, Plus, Minus, BookOpen, Gift } from 'lucide-react';
+import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff, Cpu, CheckCircle2, XCircle, RefreshCw, Plus, Minus, BookOpen, Gift, TrendingUp } from 'lucide-react';
 import PromoCodesPanel from '@/components/admin/PromoCodesPanel';
 import UserManagementPanel from '@/components/admin/UserManagementPanel';
+import AffiliateReportPanel from '@/components/admin/AffiliateReportPanel';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -466,6 +467,9 @@ export default function Admin() {
           <TabsTrigger value="promos" className="gap-2">
             <Gift className="w-4 h-4" /> Promos
           </TabsTrigger>
+          <TabsTrigger value="affiliates" className="gap-2">
+            <TrendingUp className="w-4 h-4" /> Affiliates
+          </TabsTrigger>
           <TabsTrigger value="ai-status" className="gap-2">
             <Cpu className="w-4 h-4" /> AI Status
           </TabsTrigger>
@@ -712,6 +716,11 @@ export default function Admin() {
         {/* Promos Tab */}
         <TabsContent value="promos">
           <PromoCodesPanel />
+        </TabsContent>
+
+        {/* Affiliates Tab */}
+        <TabsContent value="affiliates">
+          <AffiliateReportPanel />
         </TabsContent>
 
         {/* AI Status Tab */}
