@@ -1511,6 +1511,7 @@ export function useAuditSession() {
             await supabase.from('session_images').update({
               fixed_image_url: uploaded.url,
               status: 'fixed',
+              fix_attempts: { fixMethod: 'enhancement' } as any,
             }).eq('id', sessionImageId);
           }
         }
