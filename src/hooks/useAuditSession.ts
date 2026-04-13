@@ -1425,7 +1425,7 @@ export function useAuditSession() {
     if (candidateAssets.length === 0) return;
 
     // Partition into fixable vs skipped using fixability layer
-    const { partitionBatchFixTargets } = await import('@/utils/fixability');
+    const { partitionBatchFixTargets, classifyAssetFixability } = await import('@/utils/fixability');
     const { fixable: failedAssets, skipped } = partitionBatchFixTargets(candidateAssets);
 
     // Mark skipped assets immediately with fixability tier
@@ -1433,7 +1433,6 @@ export function useAuditSession() {
       setAssets(prev => prev.map(a => {
         const skipEntry = skipped.find(s => s.asset.id === a.id);
         if (skipEntry) {
-          const { classifyAssetFixability } = require('@/utils/fixability');
           const classification = classifyAssetFixability(a);
           return { 
             ...a, 
@@ -1449,9 +1448,10 @@ export function useAuditSession() {
         // Persist skip state to session_images
         const sessionImageId = assetSessionMap.get(skippedAsset.id);
         if (sessionImageId && currentSessionId) {
+          const classification = classifyAssetFixability(skippedAsset);
           supabase.from('session_images').update({
             status: 'skipped',
-            fix_attempts: { skipped: true, skipReason: reason, fixabilityTier: classifyAssetFixability(skippedAsset).tier } as any,
+            fix_attempts: { skipped: true, skipReason: reason, fixabilityTier: classification.tier } as any,
           }).eq('id', sessionImageId).then(() => {});
         }
       }
