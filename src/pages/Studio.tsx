@@ -392,9 +392,10 @@ const Studio = () => {
         productName: img.productName,
       });
 
+      const analysisNote = hasAnalysis ? ' Analysis included — strategy will update automatically.' : ' Analysis will run in the background.';
       toast({
         title: 'Added to audit session',
-        description: `${strategySource?.recommendationLabel || img.template} image added. Return to audit to see updated strategy.`,
+        description: `${strategySource?.recommendationLabel || img.template} image added.${analysisNote}`,
       });
     } catch (e) {
       toast({
