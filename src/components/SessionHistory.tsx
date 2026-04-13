@@ -236,7 +236,7 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                 const thumbs = thumbnailCache.get(session.id) || [];
                 const heroThumb = thumbs.find(t => t.image_type === 'MAIN') || thumbs[0];
                 const supportThumbs = thumbs.filter(t => t !== heroThumb).slice(0, 3);
-                const step = inferCurrentStep(session);
+                const step = inferCurrentStep({ ...session, skipped_count: session.skipped_count || 0 });
 
                 return (
                   <div
