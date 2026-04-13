@@ -604,6 +604,7 @@ RULES:
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
+      prompt += buildListingContextGuardrails();
       contentParts.push({ type: "text", text: prompt });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(mainImageBase64) } });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
@@ -620,6 +621,7 @@ RULES:
       if (previousCritique) {
         prompt += `\n\nPREVIOUS ISSUES TO FIX: ${previousCritique}`;
       }
+      prompt += buildListingContextGuardrails();
       contentParts.push({ type: "text", text: prompt });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(imageBase64) } });
       console.log(`[generate-fix] Pattern B (SECONDARY, contentType=${imageContentType || 'UNKNOWN'}, strategy=${fixPlan?.strategy || 'legacy'}), prompt length: ${prompt.length}`);
