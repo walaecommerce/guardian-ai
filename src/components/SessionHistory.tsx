@@ -50,6 +50,8 @@ interface EnhancementSession {
   passed_count: number;
   failed_count: number;
   fixed_count: number;
+  skipped_count: number;
+  unresolved_count: number;
   average_score: number | null;
   status: string;
   created_at: string;
