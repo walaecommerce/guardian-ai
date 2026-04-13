@@ -1509,11 +1509,13 @@ export function useAuditSession() {
         const skipEntry = skipped.find(s => s.asset.id === a.id);
         if (skipEntry) {
           const classification = classifyAssetFixability(a);
+          const unresolvedState = classification.tier === 'warn_only' ? 'warn_only' as const : 'manual_review' as const;
           return { 
             ...a, 
             batchFixStatus: 'skipped' as const, 
             batchSkipReason: skipEntry.reason,
             fixabilityTier: classification.tier,
+            unresolvedState,
           };
         }
         return a;
@@ -1524,9 +1526,10 @@ export function useAuditSession() {
         const sessionImageId = assetSessionMap.get(skippedAsset.id);
         if (sessionImageId && currentSessionId) {
           const classification = classifyAssetFixability(skippedAsset);
+          const unresolvedState = classification.tier === 'warn_only' ? 'warn_only' : 'manual_review';
           supabase.from('session_images').update({
             status: 'skipped',
-            fix_attempts: { skipped: true, skipReason: reason, fixabilityTier: classification.tier } as any,
+            fix_attempts: { skipped: true, skipReason: reason, fixabilityTier: classification.tier, unresolvedState } as any,
           }).eq('id', sessionImageId).then(() => {});
         }
       }
