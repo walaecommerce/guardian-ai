@@ -871,19 +871,42 @@ const Studio = () => {
                     )}
                     {/* Add to originating audit session */}
                     {sourceSessionId && img.status === 'analyzed' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-xs h-7 gap-1 border-primary/30 text-primary hover:bg-primary/5"
-                        disabled={addingToSession === img.id}
-                        onClick={() => handleAddToSession(img)}
-                      >
-                        {addingToSession === img.id ? (
-                          <><Loader2 className="w-3 h-3 animate-spin" /> Adding…</>
-                        ) : (
-                          <><Plus className="w-3 h-3" /> Add to Audit Session</>
+                      <div className="space-y-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs h-7 gap-1 border-primary/30 text-primary hover:bg-primary/5"
+                          disabled={addingToSession === img.id || attachStep === 'done'}
+                          onClick={() => handleAddToSession(img)}
+                        >
+                          {addingToSession === img.id ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              {attachStep === 'uploading' && 'Uploading…'}
+                              {attachStep === 'attaching' && 'Attaching to session…'}
+                              {attachStep === 'analyzing' && 'Running analysis…'}
+                            </>
+                          ) : attachStep === 'done' ? (
+                            <><Check className="w-3 h-3" /> Added & Analyzed</>
+                          ) : attachStep === 'done_no_credits' ? (
+                            <><Check className="w-3 h-3" /> Added (no analysis credits)</>
+                          ) : attachStep === 'error' ? (
+                            <><Plus className="w-3 h-3" /> Retry Add to Session</>
+                          ) : (
+                            <><Plus className="w-3 h-3" /> Add to Audit Session</>
+                          )}
+                        </Button>
+                        {(attachStep === 'done' || attachStep === 'done_no_credits') && sourceSessionId && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="w-full text-xs h-7 gap-1"
+                            onClick={() => navigate(`/audit?session=${sourceSessionId}`)}
+                          >
+                            <ArrowLeft className="w-3 h-3" /> Back to Audit
+                          </Button>
                         )}
-                      </Button>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
