@@ -7,6 +7,7 @@ import {
   getSourceBadgeLabel,
   getSurfaceLabels,
   getSourceTierLabel,
+  getKnowledgeTagConfig,
 } from '../evidenceHelpers';
 import type { Violation, DeterministicFindingSummary } from '@/types';
 

@@ -239,8 +239,9 @@ export function ImageDetailDrawer({
                               </div>
                               <p className="text-sm mt-1">{v.message}</p>
                               {/* Evidence details */}
-                              {(ev.whyTriggered || ev.measuredValue !== null || ev.ocrSnippet) && (
+                              {(ev.whyTriggered || ev.measuredValue !== null || ev.ocrSnippet || ev.knowledgeDetail) && (
                                 <div className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
+                                  {ev.knowledgeDetail && <p><span className="font-medium">Knowledge:</span> {ev.knowledgeDetail}</p>}
                                   {ev.whyTriggered && <p><span className="font-medium">Why:</span> {ev.whyTriggered}</p>}
                                   {ev.measuredValue !== null && (
                                     <p>
