@@ -78,9 +78,9 @@ export const ReportHistory = ({ onLoadReport }: ReportHistoryProps) => {
 
   const getScoreColor = (score: number | null) => {
     if (score === null) return 'bg-muted text-muted-foreground';
-    if (score >= 85) return 'bg-green-500/20 text-green-600';
-    if (score >= 70) return 'bg-yellow-500/20 text-yellow-600';
-    return 'bg-red-500/20 text-red-600';
+    if (score >= 85) return 'bg-success/20 text-success';
+    if (score >= 70) return 'bg-warning/20 text-warning';
+    return 'bg-destructive/20 text-destructive';
   };
 
   return (

@@ -323,8 +323,8 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                           {session.passed_count > 0 && (
                             <span className="text-success">✓{session.passed_count}</span>
                           )}
-                          {(session.failed_count - (session.unresolved_count || 0)) > 0 && (
-                            <span className="text-destructive">✗{session.failed_count - (session.unresolved_count || 0)}</span>
+                          {((session.failed_count - session.fixed_count - (session.unresolved_count || 0)) > 0) && (
+                            <span className="text-destructive">✗{session.failed_count - session.fixed_count - (session.unresolved_count || 0)}</span>
                           )}
                           {(session.unresolved_count || 0) > 0 && (
                             <span className="text-warning">⚠{session.unresolved_count}</span>
@@ -418,8 +418,8 @@ export function SessionHistory({ currentSessionId, onLoadSession }: SessionHisto
                   <p className="text-xs text-muted-foreground">Passed</p>
                 </div>
                 <div className="p-3 rounded-lg bg-muted/50 text-center">
-                  <p className="text-2xl font-bold tabular-nums text-destructive">{selectedSession.failed_count - (selectedSession.unresolved_count || 0)}</p>
-                  <p className="text-xs text-muted-foreground">Failed</p>
+                  <p className="text-2xl font-bold tabular-nums text-destructive">{Math.max(0, selectedSession.failed_count - selectedSession.fixed_count - (selectedSession.unresolved_count || 0))}</p>
+                  <p className="text-xs text-muted-foreground">Unfixed</p>
                 </div>
                 {(selectedSession.unresolved_count || 0) > 0 && (
                   <div className="p-3 rounded-lg bg-muted/50 text-center">
