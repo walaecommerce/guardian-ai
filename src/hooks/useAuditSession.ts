@@ -1383,6 +1383,23 @@ export function useAuditSession() {
         a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: enhanceData.enhancedImage, fixMethod: 'enhancement' as const } : a
       ));
 
+      // Persist enhanced image to session storage + DB
+      const sessionImageId = assetSessionMap.get(assetId);
+      if (sessionImageId && currentSessionId) {
+        const uploaded = await uploadImage(enhanceData.enhancedImage, currentSessionId, `enhanced_${asset.name}`);
+        if (uploaded) {
+          await supabase.from('session_images').update({
+            fixed_image_url: uploaded.url,
+            status: 'fixed',
+            fix_attempts: { fixMethod: 'enhancement' } as any,
+          }).eq('id', sessionImageId);
+          await supabase.from('enhancement_sessions').update({
+            fixed_count: assets.filter(a => a.fixedImage || a.id === assetId).length,
+            ...computeUnresolvedCounts(assets),
+          }).eq('id', currentSessionId);
+        }
+      }
+
       addLog('success', `✨ Enhanced ${asset.name}`);
       toast({ title: 'Enhancement Complete', description: `${opportunities.length} improvement(s) applied.` });
       refreshCredits();
@@ -1486,6 +1503,19 @@ export function useAuditSession() {
           a.id === asset.id ? { ...a, fixedImage: enhanceData.enhancedImage, fixMethod: 'enhancement' as const } : a
         ));
 
+        // Persist enhanced image to session storage + DB
+        const sessionImageId = assetSessionMap.get(asset.id);
+        if (sessionImageId && currentSessionId) {
+          const uploaded = await uploadImage(enhanceData.enhancedImage, currentSessionId, `enhanced_${asset.name}`);
+          if (uploaded) {
+            await supabase.from('session_images').update({
+              fixed_image_url: uploaded.url,
+              status: 'fixed',
+              fix_attempts: { fixMethod: 'enhancement' } as any,
+            }).eq('id', sessionImageId);
+          }
+        }
+
         enhancedCount++;
         addLog('success', `   ✨ Enhanced ${asset.name}`);
         refreshCredits();
@@ -1504,6 +1534,18 @@ export function useAuditSession() {
 
     setIsBatchEnhancing(false);
     setBatchEnhanceProgress(null);
+
+    // Persist session-level counts and step after batch enhance
+    if (currentSessionId && enhancedCount > 0) {
+      const latestAssets = assets; // use current snapshot for counts
+      const fixedCount = latestAssets.filter(a => a.fixedImage).length + enhancedCount;
+      await supabase.from('enhancement_sessions').update({
+        fixed_count: fixedCount,
+        ...computeUnresolvedCounts(latestAssets),
+      }).eq('id', currentSessionId);
+      persistStep('fix');
+    }
+
     addLog('success', `✅ Enhancement complete — ${enhancedCount} images improved`);
     toast({ title: 'Enhance Complete', description: `${enhancedCount} images enhanced` });
   };
