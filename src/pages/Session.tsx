@@ -11,6 +11,7 @@ import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
 import { ManualReviewLane, isManualReviewAsset } from '@/components/ManualReviewLane';
 import { ImageAsset, LogEntry, AnalysisResult, FixAttempt, FixProgressState, ProductIdentityCard } from '@/types';
+import { runFixOrchestration, buildFixReviewPayload } from '@/utils/fixOrchestrator';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSessionLoader } from '@/hooks/useSessionLoader';
@@ -342,180 +343,98 @@ const Session = () => {
       addLog('processing', `🎨 Guardian initiating ${asset.type} image fix...`);
 
       const originalBase64 = await fileToBase64(asset.file);
-      let previousCritique: string | undefined;
-      let lastGeneratedImage: string | undefined = previousGeneratedImage;
-      let finalImage: string | undefined;
-      const maxAttempts = 3;
 
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        addLog('processing', `🖼️ Generation attempt ${attempt}/${maxAttempts}...`);
-        
-        try {
-          setFixProgress(prev => prev ? {
-            ...prev,
-            attempt,
-            currentStep: 'generating',
-            thinkingSteps: [...prev.thinkingSteps, `🖼️ Generation attempt ${attempt}/${maxAttempts}...`]
-          } : prev);
+      const result = await runFixOrchestration(
+        {
+          asset,
+          originalBase64,
+          mainImageBase64,
+          listingTitle: listingTitle || undefined,
+          productAsin: productAsin || extractAsin(amazonUrl) || undefined,
+          customPrompt,
+          previousGeneratedImage,
+          productIdentity,
+        },
+        {
+          onProgress: setFixProgress,
+          onLog: addLog,
+        },
+      );
 
-          const { data: genData, error: genError } = await supabase.functions.invoke('generate-fix', {
-            body: { 
-              imageBase64: originalBase64, 
-              imageType: asset.type,
-              generativePrompt: customPrompt || asset.analysisResult?.generativePrompt,
-              mainImageBase64,
-              previousCritique,
-              previousGeneratedImage: lastGeneratedImage,
-              productTitle: listingTitle || undefined,
-              productAsin: productAsin || extractAsin(amazonUrl) || undefined,
-              customPrompt,
-              spatialAnalysis: asset.analysisResult?.spatialAnalysis,
-              imageCategory: asset.analysisResult?.productCategory || undefined,
-              productIdentity: productIdentity || undefined,
-            }
-          });
-
-          if (genError) {
-            const errorContext = (genError as any)?.context;
-            const status = errorContext?.status as number | undefined;
-            let body: any = undefined;
-            if (errorContext?.body) {
-              try { body = typeof errorContext.body === 'string' ? JSON.parse(errorContext.body) : errorContext.body; } catch { body = undefined; }
-            }
-            const serverMsg: string | undefined = body?.error || body?.message;
-            const serverType: string | undefined = body?.errorType;
-
-            if (status === 402 || serverType === 'payment_required') {
-              addLog('error', `❌ ${serverMsg || 'No fix credits remaining'}`);
-              toast({ title: 'Fix Credits Exhausted', description: serverMsg || 'Upgrade your plan to continue.', variant: 'destructive' });
-              return;
-            }
-
-            throw new Error(serverMsg || (genError as any)?.message || 'Generation failed');
-          }
-          if (genData?.error) {
-            if (genData.errorType === 'payment_required') {
-              addLog('error', `❌ ${genData.error}`);
-              toast({ title: 'Fix Credits Exhausted', description: genData.error || 'Upgrade your plan to continue.', variant: 'destructive' });
-              return;
-            }
-            throw new Error(genData.error);
-          }
-          if (!genData?.fixedImage) throw new Error('No image generated');
-
-          addLog('success', `✨ AI generation complete`);
-          lastGeneratedImage = genData.fixedImage;
-
-          const newAttempt: FixAttempt = {
-            attempt,
-            generatedImage: genData.fixedImage,
-            status: 'verifying'
-          };
-
-          setFixProgress(prev => prev ? {
-            ...prev,
-            currentStep: 'verifying',
-            intermediateImage: genData.fixedImage,
-            attempts: [...prev.attempts, newAttempt],
-            thinkingSteps: [...prev.thinkingSteps, '✨ Generation complete, verifying...']
-          } : prev);
-
-          addLog('processing', `🔍 Verifying product identity...`);
-
-          const { data: verifyData, error: verifyError } = await supabase.functions.invoke('verify-image', {
-            body: { 
-              originalImageBase64: originalBase64,
-              generatedImageBase64: genData.fixedImage,
-              imageType: asset.type,
-              mainImageBase64,
-              spatialAnalysis: asset.analysisResult?.spatialAnalysis,
-              productIdentity: productIdentity || undefined,
-            }
-          });
-
-          if (verifyError) throw verifyError;
-
-          const score = verifyData?.score || 0;
-          const passed = verifyData?.isSatisfactory === true;
-
-          setFixProgress(prev => {
-            if (!prev) return prev;
-            const updatedAttempts = [...prev.attempts];
-            const lastIdx = updatedAttempts.length - 1;
-            if (lastIdx >= 0) {
-              updatedAttempts[lastIdx] = {
-                ...updatedAttempts[lastIdx],
-                verification: verifyData as any,
-                status: passed ? 'passed' : 'failed',
-              };
-            }
-            return {
-              ...prev,
-              attempts: updatedAttempts,
-              thinkingSteps: [...prev.thinkingSteps, 
-                passed ? `✅ Verification passed (${score}%)` : `⚠️ Score ${score}%, retrying...`
-              ]
-            };
-          });
-
-          if (passed) {
-            addLog('success', `✅ Verification passed: ${score}%`);
-            finalImage = genData.fixedImage;
-            break;
-          } else {
-            addLog('warning', `⚠️ Verification score: ${score}% - ${verifyData?.critique || 'Needs improvement'}`);
-            previousCritique = verifyData?.critique;
-          }
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Generation failed';
-          addLog('error', `Attempt ${attempt} failed: ${msg}`);
-          if (attempt === maxAttempts) throw err;
-        }
-
-        if (!finalImage && attempt < maxAttempts) {
-          await new Promise(r => setTimeout(r, 2000));
-        }
-      }
-
-      if (!finalImage && lastGeneratedImage) {
-        addLog('info', '📋 Using best available generation');
-        finalImage = lastGeneratedImage;
-      }
+      const { finalImage, allAttempts, bestAttemptSelection, stopReason, lastStrategy, lastFixMethod } = result;
 
       if (finalImage) {
-        setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
-        
         setAssets(prev => prev.map(a => 
-          a.id === assetId ? { ...a, isGeneratingFix: false, fixedImage: finalImage } : a
+          a.id === assetId ? { 
+            ...a, 
+            isGeneratingFix: false, 
+            fixedImage: finalImage,
+            fixMethod: lastFixMethod,
+            fixAttempts: allAttempts.length > 0 ? allAttempts : undefined,
+            bestAttemptSelection,
+            selectedAttemptIndex: bestAttemptSelection?.selectedAttemptIndex,
+            fixStopReason: stopReason,
+            lastFixStrategy: lastStrategy,
+          } : a
         ));
+        setFixProgress(null);
 
-        // Update database
+        // Persist to DB
         const sessionImageId = assetSessionMap.get(assetId);
         if (sessionImageId && currentSessionId) {
-          const uploaded = await uploadImage(finalImage, currentSessionId, `fixed_${assetId}`);
+          const uploaded = await uploadImage(finalImage, currentSessionId, `fixed_${asset.name}`);
           if (uploaded) {
-            await supabase
-              .from('session_images')
-              .update({
-                fixed_image_url: uploaded.url,
-                status: 'fixed'
-              })
-              .eq('id', sessionImageId);
-          }
-
-          await supabase
-            .from('enhancement_sessions')
-            .update({
+            const fixReviewData = buildFixReviewPayload(allAttempts, bestAttemptSelection, stopReason, lastStrategy);
+            await supabase.from('session_images').update({
+              fixed_image_url: uploaded.url,
+              status: 'fixed',
+              fix_attempts: fixReviewData as any,
+            }).eq('id', sessionImageId);
+            await supabase.from('enhancement_sessions').update({ 
               fixed_count: assets.filter(a => a.fixedImage || a.id === assetId).length
-            })
-            .eq('id', currentSessionId);
+            }).eq('id', currentSessionId);
+          }
         }
         
         addLog('success', `🎉 Fix complete for ${asset.name}`);
         toast({ title: 'Fix Generated', description: 'AI-corrected image is ready and saved' });
         refreshCredits();
+      } else {
+        // No acceptable fix — persist as retry-stopped / auto-fix-failed
+        const unresolvedState = stopReason ? 'retry_stopped' as const : 'auto_fix_failed' as const;
+        setAssets(prev => prev.map(a => 
+          a.id === assetId ? { 
+            ...a, 
+            isGeneratingFix: false,
+            fixStopReason: stopReason || 'No acceptable fix produced after all attempts',
+            batchFixStatus: 'failed' as const,
+            unresolvedState,
+            fixAttempts: allAttempts.length > 0 ? allAttempts : undefined,
+            lastFixStrategy: lastStrategy,
+          } : a
+        ));
+        setFixProgress(null);
+
+        // Persist to DB
+        const sessionImageId = assetSessionMap.get(assetId);
+        if (sessionImageId && currentSessionId) {
+          const fixReviewData = buildFixReviewPayload(allAttempts, bestAttemptSelection, stopReason, lastStrategy, unresolvedState);
+          await supabase.from('session_images').update({
+            status: 'failed',
+            fix_attempts: fixReviewData as any,
+          }).eq('id', sessionImageId);
+        }
+
+        addLog('warning', `⚠️ ${asset.name}: ${stopReason || 'No acceptable fix produced after all attempts'}`);
+        toast({ title: 'Fix Incomplete', description: stopReason || 'No acceptable fix after all attempts. Image needs manual review.', variant: 'destructive' });
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.isPayment) {
+        toast({ title: 'Credits Exhausted', description: error.message, variant: 'destructive' });
+        setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
+        setFixProgress(null);
+        return;
+      }
       const msg = error instanceof Error ? error.message : 'Fix failed';
       addLog('error', `❌ Fix failed: ${msg}`);
       setAssets(prev => prev.map(a => 

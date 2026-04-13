@@ -1024,308 +1024,36 @@ export function useAuditSession() {
       addLog('processing', `🎨 Guardian initiating ${asset.type} image fix...`);
 
       const originalBase64 = await fileToBase64(asset.file);
-      let previousCritique: string | undefined;
-      let lastGeneratedImage: string | undefined = previousGeneratedImage;
-      let lastFixMethod: ImageAsset['fixMethod'];
-      let lastStrategy: import('@/types').FixStrategy | undefined;
-      let finalImage: string | undefined;
-      let retryInstructions: string[] = [];
-      const retryDecisions: import('@/utils/retryPlanner').RetryDecision[] = [];
-      const maxAttempts = 3;
-      const assetContentType = extractImageCategory(asset) as import('@/types').ImageCategory;
 
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        addLog('processing', `🖼️ Generation attempt ${attempt}/${maxAttempts}...`);
-        
-        try {
-          setFixProgress(prev => prev ? {
-            ...prev,
-            attempt,
-            currentStep: 'generating',
-            thinkingSteps: [...prev.thinkingSteps, `🖼️ Generation attempt ${attempt}/${maxAttempts}...`]
-          } : prev);
+      const { runFixOrchestration, buildFixReviewPayload } = await import('@/utils/fixOrchestrator');
+      const result = await runFixOrchestration(
+        {
+          asset,
+          originalBase64,
+          mainImageBase64,
+          listingTitle: listingTitle || undefined,
+          productAsin: productAsin || extractAsin(amazonUrl) || undefined,
+          customPrompt,
+          previousGeneratedImage,
+          productIdentity: (identityProfile?.identity || productIdentity) || undefined,
+        },
+        {
+          onProgress: setFixProgress,
+          onLog: addLog,
+        },
+      );
 
-          // Build fix plan before generation
-          const { buildFixPlan } = await import('@/utils/fixPlanEngine');
-          // assetContentType is declared outside the loop for reuse in best-attempt selection
-          let fixPlan = buildFixPlan(
-            asset.type as 'MAIN' | 'SECONDARY',
-            asset.analysisResult?.productCategory || 'GENERAL',
-            asset.analysisResult?.violations || [],
-            asset.analysisResult?.deterministicFindings || [],
-            (identityProfile?.identity || productIdentity) || undefined,
-            assetContentType,
-          );
-
-          // If fix plan says skip, bail out gracefully
-          if (fixPlan.strategy === 'skip') {
-            addLog('warning', `⏭️ ${asset.name}: Content type "${assetContentType}" — not safe to auto-fix.`);
-            setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
-            setFixProgress(null);
-            toast({ title: 'Skipped', description: `${asset.name} requires manual review.` });
-            return;
-          }
-
-          lastStrategy = fixPlan.strategy;
-          addLog('info', `📋 Fix plan: strategy=${fixPlan.strategy}, rules=${fixPlan.targetRuleIds.join(',') || 'general'}`);
-
-          const { data: genData, error: genError } = await supabase.functions.invoke('generate-fix', {
-            body: { 
-              imageBase64: originalBase64, 
-              imageType: asset.type,
-              generativePrompt: customPrompt || asset.analysisResult?.generativePrompt,
-              mainImageBase64,
-              previousCritique,
-              previousGeneratedImage: lastGeneratedImage,
-              productTitle: listingTitle || undefined,
-              productAsin: productAsin || extractAsin(amazonUrl) || undefined,
-              customPrompt: customPrompt,
-              spatialAnalysis: asset.analysisResult?.spatialAnalysis,
-              imageCategory: asset.analysisResult?.productCategory || undefined,
-              imageContentType: assetContentType,
-              productIdentity: (identityProfile?.identity || productIdentity) || undefined,
-              violations: asset.analysisResult?.violations || [],
-              scoringRationale: asset.analysisResult?.scoringRationale || undefined,
-              fixPlan,
-              retryInstructions: retryInstructions.length > 0 ? retryInstructions : undefined,
-            }
-          });
-
-          if (genError) {
-            const errorContext = (genError as any)?.context;
-            const status = errorContext?.status as number | undefined;
-            let body: any = undefined;
-            if (errorContext?.body) {
-              try { body = typeof errorContext.body === 'string' ? JSON.parse(errorContext.body) : errorContext.body; } catch { body = undefined; }
-            }
-            const serverMsg: string | undefined = body?.error || body?.message;
-            const serverType: string | undefined = body?.errorType;
-
-            if (status === 402 || serverType === 'payment_required') {
-              setAiCreditsExhausted(true);
-              addLog('error', `❌ ${serverMsg || 'Not enough AI credits.'}`);
-              setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
-              setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
-              toast({ title: 'Credits Exhausted', description: 'Upgrade your plan or wait for your next billing cycle to continue.', variant: 'destructive', duration: 8000 });
-              return;
-            }
-            throw genError;
-          }
-          if (genData?.error) {
-            if (genData.errorType === 'payment_required') {
-              setAiCreditsExhausted(true);
-              addLog('error', `❌ ${genData.error}`);
-              setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
-              setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
-              toast({ title: 'Credits Exhausted', description: 'Upgrade your plan or wait for your next billing cycle to continue.', variant: 'destructive', duration: 8000 });
-              return;
-            }
-            throw new Error(genData.error);
-          }
-          if (!genData?.fixedImage) throw new Error('No image generated');
-
-          const fixMethod = genData.usedBackgroundSegmentation 
-            ? 'bg-segmentation' as const
-            : asset.type === 'MAIN' 
-              ? 'full-regeneration' as const
-              : 'surgical-edit' as const;
-          lastFixMethod = fixMethod;
-
-          addLog('success', `✨ AI generation complete (${fixMethod})`);
-          lastGeneratedImage = genData.fixedImage;
-
-          const newAttempt: FixAttempt = {
-            attempt,
-            generatedImage: genData.fixedImage,
-            status: 'verifying',
-            fixTier: 'gemini-flash',
-            strategyUsed: fixPlan.strategy,
-          };
-
-          setFixProgress(prev => prev ? {
-            ...prev,
-            currentStep: 'verifying',
-            intermediateImage: genData.fixedImage,
-            attempts: [...prev.attempts, newAttempt],
-            thinkingSteps: [...prev.thinkingSteps, '✨ Image generated, starting verification...']
-          } : prev);
-
-          const { data: verifyData, error: verifyError } = await supabase.functions.invoke('verify-image', {
-            body: {
-              originalImageBase64: originalBase64,
-              generatedImageBase64: genData.fixedImage,
-              imageType: asset.type,
-              imageContentType: assetContentType,
-              mainImageBase64,
-              spatialAnalysis: asset.analysisResult?.spatialAnalysis,
-              productIdentity: (identityProfile?.identity || productIdentity) || undefined,
-              targetRuleIds: fixPlan.targetRuleIds,
-              fixCategory: fixPlan.category,
-            }
-          });
-
-          if (verifyError) {
-            addLog('warning', `⚠️ Verification unavailable, using generated image`);
-            finalImage = genData.fixedImage;
-            break;
-          }
-
-          const verification = verifyData;
-          addLog('info', `📊 Verification score: ${verification.score}%`);
-
-          setFixProgress(prev => prev ? {
-            ...prev,
-            thinkingSteps: [...prev.thinkingSteps, ...(verification.thinkingSteps || [])]
-          } : prev);
-
-          setFixProgress(prev => {
-            if (!prev) return prev;
-            const updatedAttempts = [...prev.attempts];
-            const lastIdx = updatedAttempts.length - 1;
-            if (lastIdx >= 0) {
-              updatedAttempts[lastIdx] = {
-                ...updatedAttempts[lastIdx],
-                verification,
-                status: verification.isSatisfactory && verification.productMatch ? 'passed' : 'failed',
-                retryDecision: undefined, // will be set below if retry happens
-              };
-            }
-            return { ...prev, attempts: updatedAttempts };
-          });
-
-          if (verification.isSatisfactory && verification.productMatch) {
-            addLog('success', `✅ All verification checks passed!`);
-            setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
-            finalImage = genData.fixedImage;
-            break;
-          } else {
-            if (!verification.productMatch) {
-              addLog('error', `🚨 CRITICAL: Product identity mismatch detected`);
-            }
-            addLog('warning', `⚠️ Issues: ${verification.critique}`);
-            
-            // ── Retry planner integration ─────────────────────────
-            const { planRetry } = await import('@/utils/retryPlanner');
-            const retryDecision = planRetry({
-              imageType: asset.type as 'MAIN' | 'SECONDARY',
-              category: fixPlan.category,
-              currentStrategy: fixPlan.strategy,
-              attempt,
-              maxAttempts,
-              verification,
-              targetRuleIds: fixPlan.targetRuleIds,
-              previousDecisions: retryDecisions,
-              contentType: assetContentType,
-            });
-            retryDecisions.push(retryDecision);
-
-            // Store retry decision on the attempt
-            setFixProgress(prev => {
-              if (!prev) return prev;
-              const updatedAttempts = [...prev.attempts];
-              const lastIdx = updatedAttempts.length - 1;
-              if (lastIdx >= 0) {
-                updatedAttempts[lastIdx] = { ...updatedAttempts[lastIdx], retryDecision };
-              }
-              return { ...prev, attempts: updatedAttempts };
-            });
-            
-            addLog('info', `🧠 Retry decision: ${retryDecision.rationale}`);
-            
-            if (!retryDecision.shouldContinue) {
-              addLog('warning', `🛑 Stopping retries: ${retryDecision.stopReason}`);
-              setFixProgress(prev => prev ? { ...prev, currentStep: 'complete', stopReason: retryDecision.stopReason } : prev);
-              // Don't pick finalImage yet — will use best-attempt selector below
-              break;
-            } else if (attempt < maxAttempts) {
-              // Update fix plan with tightened constraints
-              fixPlan.strategy = retryDecision.nextStrategy;
-              fixPlan.preserve = [...new Set([...fixPlan.preserve, ...retryDecision.tightenedPreserve])];
-              fixPlan.prohibited = [...new Set([...fixPlan.prohibited, ...retryDecision.tightenedProhibited])];
-              retryInstructions = retryDecision.additionalInstructions;
-              
-              addLog('processing', `🔄 Retrying with strategy: ${retryDecision.nextStrategy}`);
-              setFixProgress(prev => prev ? {
-                ...prev,
-                currentStep: 'retrying',
-                lastCritique: verification.critique,
-              } : prev);
-              previousCritique = verification.critique;
-              
-              if (verification.improvements?.length > 0) {
-                previousCritique += '\n\nRequired improvements:\n' + 
-                  verification.improvements.map((i: string) => `- ${i}`).join('\n');
-              }
-              
-              await new Promise(r => setTimeout(r, 2000));
-            } else {
-              addLog('warning', `⚠️ Max retries reached.`);
-              setFixProgress(prev => prev ? { ...prev, currentStep: 'complete' } : prev);
-              // Don't pick finalImage yet — will use best-attempt selector below
-            }
-          }
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : 'Generation failed';
-          addLog('error', `❌ Attempt ${attempt} failed: ${msg}`);
-          
-          if (attempt === maxAttempts) {
-            setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
-            toast({ title: 'Generation Failed', description: msg, variant: 'destructive' });
-            return;
-          }
-          await new Promise(r => setTimeout(r, 3000));
-        }
-      }
-
-      // ── Best-attempt selection ──────────────────────────────────
-      const { selectBestAttempt } = await import('@/utils/bestAttemptSelector');
-      // Gather all attempts from fixProgress state
-      const allAttempts: FixAttempt[] = [];
-      setFixProgress(prev => {
-        if (prev) allAttempts.push(...prev.attempts);
-        return prev;
-      });
-
-      if (finalImage) {
-        // Already have a passing image, use it directly
-      } else if (allAttempts.length > 0) {
-        // Use best-attempt selector
-        const selection = selectBestAttempt(allAttempts, asset.type as 'MAIN' | 'SECONDARY', assetContentType);
-        const bestAttempt = allAttempts[selection.selectedAttemptIndex];
-        if (bestAttempt?.generatedImage) {
-          finalImage = bestAttempt.generatedImage;
-          addLog('info', `🏆 ${selection.selectedReason}`);
-
-          // Mark the best attempt and store selection on progress
-          setFixProgress(prev => {
-            if (!prev) return prev;
-            const updated = prev.attempts.map((a, i) => ({
-              ...a,
-              isBestAttempt: i === selection.selectedAttemptIndex,
-            }));
-            return { ...prev, attempts: updated, bestAttemptSelection: selection };
-          });
-        }
-      }
+      const { finalImage, allAttempts, bestAttemptSelection: bestSel, stopReason: stopR, lastStrategy, lastFixMethod } = result;
 
       if (finalImage) {
         // Persist attempt history on asset for post-fix review
-        const persistedAttempts = allAttempts.length > 0 ? allAttempts : undefined;
-        const bestSel = allAttempts.length > 0 ? (() => {
-          let sel: import('@/types').BestAttemptSelection | undefined;
-          setFixProgress(prev => { sel = prev?.bestAttemptSelection; return prev; });
-          return sel;
-        })() : undefined;
-        let stopR: string | undefined;
-        setFixProgress(prev => { stopR = prev?.stopReason; return prev; });
-        
         setAssets(prev => prev.map(a => 
           a.id === assetId ? { 
             ...a, 
             isGeneratingFix: false, 
             fixedImage: finalImage, 
             fixMethod: lastFixMethod,
-            fixAttempts: persistedAttempts,
+            fixAttempts: allAttempts.length > 0 ? allAttempts : undefined,
             bestAttemptSelection: bestSel,
             selectedAttemptIndex: bestSel?.selectedAttemptIndex,
             fixStopReason: stopR,
@@ -1338,32 +1066,7 @@ export function useAuditSession() {
         if (sessionImageId && currentSessionId) {
           const uploaded = await uploadImage(finalImage, currentSessionId, `fixed_${asset.name}`);
           if (uploaded) {
-            // Persist fix attempt history alongside the fixed image URL
-            const fixReviewData = {
-              attempts: persistedAttempts.map(a => ({
-                attempt: a.attempt,
-                status: a.status,
-                strategyUsed: a.strategyUsed,
-                isBestAttempt: a.isBestAttempt,
-                verification: a.verification ? {
-                  score: a.verification.score,
-                  isSatisfactory: a.verification.isSatisfactory,
-                  productMatch: a.verification.productMatch,
-                  critique: a.verification.critique,
-                  passedChecks: a.verification.passedChecks,
-                  failedChecks: a.verification.failedChecks,
-                  componentScores: a.verification.componentScores,
-                } : undefined,
-                retryDecision: a.retryDecision ? {
-                  rationale: a.retryDecision.rationale,
-                  nextStrategy: a.retryDecision.nextStrategy,
-                  stopReason: a.retryDecision.stopReason,
-                } : undefined,
-              })),
-              bestAttemptSelection: bestSel,
-              stopReason: stopR,
-              lastFixStrategy: lastStrategy,
-            };
+            const fixReviewData = buildFixReviewPayload(allAttempts, bestSel, stopR, lastStrategy);
             await supabase.from('session_images').update({
               fixed_image_url: uploaded.url,
               status: 'fixed',
@@ -1381,8 +1084,6 @@ export function useAuditSession() {
         refreshCredits();
       } else {
         // No acceptable fix produced — persist as retry-stopped / auto-fix-failed
-        let stopR: string | undefined;
-        setFixProgress(prev => { stopR = prev?.stopReason; return prev; });
         const unresolvedState = stopR ? 'retry_stopped' as const : 'auto_fix_failed' as const;
         
         setAssets(prev => prev.map(a => 
@@ -1401,31 +1102,7 @@ export function useAuditSession() {
         // Persist to DB
         const sessionImageId = assetSessionMap.get(assetId);
         if (sessionImageId && currentSessionId) {
-          const fixReviewData = {
-            attempts: allAttempts.map(a => ({
-              attempt: a.attempt,
-              status: a.status,
-              strategyUsed: a.strategyUsed,
-              isBestAttempt: a.isBestAttempt,
-              verification: a.verification ? {
-                score: a.verification.score,
-                isSatisfactory: a.verification.isSatisfactory,
-                productMatch: a.verification.productMatch,
-                critique: a.verification.critique,
-                passedChecks: a.verification.passedChecks,
-                failedChecks: a.verification.failedChecks,
-                componentScores: a.verification.componentScores,
-              } : undefined,
-              retryDecision: a.retryDecision ? {
-                rationale: a.retryDecision.rationale,
-                nextStrategy: a.retryDecision.nextStrategy,
-                stopReason: a.retryDecision.stopReason,
-              } : undefined,
-            })),
-            stopReason: stopR || 'No acceptable fix produced after all attempts',
-            lastFixStrategy: lastStrategy,
-            unresolvedState,
-          };
+          const fixReviewData = buildFixReviewPayload(allAttempts, bestSel, stopR || 'No acceptable fix produced after all attempts', lastStrategy, unresolvedState);
           await supabase.from('session_images').update({
             status: 'failed',
             fix_attempts: fixReviewData as any,
@@ -1435,7 +1112,14 @@ export function useAuditSession() {
         addLog('warning', `⚠️ ${asset.name}: ${stopR || 'No acceptable fix produced after all attempts'}`);
         toast({ title: 'Fix Incomplete', description: stopR || 'No acceptable fix after all attempts. Image needs manual review.', variant: 'destructive' });
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.isPayment) {
+        setAiCreditsExhausted(true);
+        toast({ title: 'Credits Exhausted', description: error.message, variant: 'destructive', duration: 8000 });
+        setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isGeneratingFix: false } : a));
+        setFixProgress(prev => prev ? { ...prev, currentStep: 'error' } : prev);
+        return;
+      }
       const msg = error instanceof Error ? error.message : 'Fix failed';
       addLog('error', `❌ Fix failed: ${msg}`);
       logEvent('audit_failed', { assetName: asset.name, error: msg });
