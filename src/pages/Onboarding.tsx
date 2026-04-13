@@ -77,7 +77,7 @@ export default function Onboarding() {
               <div
                 key={i}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  i <= step ? 'w-10 bg-primary' : 'w-6 bg-white/10'
+                  i <= step ? 'w-10 bg-primary' : 'w-6 bg-muted'
                 }`}
               />
             ))}

@@ -147,7 +147,7 @@ function BillingTab() {
               <CardTitle className="text-lg">Current Plan</CardTitle>
               <CardDescription>Manage your subscription and billing</CardDescription>
             </div>
-            <Badge className={`${plan === 'free' ? 'bg-white/10 text-muted-foreground' : 'bg-primary/15 text-primary'} px-3 py-1 text-sm font-semibold capitalize`}>
+            <Badge className={`${plan === 'free' ? 'bg-muted text-muted-foreground' : 'bg-primary/15 text-primary'} px-3 py-1 text-sm font-semibold capitalize`}>
               {tier.name}
             </Badge>
           </div>
