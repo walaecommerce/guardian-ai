@@ -1,12 +1,20 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb, BarChart3 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb, BarChart3, Sparkles } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import type { CampaignStrategy, RoleCoverage, StrategyRecommendation } from '@/utils/campaignStrategy';
+import type { ProductKnowledge } from '@/utils/productKnowledge';
+import type { ListingContext } from '@/utils/listingContext';
+import { buildGenerationBrief } from '@/utils/strategyBriefBuilder';
 
 interface CampaignStrategyPanelProps {
   strategy: CampaignStrategy;
+  productKnowledge?: ProductKnowledge | null;
+  listingContext?: ListingContext | null;
 }
 
 function PriorityBadge({ priority }: { priority: string }) {
@@ -56,7 +64,13 @@ function RoleCoverageItem({ role }: { role: RoleCoverage }) {
   );
 }
 
-function RecommendationItem({ rec, index }: { rec: StrategyRecommendation; index: number }) {
+function RecommendationItem({
+  rec, index, onGenerate,
+}: {
+  rec: StrategyRecommendation;
+  index: number;
+  onGenerate?: (rec: StrategyRecommendation) => void;
+}) {
   return (
     <div className="flex items-start gap-2 py-2 border-b border-border/50 last:border-0">
       <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold shrink-0 mt-0.5">
@@ -69,17 +83,39 @@ function RecommendationItem({ rec, index }: { rec: StrategyRecommendation; index
         </div>
         <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{rec.rationale}</p>
       </div>
+      {onGenerate && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 h-7 text-[11px] gap-1"
+          onClick={() => onGenerate(rec)}
+        >
+          <Sparkles className="w-3 h-3" />
+          Create
+        </Button>
+      )}
     </div>
   );
 }
 
-export function CampaignStrategyPanel({ strategy }: CampaignStrategyPanelProps) {
+export function CampaignStrategyPanel({ strategy, productKnowledge, listingContext }: CampaignStrategyPanelProps) {
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   if (!strategy.isActionable) return null;
 
   const totalRoles = strategy.roleCoverage.length;
   const coveragePercent = totalRoles > 0 ? Math.round((strategy.coveredCount / totalRoles) * 100) : 0;
+
+  const handleGenerate = (rec: StrategyRecommendation) => {
+    const brief = buildGenerationBrief(rec, productKnowledge, listingContext);
+    toast({
+      title: `Generating: ${rec.label}`,
+      description: 'Opening Studio with a prefilled brief…',
+    });
+    navigate('/studio', { state: { brief } });
+  };
 
   return (
     <Card className="border-border/50">
@@ -144,7 +180,12 @@ export function CampaignStrategyPanel({ strategy }: CampaignStrategyPanelProps) 
                 </div>
                 <div className="space-y-0">
                   {strategy.recommendations.map((rec, i) => (
-                    <RecommendationItem key={rec.role} rec={rec} index={i} />
+                    <RecommendationItem
+                      key={rec.role}
+                      rec={rec}
+                      index={i}
+                      onGenerate={handleGenerate}
+                    />
                   ))}
                 </div>
               </div>

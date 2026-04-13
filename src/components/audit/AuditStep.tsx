@@ -7,6 +7,7 @@ import { ImageAsset, LogEntry, ProductIdentityCard } from '@/types';
 import { MultiImageIdentityProfile } from '@/utils/identityProfile';
 import type { ProductKnowledge } from '@/utils/productKnowledge';
 import type { CampaignStrategy } from '@/utils/campaignStrategy';
+import type { ListingContext } from '@/utils/listingContext';
 import { CompetitorData } from '@/components/CompetitorAudit';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,7 @@ interface AuditStepProps {
   identityProfile?: MultiImageIdentityProfile | null;
   productKnowledge?: ProductKnowledge | null;
   campaignStrategy?: CampaignStrategy | null;
+  listingContext?: ListingContext | null;
 }
 
 export function AuditStep({
@@ -46,7 +48,7 @@ export function AuditStep({
   isBatchFixing, batchFixProgress, productAsin, competitorData,
   getMatchingPolicyUpdate, onGoToFix, onGoToImport, onRunAudit, onSelectAsset,
   onRetryFailedAnalysis, aiCreditsExhausted, productIdentity, identityProfile,
-  productKnowledge, campaignStrategy,
+  productKnowledge, campaignStrategy, listingContext,
 }: AuditStepProps) {
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const passedAssets = analyzedAssets.filter(a => a.analysisResult?.status === 'PASS');
@@ -235,7 +237,7 @@ export function AuditStep({
 
       {/* Campaign Image Strategy */}
       {hasResults && campaignStrategy && (
-        <CampaignStrategyPanel strategy={campaignStrategy} />
+        <CampaignStrategyPanel strategy={campaignStrategy} productKnowledge={productKnowledge} listingContext={listingContext} />
       )}
 
       {/* Full-width results */}

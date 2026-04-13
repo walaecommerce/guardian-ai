@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   Loader2, Sparkles, Download, Send, RotateCcw, Check, X,
   Image as ImageIcon, Camera, LayoutGrid, Ruler, FlaskConical,
-  Grid2X2, Columns2, Package, ChevronDown, ChevronUp, Wand2, ArrowRight,
+  Grid2X2, Columns2, Package, ChevronDown, ChevronUp, Wand2, ArrowRight, Target,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,6 +62,7 @@ interface GeneratedImage {
 const Studio = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedTemplate, setSelectedTemplate] = useState('hero');
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
@@ -72,11 +73,29 @@ const Studio = () => {
   const [resolution, setResolution] = useState('2K');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
+  const [strategySource, setStrategySource] = useState<{ targetRole: string; recommendationLabel: string; priority: string } | null>(null);
 
   const [category, setCategory] = useState('GENERAL');
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<GeneratedImage[]>([]);
   const [history, setHistory] = useState<GeneratedImage[]>([]);
+
+  // Prefill from strategy recommendation if navigated with brief state
+  const prefillApplied = useRef(false);
+  useEffect(() => {
+    const brief = (location.state as any)?.brief;
+    if (brief && !prefillApplied.current) {
+      prefillApplied.current = true;
+      setSelectedTemplate(brief.templateId || 'hero');
+      setProductName(brief.productName || '');
+      setDescription(brief.description || '');
+      setSelectedClaims(brief.claims || []);
+      setCategory(brief.category || 'GENERAL');
+      if (brief.strategySource) setStrategySource(brief.strategySource);
+      // Clear state so refreshing doesn't re-apply
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Load history from Supabase on mount — resolve signed URLs for stored images
   useEffect(() => {
@@ -148,7 +167,7 @@ const Studio = () => {
     }
 
     setIsGenerating(true);
-    logEvent('studio_generation_started', { template: selectedTemplate, productName });
+    logEvent('studio_generation_started', { template: selectedTemplate, productName, strategySource: strategySource || undefined });
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-studio-image', {
@@ -343,6 +362,29 @@ const Studio = () => {
                 Create Amazon-compliant product images from scratch
               </p>
             </div>
+
+            {/* Strategy recommendation banner */}
+            {strategySource && (
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                <Target className="w-4 h-4 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-foreground">
+                    Generating: {strategySource.recommendationLabel}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Brief prefilled from Image Strategy · {strategySource.priority} priority
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px]"
+                  onClick={() => setStrategySource(null)}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            )}
 
             <Card>
               <CardContent className="pt-5 space-y-4">
