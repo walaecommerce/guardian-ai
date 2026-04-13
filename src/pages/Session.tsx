@@ -764,8 +764,14 @@ const Session = () => {
                     </span>
                     {fixedCount > 0 && (
                       <span className="flex items-center gap-1">
-                        <Wrench className="h-4 w-4 text-blue-500" />
+                        <Wrench className="h-4 w-4 text-primary" />
                         {fixedCount} fixed
+                      </span>
+                    )}
+                    {manualReviewAssets.length > 0 && (
+                      <span className="flex items-center gap-1 text-warning">
+                        <AlertCircle className="h-4 w-4" />
+                        {manualReviewAssets.length} review
                       </span>
                     )}
                   </div>
@@ -901,17 +907,22 @@ const Session = () => {
                     </CardContent>
                   </Card>
                 ) : (
-                  <AnalysisResults
-                    assets={assets}
-                    listingTitle={listingTitle}
-                    onRequestFix={(id) => handleRequestFix(id)}
-                    onViewDetails={handleViewDetails}
-                    onReverify={handleReverify}
-                    onBatchFix={handleBatchFix}
-                    onRetryAudit={handleRunAudit}
-                    isBatchFixing={isBatchFixing}
-                    productAsin={productAsin || undefined}
-                  />
+                  <div className="space-y-6">
+                    {/* Manual Review lane — consistent with /audit workspace */}
+                    <ManualReviewLane assets={manualReviewAssets} onViewDetails={handleViewDetails} />
+
+                    <AnalysisResults
+                      assets={assets}
+                      listingTitle={listingTitle}
+                      onRequestFix={(id) => handleRequestFix(id)}
+                      onViewDetails={handleViewDetails}
+                      onReverify={handleReverify}
+                      onBatchFix={handleBatchFix}
+                      onRetryAudit={handleRunAudit}
+                      isBatchFixing={isBatchFixing}
+                      productAsin={productAsin || undefined}
+                    />
+                  </div>
                 )}
               </TabsContent>
               <TabsContent value="comparison">
