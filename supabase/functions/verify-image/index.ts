@@ -471,11 +471,13 @@ Return this EXACT JSON structure:
         quality: checks.quality_acceptable ? 90 : 50,
         textLayout: checks.label_text_legible ? 90 : 50,
         noAdditions: checks.no_new_elements ? 90 : 40,
-        // Content-type-specific bonus scores for richer retry feedback
+        // Content-type-specific scores derived from AI model output
         contextPreservation: (!isMain && (contentType === 'LIFESTYLE' || contentType === 'PRODUCT_IN_USE'))
-          ? (checks.background_compliant !== false ? 90 : 30) : undefined,
-        labelFidelity: (!isMain && (contentType === 'PACKAGING' || contentType === 'INFOGRAPHIC'))
-          ? (checks.label_text_legible ? 90 : 30) : undefined,
+          ? (rawResult.context_preservation_score ?? (checks.spatial_zones_respected !== false ? 85 : 35)) : undefined,
+        labelFidelity: (!isMain && contentType === 'PACKAGING')
+          ? (rawResult.label_fidelity_score ?? (checks.label_text_legible ? 85 : 30)) : undefined,
+        layoutPreservation: (!isMain && contentType === 'INFOGRAPHIC')
+          ? (rawResult.layout_preservation_score ?? (checks.label_text_legible && checks.no_new_elements ? 85 : 35)) : undefined,
       },
     };
 
