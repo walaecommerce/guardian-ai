@@ -454,6 +454,7 @@ export function ClientReportGenerator({
     const pages = [buildCover()];
     if (sections.executive) pages.push(buildExecutive());
     if (sections.images) pages.push(buildImages());
+    if (unresolvedAssets.length > 0) pages.push(buildUnresolved());
     if (sections.recommendations) pages.push(buildRecommendations());
     if (sections.competitor && competitorData) pages.push(buildCompetitor());
     if (sections.appendix) pages.push(buildAppendix());
