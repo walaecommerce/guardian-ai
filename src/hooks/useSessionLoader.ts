@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ImageAsset, AnalysisResult, FixAttempt, ProductIdentityCard } from '@/types';
 import { refreshSignedUrl } from '@/services/imageStorage';
 import { buildAssetFromSessionImage } from '@/utils/sessionAssetHelpers';
+import { reconcileSessionCounts, isSessionStale } from '@/utils/sessionReconcile';
 
 interface EnhancementSession {
   id: string;
@@ -87,8 +88,36 @@ export function useSessionLoader() {
       // Extract product identity if stored
       const productIdentity = (session as any).product_identity as ProductIdentityCard | undefined;
 
+      // Reconcile stale session counts from actual image rows
+      const reconciledCounts = reconcileSessionCounts(images || []);
+      const storedCounts = {
+        total_images: session.total_images,
+        passed_count: session.passed_count,
+        failed_count: session.failed_count,
+        fixed_count: session.fixed_count,
+        skipped_count: session.skipped_count,
+        unresolved_count: session.unresolved_count,
+      };
+
+      const sessionOut = { ...session } as EnhancementSession;
+
+      if (isSessionStale(storedCounts, reconciledCounts)) {
+        console.log('[session-reconcile] Stale counts detected, reconciling', { stored: storedCounts, reconciled: reconciledCounts });
+        // Update in-memory session with correct counts
+        Object.assign(sessionOut, reconciledCounts);
+        // Fire-and-forget DB update to heal the stale row
+        supabase.from('enhancement_sessions').update({
+          total_images: reconciledCounts.total_images,
+          passed_count: reconciledCounts.passed_count,
+          failed_count: reconciledCounts.failed_count,
+          fixed_count: reconciledCounts.fixed_count,
+          skipped_count: reconciledCounts.skipped_count,
+          unresolved_count: reconciledCounts.unresolved_count,
+        }).eq('id', sessionId).then(() => {});
+      }
+
       return {
-        session: session as EnhancementSession,
+        session: sessionOut,
         assets,
         assetSessionMap,
         productIdentity: productIdentity || undefined,
