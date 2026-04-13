@@ -322,7 +322,7 @@ export default function Admin() {
 
     const { error } = await supabase.rpc('grant_credit', {
       p_user_id: userId,
-      p_credit_type: creditType,
+      p_credit_type: creditType as 'scrape' | 'analyze' | 'fix' | 'enhance',
       p_amount: finalAmount,
       p_event_type: action === 'grant' ? 'adjustment' : 'debit',
       p_description: description || `Admin ${action} of ${amount} ${creditType} credits`,
