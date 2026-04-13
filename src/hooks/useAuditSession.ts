@@ -657,6 +657,7 @@ export function useAuditSession() {
     setAmazonUrl(data.session.amazon_url || '');
     setProductAsin(data.session.product_asin);
     if (data.productIdentity) setProductIdentity(data.productIdentity);
+    if (data.listingContext) setListingContext(data.listingContext);
 
     // Build import metadata from session data
     const meta: ImportMetadata = {
@@ -1898,6 +1899,7 @@ export function useAuditSession() {
     importError,
     importMetadata,
     isHydrating,
+    listingContext,
 
     // Handlers
     addLog,
