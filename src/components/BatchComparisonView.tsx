@@ -77,7 +77,7 @@ export function BatchComparisonView({ assets, onViewDetails, onDownload, isBatch
             <CardTitle className="text-base">Before / After Comparison</CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs">
-                {fixedCount}/{failedCount} Fixed
+                {fixedCount}/{displayDenominator} Fixed
               </Badge>
             </div>
           </div>
