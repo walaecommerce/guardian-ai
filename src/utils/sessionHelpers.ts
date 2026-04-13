@@ -3,21 +3,19 @@
  */
 
 import { ImageAsset } from '@/types';
+import { isManualReviewAsset } from '@/components/ManualReviewLane';
 
-/** Compute unresolved/skipped counts from current assets for session persistence */
+/** Compute unresolved/skipped counts from current assets for session persistence.
+ *  Uses the same isManualReviewAsset predicate as ReviewStep/export to stay consistent. */
 export function computeUnresolvedCounts(currentAssets: ImageAsset[]): { skipped_count: number; unresolved_count: number } {
   let skipped = 0;
   let unresolved = 0;
   for (const a of currentAssets) {
-    if (a.unresolvedState) {
+    if (isManualReviewAsset(a)) {
       unresolved++;
-      if (a.batchFixStatus === 'skipped') skipped++;
-    } else if (a.fixabilityTier === 'manual_review' || a.fixabilityTier === 'warn_only') {
-      unresolved++;
-      skipped++;
-    } else if (a.batchFixStatus === 'skipped') {
-      skipped++;
-      unresolved++;
+      if (a.batchFixStatus === 'skipped' || a.fixabilityTier === 'manual_review' || a.fixabilityTier === 'warn_only') {
+        skipped++;
+      }
     }
   }
   return { skipped_count: skipped, unresolved_count: unresolved };
