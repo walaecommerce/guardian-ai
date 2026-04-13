@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 } from '@/components/ui/dialog';
-import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff, Cpu, CheckCircle2, XCircle, RefreshCw, Plus, Minus, BookOpen, Gift } from 'lucide-react';
+import { Shield, Users, BarChart3, CreditCard, Loader2, Activity, ShieldCheck, ShieldOff, Cpu, CheckCircle2, XCircle, RefreshCw, Plus, Minus, BookOpen, Gift, TrendingUp } from 'lucide-react';
 import PromoCodesPanel from '@/components/admin/PromoCodesPanel';
 import UserManagementPanel from '@/components/admin/UserManagementPanel';
 import AffiliateReportPanel from '@/components/admin/AffiliateReportPanel';
