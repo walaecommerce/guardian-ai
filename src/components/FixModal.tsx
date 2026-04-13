@@ -23,7 +23,8 @@ interface FixModalProps {
   onDownload: (imageUrl: string, filename: string) => void;
   fixProgress?: FixProgressState;
   mode?: OptimizeMode;
-  mainProductImage?: string; // Main product image for reference
+  mainProductImage?: string;
+  productKnowledge?: import('@/utils/productKnowledge').ProductKnowledge | null;
 }
 
 // Icon mapping for enhancement presets
