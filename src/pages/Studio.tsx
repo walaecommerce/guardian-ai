@@ -763,6 +763,22 @@ const Studio = () => {
                         <Download className="w-3 h-3" /> Compliant — Download
                       </Button>
                     )}
+                    {/* Add to originating audit session */}
+                    {sourceSessionId && img.status === 'analyzed' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs h-7 gap-1 border-primary/30 text-primary hover:bg-primary/5"
+                        disabled={addingToSession === img.id}
+                        onClick={() => handleAddToSession(img)}
+                      >
+                        {addingToSession === img.id ? (
+                          <><Loader2 className="w-3 h-3 animate-spin" /> Adding…</>
+                        ) : (
+                          <><Plus className="w-3 h-3" /> Add to Audit Session</>
+                        )}
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ))}
