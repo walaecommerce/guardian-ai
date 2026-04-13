@@ -114,11 +114,13 @@ serve(async (req) => {
       .eq('idempotency_key', idemKey)
       .single();
 
-    // 7. Record redemption
+    // 7. Record redemption with affiliate attribution snapshot
     await admin.from('promo_redemptions').insert({
       user_id: userId,
       promo_code_id: promo.id,
       ledger_entry_id: ledgerEntry?.id ?? null,
+      affiliate_tag: promo.affiliate_tag ?? null,
+      credits_granted: promo.credit_amount,
     });
 
     // 8. Increment redemption count
