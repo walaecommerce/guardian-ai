@@ -9,6 +9,15 @@ function hydrateFixReview(fixAttemptsJson: unknown): Partial<ImageAsset> {
 
   const data = fixAttemptsJson as Record<string, unknown>;
 
+  // Skipped/manual-review state
+  if (data.skipped === true) {
+    return {
+      batchFixStatus: 'skipped',
+      batchSkipReason: data.skipReason as string | undefined,
+      fixabilityTier: (data.fixabilityTier as ImageAsset['fixabilityTier']) || 'manual_review',
+    };
+  }
+
   // New structured format: { attempts, bestAttemptSelection, stopReason, lastFixStrategy }
   if (Array.isArray(data.attempts)) {
     const attempts: FixAttempt[] = (data.attempts as any[]).map(a => ({

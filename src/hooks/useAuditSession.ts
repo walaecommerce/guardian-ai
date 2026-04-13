@@ -1515,9 +1515,14 @@ export function useAuditSession() {
     
     setIsBatchFixing(false);
     setBatchFixProgress(null);
-    // Clear batch status after a short delay so user sees final state
+    // Clear transient batch statuses (pending/processing) but preserve skipped/fixed/failed
     setTimeout(() => {
-      setAssets(prev => prev.map(a => ({ ...a, batchFixStatus: undefined, batchSkipReason: undefined })));
+      setAssets(prev => prev.map(a => {
+        if (a.batchFixStatus === 'pending' || a.batchFixStatus === 'processing') {
+          return { ...a, batchFixStatus: undefined };
+        }
+        return a;
+      }));
     }, 5000);
     const skippedMsg = skipped.length > 0 ? ` (${skipped.length} skipped)` : '';
     addLog('success', `✅ Fixes complete — ${fixedCount} images corrected${skippedMsg}`);
