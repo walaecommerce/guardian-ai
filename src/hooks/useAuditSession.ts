@@ -1399,8 +1399,8 @@ export function useAuditSession() {
   const [batchEnhanceProgress, setBatchEnhanceProgress] = useState<{ current: number; total: number } | null>(null);
 
   const handleBatchEnhance = async () => {
-    // Enhanceable = analyzed images that don't already have an enhancement
-    const enhanceable = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement'));
+    // Enhanceable = analyzed NON-MAIN images that don't already have an enhancement
+    const enhanceable = assets.filter(a => a.type !== 'MAIN' && a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement'));
     if (enhanceable.length === 0) return;
 
     setIsBatchEnhancing(true);
@@ -1431,16 +1431,26 @@ export function useAuditSession() {
       addLog('processing', `🔍 Analyzing enhancement opportunities for ${asset.name}...`);
 
       try {
-        const base64 = await fileToBase64(asset.file);
+        // Use fixed image when available (post-fix compliance preserved), fall back to original
+        const sourceForEnhancement = asset.fixedImage
+          ? await fetch(asset.fixedImage).then(r => r.blob()).then(b => new File([b], asset.name))
+          : asset.file;
+        const base64 = await fileToBase64(sourceForEnhancement);
 
         // Step 1: Get enhancement analysis
+        // Pass image content type (LIFESTYLE, INFOGRAPHIC, etc.) — NOT productCategory (GENERAL_MERCHANDISE)
+        const imageContentType = (asset.analysisResult as any)?.imageCategory
+          || extractImageCategory(asset)
+          || 'UNKNOWN';
+
         const { data: analysisData, error: analysisError } = await supabase.functions.invoke('enhance-analyze-image', {
           body: {
             imageBase64: base64,
             mainImageBase64,
             imageType: asset.type,
             listingTitle,
-            imageCategory: asset.analysisResult?.productCategory || undefined,
+            imageCategory: imageContentType,
+            productCategory: asset.analysisResult?.productCategory || undefined,
           },
         });
 
@@ -1460,7 +1470,8 @@ export function useAuditSession() {
           body: {
             originalImage: base64,
             mainProductImage: mainImageBase64,
-            imageCategory: analysisData.imageCategory || asset.analysisResult?.productCategory || 'UNKNOWN',
+            imageCategory: imageContentType,
+            imageType: asset.type,
             enhancementType: opportunities[0]?.type || 'general',
             targetImprovements: opportunities.map((o: any) => o.description),
             preserveElements: ['product', 'brand-text', 'key-features'],
@@ -1697,7 +1708,7 @@ export function useAuditSession() {
     }
   };
 
-  const enhanceableCount = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
+  const enhanceableCount = assets.filter(a => a.type !== 'MAIN' && a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
 
   const handleFixAndEnhance = async () => {
     addLog('processing', '🔧✨ Starting Fix & Enhance All...');
