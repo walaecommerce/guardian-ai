@@ -357,7 +357,9 @@ Return this EXACT JSON structure:
       "rule": "<rule name>",
       "severity": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
       "description": "<what is wrong>",
-      "recommendation": "<how to fix>"
+      "recommendation": "<how to fix>",
+      "knowledge_tag": "supported_by_listing_context" | "brand_text_recognized" | "claim_unverified" | "suspicious_promotional_overlay" | "knowledge_not_used" | null,
+      "knowledge_detail": "<brief explanation of how product knowledge influenced this finding, or null if not applicable>"
     }
   ],
   "spatial_analysis": {
@@ -775,6 +777,8 @@ IMPORTANT: If a deterministic check FAILED with severity "critical", your overal
         recommendation: v.recommendation || '',
         rule_id: v.rule_id || undefined,
         evidence: v.evidence || undefined,
+        knowledge_tag: v.knowledge_tag || undefined,
+        knowledge_detail: v.knowledge_detail || undefined,
       })),
       contentConsistency: rawResult.content_consistency ? {
         packagingTextDetected: rawResult.content_consistency.packaging_text_detected || '',

@@ -17,6 +17,7 @@ import {
   getSourceTierLabel,
   getSourceTierBadgeClass,
   getSurfaceLabels,
+  getKnowledgeTagConfig,
   type EvidenceDisplay,
   type FindingGroup,
 } from '@/utils/evidenceHelpers';
@@ -148,11 +149,13 @@ import { SEVERITY_ORDER, getSeverityBadgeClass } from '@/utils/severityHelpers';
 
 function EvidenceRow({ evidence }: { evidence: EvidenceDisplay }) {
   const hasDetails = evidence.whyTriggered || evidence.measuredValue !== null || evidence.ocrSnippet || evidence.boundingBoxSummary;
-  if (!hasDetails && !evidence.ruleId && !evidence.fixLikelihood) return null;
+  if (!hasDetails && !evidence.ruleId && !evidence.fixLikelihood && !evidence.knowledgeTag) return null;
+
+  const ktConfig = getKnowledgeTagConfig(evidence.knowledgeTag);
 
   return (
     <div className="mt-1.5 space-y-1 text-[11px] text-muted-foreground bg-muted/30 rounded px-2 py-1.5 border border-border/50">
-      {/* Rule ID + Source + Tier */}
+      {/* Rule ID + Source + Tier + Knowledge Tag */}
       <div className="flex items-center gap-2 flex-wrap">
         {evidence.ruleId && (
           <span className="font-mono font-semibold text-foreground/70">{evidence.ruleId}</span>
@@ -164,6 +167,12 @@ function EvidenceRow({ evidence }: { evidence: EvidenceDisplay }) {
         {evidence.sourceTier && (
           <span className={`inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium border ${getSourceTierBadgeClass(evidence.sourceTier)}`}>
             {getSourceTierLabel(evidence.sourceTier)}
+          </span>
+        )}
+        {ktConfig && (
+          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium border ${ktConfig.className}`}>
+            <Brain className="w-2.5 h-2.5" />
+            {ktConfig.label}
           </span>
         )}
         {evidence.surfaces && evidence.surfaces.length > 0 && (
@@ -180,6 +189,10 @@ function EvidenceRow({ evidence }: { evidence: EvidenceDisplay }) {
           <span className="text-[10px] text-primary/80 font-medium">⚡ {evidence.fixLikelihood}</span>
         )}
       </div>
+      {/* Knowledge detail */}
+      {evidence.knowledgeDetail && (
+        <p className="leading-snug"><span className="font-medium text-foreground/60">Knowledge:</span> {evidence.knowledgeDetail}</p>
+      )}
       {/* Why triggered */}
       {evidence.whyTriggered && (
         <p className="leading-snug"><span className="font-medium text-foreground/60">Why:</span> {evidence.whyTriggered}</p>

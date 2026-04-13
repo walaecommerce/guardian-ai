@@ -3,7 +3,7 @@
  * Maps violation evidence to displayable structures and groups findings.
  */
 
-import type { Violation, DeterministicFindingSummary } from '@/types';
+import type { Violation, DeterministicFindingSummary, KnowledgeTag } from '@/types';
 import { getPolicyRule, getSourceTierLabel, getSourceTierBadgeClass, type SourceTier, type PolicySurface } from '@/config/policyRegistry';
 
 // ── Finding source types ──
@@ -23,6 +23,8 @@ export interface EvidenceDisplay {
   boundingBoxSummary: string | null;
   findingSource: FindingSource;
   fixLikelihood: string | null;
+  knowledgeTag: KnowledgeTag | null;
+  knowledgeDetail: string | null;
 }
 
 export interface FindingGroup {
@@ -102,6 +104,8 @@ export function extractEvidence(violation: Violation, deterministicRuleIds: Set<
     boundingBoxSummary,
     findingSource,
     fixLikelihood,
+    knowledgeTag: violation.knowledge_tag || null,
+    knowledgeDetail: violation.knowledge_detail || null,
   };
 }
 
@@ -185,6 +189,41 @@ const SURFACE_SHORT_LABELS: Record<PolicySurface, string> = {
 export function getSurfaceLabels(surfaces: PolicySurface[] | null): string[] {
   if (!surfaces || surfaces.length === 0) return [];
   return surfaces.map(s => SURFACE_SHORT_LABELS[s] || s);
+}
+
+// ── Knowledge tag helpers ──
+
+const KNOWLEDGE_TAG_CONFIG: Record<KnowledgeTag, { label: string; detail: string; className: string }> = {
+  supported_by_listing_context: {
+    label: 'Supported by listing',
+    detail: 'Visible text matched known brand/claim context.',
+    className: 'bg-green-500/15 text-green-500 border-green-500/30',
+  },
+  brand_text_recognized: {
+    label: 'Brand recognized',
+    detail: 'Brand text on packaging matches known listing brand.',
+    className: 'bg-primary/15 text-primary border-primary/30',
+  },
+  claim_unverified: {
+    label: 'Claim unverified',
+    detail: 'Claim appears on packaging but was not found in listing context.',
+    className: 'bg-warning/15 text-warning border-warning/30',
+  },
+  suspicious_promotional_overlay: {
+    label: 'Suspicious overlay',
+    detail: 'Overlay looked promotional and did not align with product knowledge.',
+    className: 'bg-destructive/15 text-destructive border-destructive/30',
+  },
+  knowledge_not_used: {
+    label: '',
+    detail: '',
+    className: '',
+  },
+};
+
+export function getKnowledgeTagConfig(tag: KnowledgeTag | null) {
+  if (!tag || tag === 'knowledge_not_used') return null;
+  return KNOWLEDGE_TAG_CONFIG[tag] || null;
 }
 
 // Re-export tier helpers for convenience

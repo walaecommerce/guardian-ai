@@ -20,7 +20,9 @@ import {
   getSourceTierLabel,
   getSourceTierBadgeClass,
   getSurfaceLabels,
+  getKnowledgeTagConfig,
 } from '@/utils/evidenceHelpers';
+import { Brain } from 'lucide-react';
 import { POLICY_VERSION } from '@/config/policyRegistry';
 import { GEMINI_CATEGORY_MAP, type ProductCategory } from '@/config/categoryRules';
 import { getPolicySummary } from '@/utils/policySummary';
@@ -220,6 +222,15 @@ export function ImageDetailDrawer({
                                     {getSourceTierLabel(ev.sourceTier)}
                                   </span>
                                 )}
+                                {(() => {
+                                  const ktCfg = getKnowledgeTagConfig(ev.knowledgeTag);
+                                  return ktCfg ? (
+                                    <span className={`inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-medium border ${ktCfg.className}`}>
+                                      <Brain className="w-2 h-2" />
+                                      {ktCfg.label}
+                                    </span>
+                                  ) : null;
+                                })()}
                                 {ev.surfaces && ev.surfaces.length > 0 && (
                                   <span className="text-[9px] text-muted-foreground/70">
                                     {getSurfaceLabels(ev.surfaces).join(' · ')}
@@ -228,8 +239,9 @@ export function ImageDetailDrawer({
                               </div>
                               <p className="text-sm mt-1">{v.message}</p>
                               {/* Evidence details */}
-                              {(ev.whyTriggered || ev.measuredValue !== null || ev.ocrSnippet) && (
+                              {(ev.whyTriggered || ev.measuredValue !== null || ev.ocrSnippet || ev.knowledgeDetail) && (
                                 <div className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
+                                  {ev.knowledgeDetail && <p><span className="font-medium">Knowledge:</span> {ev.knowledgeDetail}</p>}
                                   {ev.whyTriggered && <p><span className="font-medium">Why:</span> {ev.whyTriggered}</p>}
                                   {ev.measuredValue !== null && (
                                     <p>

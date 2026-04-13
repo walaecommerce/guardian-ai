@@ -102,6 +102,14 @@ export interface ContentConsistency {
   isConsistent: boolean;
 }
 
+/** Per-violation knowledge explainability tag */
+export type KnowledgeTag =
+  | 'supported_by_listing_context'
+  | 'brand_text_recognized'
+  | 'claim_unverified'
+  | 'suspicious_promotional_overlay'
+  | 'knowledge_not_used';
+
 export interface Violation {
   severity: 'critical' | 'warning' | 'info';
   category: string;
@@ -109,6 +117,8 @@ export interface Violation {
   recommendation: string;
   affectedZone?: string; // ID of the affected spatial zone
   rule_id?: string;      // Policy rule that triggered this
+  knowledge_tag?: KnowledgeTag; // Product knowledge explainability
+  knowledge_detail?: string;    // Brief explanation of knowledge reasoning
   evidence?: {
     rule_id: string;
     source: string;
