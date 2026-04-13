@@ -303,6 +303,8 @@ const Session = () => {
           status: 'skipped',
           fix_attempts: { skipped: true, skipReason: fixability.reason, fixabilityTier: fixability.tier, unresolvedState } as any,
         }).eq('id', sessionImageId).then(() => {});
+        const updatedAssets = assets.map(a => a.id === assetId ? { ...a, unresolvedState, batchFixStatus: 'skipped' as const } : a);
+        supabase.from('enhancement_sessions').update(computeUnresolvedCounts(updatedAssets)).eq('id', currentSessionId).then(() => {});
       }
 
       toast({
@@ -392,7 +394,8 @@ const Session = () => {
               fix_attempts: fixReviewData as any,
             }).eq('id', sessionImageId);
             await supabase.from('enhancement_sessions').update({ 
-              fixed_count: assets.filter(a => a.fixedImage || a.id === assetId).length
+              fixed_count: assets.filter(a => a.fixedImage || a.id === assetId).length,
+              ...computeUnresolvedCounts(assets),
             }).eq('id', currentSessionId);
           }
         }
@@ -424,6 +427,8 @@ const Session = () => {
             status: 'failed',
             fix_attempts: fixReviewData as any,
           }).eq('id', sessionImageId);
+          const updatedAssets = assets.map(a => a.id === assetId ? { ...a, unresolvedState } : a);
+          await supabase.from('enhancement_sessions').update(computeUnresolvedCounts(updatedAssets)).eq('id', currentSessionId);
         }
 
         addLog('warning', `⚠️ ${asset.name}: ${stopReason || 'No acceptable fix produced after all attempts'}`);
