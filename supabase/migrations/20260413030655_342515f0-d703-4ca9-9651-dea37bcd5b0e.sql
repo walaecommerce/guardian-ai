@@ -1,0 +1,1 @@
+ALTER TABLE public.user_profiles ADD COLUMN disabled boolean NOT NULL DEFAULT false;
