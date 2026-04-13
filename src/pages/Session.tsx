@@ -685,7 +685,7 @@ const Session = () => {
                     </span>
                     <span className="flex items-center gap-1">
                       <XCircle className="h-4 w-4 text-destructive" />
-                      {failedCount} failed
+                      {failedCount} unfixed
                     </span>
                     {fixedCount > 0 && (
                       <span className="flex items-center gap-1">

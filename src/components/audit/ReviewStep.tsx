@@ -165,7 +165,7 @@ export function ReviewStep({
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
               <Badge variant="outline" className="text-xs">{passedCount} passed</Badge>
-              {failedCount > 0 && <Badge variant="destructive" className="text-xs">{failedCount} failed</Badge>}
+              {failedCount > 0 && <Badge variant="destructive" className="text-xs">{failedCount} unfixed</Badge>}
               {fixedCount > 0 && <Badge className="bg-primary/15 text-primary border-primary/30 text-xs">{fixedCount} fixed</Badge>}
               {unresolvedAssets.length > 0 && (
                 <Badge variant="warning" className="text-xs">
