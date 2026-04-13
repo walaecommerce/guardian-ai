@@ -91,6 +91,7 @@ serve(async (req) => {
       spatialAnalysis,
       targetRuleIds,
       fixCategory,
+      listingContext,
     } = await req.json();
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");

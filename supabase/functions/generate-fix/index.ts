@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { MODELS } from "../_shared/models.ts";
 import { useCredit, checkCredits, createAdminClient } from "../_shared/credits.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
+import { deriveProductKnowledge as deriveProductKnowledgeInline, buildKnowledgePreservationSection as buildKnowledgePreservationSectionInline } from "../_shared/productKnowledge.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
