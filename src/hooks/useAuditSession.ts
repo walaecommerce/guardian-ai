@@ -29,6 +29,7 @@ import { logEvent } from '@/services/eventLog';
 import { saveAuditToHistory } from '@/components/ComplianceHistory';
 import { MaxImagesOption } from '@/components/ImageUploader';
 import { CompetitorData, buildComparisonReport, AIComparisonResult } from '@/components/CompetitorAudit';
+import { computeUnresolvedCounts } from '@/utils/sessionHelpers';
 
 type AssetSessionMap = Map<string, string>;
 
