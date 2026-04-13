@@ -591,7 +591,7 @@ serve(async (req) => {
 
     const bodyOrError = await parseJsonBody(req);
     if (bodyOrError instanceof Response) return bodyOrError;
-    const { imageBase64, imageType, listingTitle, forcedCategory, deterministicFindings } = bodyOrError as Record<string, any>;
+    const { imageBase64, imageType, listingTitle, forcedCategory, deterministicFindings, sessionImageId } = bodyOrError as Record<string, any>;
 
     if (!imageBase64) return errorResponse(400, 'Missing required field: imageBase64', {}, corsHeaders);
 
