@@ -56,6 +56,10 @@ export interface ImageAsset {
   batchFixStatus?: 'pending' | 'processing' | 'fixed' | 'failed' | 'skipped';
   /** Why this asset was skipped in batch fix */
   batchSkipReason?: string;
+  /** Fixability classification tier from fixability layer */
+  fixabilityTier?: 'auto_fixable' | 'warn_only' | 'manual_review';
+  /** Recommended next action for skipped/manual-review images */
+  manualReviewAction?: string;
 }
 
 // Analysis Types
