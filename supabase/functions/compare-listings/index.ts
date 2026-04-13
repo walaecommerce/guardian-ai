@@ -18,6 +18,24 @@ serve(async (req) => {
     // Auth guard
     const authResult = await requireAuth(req, corsHeaders);
     if (isAuthError(authResult)) return authResult;
+    const userId = authResult.userId;
+    const admin = createAdminClient();
+
+    // Pre-check analyze credits for competitor comparison
+    try {
+      const remaining = await checkCredits(admin, userId, 'analyze');
+      const { data: roleData } = await admin
+        .from('user_roles').select('role')
+        .eq('user_id', userId).eq('role', 'admin').maybeSingle();
+      if (!roleData && remaining <= 0) {
+        return new Response(
+          JSON.stringify({ error: 'No analyze credits remaining. Upgrade your plan to continue.', errorType: 'payment_required' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (creditErr: any) {
+      console.warn('[compare-listings] Credit pre-check failed, proceeding:', creditErr);
+    }
 
     const { yourAnalysis, competitorAnalysis, yourTitle, competitorTitle } = await req.json();
 
