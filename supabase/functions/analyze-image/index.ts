@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
-import { useCredit, getUserIdFromAuth, createAdminClient } from "../_shared/credits.ts";
+import { useCredit, checkCredits, getUserIdFromAuth, createAdminClient } from "../_shared/credits.ts";
 import { parseJsonBody, requireFields, errorResponse } from "../_shared/validation.ts";
 
 const corsHeaders = {
