@@ -103,7 +103,7 @@ function LoginScreen() {
           </div>
 
           {/* Divider */}
-          <div className="w-full h-px bg-white/5" />
+          <div className="w-full h-px bg-muted/50" />
 
           {/* Google Sign In */}
           <Button

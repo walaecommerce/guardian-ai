@@ -61,7 +61,7 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 h-14 border-b border-white/5 bg-background/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 h-14 border-b border-border bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto px-4 h-full flex items-center justify-between">
         {/* Left: Logo + Nav */}
         <div className="flex items-center gap-6">
@@ -106,7 +106,7 @@ export function Header() {
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-8 h-8 rounded-full overflow-hidden border border-white/10 hover:border-primary/30 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30">
+                <button className="w-8 h-8 rounded-full overflow-hidden border border-border hover:border-primary/30 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30">
                   {profile?.avatar_url ? (
                     <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
                   ) : (
@@ -116,12 +116,12 @@ export function Header() {
                   )}
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-card border-white/10">
+              <DropdownMenuContent align="end" className="w-56 bg-card border-border">
                 <div className="px-3 py-2">
                   <p className="text-sm font-medium text-foreground truncate">{profile?.full_name || 'User'}</p>
                   <p className="text-xs text-muted-foreground truncate">{profile?.email || user.email}</p>
                 </div>
-                <DropdownMenuSeparator className="bg-white/5" />
+                <DropdownMenuSeparator className="bg-muted/50" />
                 <DropdownMenuItem onClick={() => navigate('/pricing')} className="gap-2 cursor-pointer">
                   <CreditCard className="w-4 h-4" />
                   Upgrade Plan
@@ -130,7 +130,7 @@ export function Header() {
                   <Settings className="w-4 h-4" />
                   Settings
                 </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-white/5" />
+                <DropdownMenuSeparator className="bg-muted/50" />
                 <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
                   <LogOut className="w-4 h-4" />
                   Sign Out
@@ -151,7 +151,7 @@ export function Header() {
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden border-t border-white/5 bg-background/95 backdrop-blur-xl px-4 py-3 space-y-1">
+        <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-3 space-y-1">
           <HeaderNavLink to="/" label="Single Audit" />
           <HeaderNavLink to="/campaign" label="Campaign" icon={<BarChart3 className="w-3.5 h-3.5" />} />
           <HeaderNavLink to="/studio" label="Studio" icon={<Sparkles className="w-3.5 h-3.5" />} />

@@ -2,13 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
-/* AGC Listing Guardian — Dark Design System
+/* AGC Listing Guardian — Theme Design System
    All colors MUST be HSL.
 */
 
 @layer base {
+  /* ── Light theme ── */
   :root {
-    /* Dark background palette */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 10%;
+
+    --card: 0 0% 98%;
+    --card-foreground: 240 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 10%;
+
+    /* Electric Cyan primary */
+    --primary: 187 100% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Violet secondary */
+    --secondary: 263 84% 58%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 240 5% 93%;
+    --muted-foreground: 215 14% 40%;
+
+    --accent: 187 100% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Status colors */
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 84% 32%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 45%;
+    --warning-foreground: 0 0% 0%;
+
+    --border: 240 6% 85%;
+    --input: 240 6% 85%;
+    --ring: 187 100% 38%;
+
+    --radius: 0.75rem;
+
+    /* Surface tokens */
+    --surface: 0 0% 98%;
+    --surface-elevated: 0 0% 100%;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 97%;
+    --sidebar-foreground: 240 10% 10%;
+    --sidebar-primary: 187 100% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 5% 93%;
+    --sidebar-accent-foreground: 240 10% 10%;
+    --sidebar-border: 240 6% 85%;
+    --sidebar-ring: 187 100% 38%;
+
+    /* Activity log terminal */
+    --terminal: 240 5% 96%;
+    --terminal-foreground: 160 84% 30%;
+  }
+
+  /* ── Dark theme ── */
+  .dark {
     --background: 240 20% 4%;          /* #0A0A0F */
     --foreground: 210 40% 98%;         /* #F8FAFC */
 
@@ -107,13 +167,13 @@
 @layer components {
   /* Glass card */
   .glass-card {
-    @apply rounded-2xl border border-white/5 shadow-2xl;
+    @apply rounded-2xl border border-border shadow-2xl;
     background: hsl(var(--surface));
     backdrop-filter: blur(20px);
   }
 
   .glass-card-elevated {
-    @apply rounded-2xl border border-white/10 shadow-2xl;
+    @apply rounded-2xl border border-border shadow-2xl;
     background: hsl(var(--surface-elevated));
     backdrop-filter: blur(40px);
   }

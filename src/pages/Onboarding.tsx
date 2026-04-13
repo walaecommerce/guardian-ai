@@ -77,7 +77,7 @@ export default function Onboarding() {
               <div
                 key={i}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  i <= step ? 'w-10 bg-primary' : 'w-6 bg-white/10'
+                  i <= step ? 'w-10 bg-primary' : 'w-6 bg-muted'
                 }`}
               />
             ))}
@@ -89,7 +89,7 @@ export default function Onboarding() {
               <p className="text-sm text-muted-foreground text-center">Here's what you can do with Guardian:</p>
               <div className="grid gap-3">
                 {FEATURES.map((f) => (
-                  <div key={f.title} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div key={f.title} className="flex items-start gap-3 p-3 rounded-xl bg-muted/30 border border-border">
                     <div className="mt-0.5 shrink-0">{f.icon}</div>
                     <div>
                       <p className="text-sm font-medium text-foreground">{f.title}</p>
@@ -122,7 +122,7 @@ export default function Onboarding() {
                   placeholder="https://www.amazon.com/stores/YourBrand/page/..."
                   value={storeUrl}
                   onChange={(e) => setStoreUrl(e.target.value)}
-                  className="h-11 bg-white/5 border-white/10 placeholder:text-muted-foreground/50 rounded-xl"
+                  className="h-11 bg-muted/50 border-border placeholder:text-muted-foreground/50 rounded-xl"
                 />
                 <p className="text-xs text-muted-foreground">Optional — you can add this later in Settings.</p>
               </div>

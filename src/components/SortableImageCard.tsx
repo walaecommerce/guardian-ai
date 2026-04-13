@@ -159,7 +159,7 @@ export function SortableImageCard({ asset, index, onRemove, onCrop, isOverlay = 
       </button>
 
       {/* Status dot indicator */}
-      <div className={`absolute top-8 left-2 w-2.5 h-2.5 rounded-full border border-white/50 ${
+      <div className={`absolute top-8 left-2 w-2.5 h-2.5 rounded-full border border-border0 ${
         asset.analysisResult
           ? asset.analysisResult.status === 'PASS'
             ? 'bg-green-500'

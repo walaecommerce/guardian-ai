@@ -73,7 +73,7 @@ export function ProductIdentityPanel({ identity, profile }: ProductIdentityPanel
                       <Tooltip key={i}>
                         <TooltipTrigger>
                           <div
-                            className="w-6 h-6 rounded-full border border-white/10 shadow-sm"
+                            className="w-6 h-6 rounded-full border border-border shadow-sm"
                             style={{ backgroundColor: color }}
                           />
                         </TooltipTrigger>
