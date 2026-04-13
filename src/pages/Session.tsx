@@ -347,6 +347,7 @@ const Session = () => {
 
       const originalBase64 = await fileToBase64(asset.file);
 
+      const fixSessionImageId = assetSessionMap.get(assetId);
       const result = await runFixOrchestration(
         {
           asset,
@@ -357,6 +358,7 @@ const Session = () => {
           customPrompt,
           previousGeneratedImage,
           productIdentity,
+          sessionImageId: fixSessionImageId,
         },
         {
           onProgress: setFixProgress,
