@@ -338,7 +338,7 @@ export default function Admin() {
         .from('user_credits')
         .select('id, total_credits, used_credits')
         .eq('user_id', userId)
-        .eq('credit_type', creditType)
+        .eq('credit_type', creditType as 'scrape' | 'analyze' | 'fix' | 'enhance')
         .single();
 
       if (legacyRow && action === 'grant') {
