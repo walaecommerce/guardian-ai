@@ -57,14 +57,14 @@ function ProfileTab() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-white/5 bg-white/[0.02]">
+      <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-lg">Profile Information</CardTitle>
           <CardDescription>Update your personal details</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4 mb-2">
-            <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/10 shrink-0">
+            <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-border shrink-0">
               {profile?.avatar_url ? (
                 <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -140,7 +140,7 @@ function BillingTab() {
   return (
     <div className="space-y-6">
       {/* Current Plan */}
-      <Card className="border-white/5 bg-white/[0.02]">
+      <Card className="border-border bg-card">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -185,7 +185,7 @@ function BillingTab() {
       </Card>
 
       {/* Credit Usage */}
-      <Card className="border-white/5 bg-white/[0.02]">
+      <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-lg">Credit Usage</CardTitle>
           <CardDescription>Monthly credits for the current billing cycle</CardDescription>
@@ -216,7 +216,7 @@ function BillingTab() {
       </Card>
 
       {/* Promo Code */}
-      <Card className="border-white/5 bg-white/[0.02]">
+      <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-lg">Promo Code</CardTitle>
           <CardDescription>Have a promo code? Redeem it for bonus credits.</CardDescription>
@@ -258,7 +258,7 @@ function BillingTab() {
       </Card>
 
       {/* Usage History Chart */}
-      <Card className="border-white/5 bg-white/[0.02]">
+      <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-muted-foreground" />
@@ -363,7 +363,7 @@ function NotificationsTab() {
   return (
     <div className="space-y-6">
       {/* Email */}
-      <Card className="border-white/5 bg-white/[0.02]">
+      <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-lg">Email Notifications</CardTitle>
           <CardDescription>Receive audit alerts via email</CardDescription>
@@ -383,7 +383,7 @@ function NotificationsTab() {
       </Card>
 
       {/* Triggers */}
-      <Card className="border-white/5 bg-white/[0.02]">
+      <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-lg">Notification Triggers</CardTitle>
           <CardDescription>Choose which events trigger alerts</CardDescription>
@@ -407,7 +407,7 @@ function NotificationsTab() {
             </div>
           ))}
 
-          <Separator className="bg-white/5" />
+          <Separator className="bg-muted/50" />
 
           <div className="space-y-2">
             <Label>Minimum Severity</Label>
@@ -425,7 +425,7 @@ function NotificationsTab() {
 
       {/* Delivery Log */}
       {log.length > 0 && (
-        <Card className="border-white/5 bg-white/[0.02]">
+        <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle className="text-lg">Delivery Log</CardTitle>
           </CardHeader>
@@ -462,14 +462,14 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="bg-white/[0.03] border border-white/5">
-            <TabsTrigger value="profile" className="gap-2 data-[state=active]:bg-white/5">
+          <TabsList className="bg-muted/30 border border-border">
+            <TabsTrigger value="profile" className="gap-2 data-[state=active]:bg-muted/50">
               <User className="w-4 h-4" /> Profile
             </TabsTrigger>
-            <TabsTrigger value="billing" className="gap-2 data-[state=active]:bg-white/5">
+            <TabsTrigger value="billing" className="gap-2 data-[state=active]:bg-muted/50">
               <CreditCard className="w-4 h-4" /> Billing
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2 data-[state=active]:bg-white/5">
+            <TabsTrigger value="notifications" className="gap-2 data-[state=active]:bg-muted/50">
               <Bell className="w-4 h-4" /> Notifications
             </TabsTrigger>
           </TabsList>
