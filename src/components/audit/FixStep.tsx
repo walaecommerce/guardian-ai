@@ -32,14 +32,24 @@ export function FixStep({
   listingTitle, onApplyFix,
   onBatchEnhance, isBatchEnhancing = false, batchEnhanceProgress,
 }: FixStepProps) {
+  // Classify manual-review/skipped images
+  const manualReviewAssets = assets.filter(a => {
+    if (a.fixabilityTier === 'manual_review' || a.fixabilityTier === 'warn_only') return true;
+    if (a.batchFixStatus === 'skipped') return true;
+    if (a.fixStopReason && !a.fixedImage) return true;
+    return false;
+  });
+
   const failedAssets = assets.filter(a => 
     (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage
+    && !manualReviewAssets.some(m => m.id === a.id)
   );
   const fixedAssets = assets.filter(a => a.fixedImage);
   const analyzedAssets = assets.filter(a => a.analysisResult);
   const allFixed = failedAssets.length === 0 && fixedAssets.length > 0;
   const enhanceableCount = assets.filter(a => a.analysisResult && (!a.fixedImage || a.fixMethod !== 'enhancement')).length;
   const hasNoResults = analyzedAssets.length === 0;
+  const retryFailedCount = assets.filter(a => a.batchFixStatus === 'failed').length;
 
   // Build fix queue for visualization
   const fixQueueAssets = assets.filter(a => a.batchFixStatus);
