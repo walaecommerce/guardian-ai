@@ -607,6 +607,19 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
                 <p className="text-sm text-muted-foreground mb-2">
                   {selectedAttempt.verification.critique}
                 </p>
+                {/* Content-type-specific subscore warnings */}
+                {selectedAttempt.verification.componentScores?.contextPreservation !== undefined && 
+                 selectedAttempt.verification.componentScores.contextPreservation < 70 && (
+                  <p className="text-xs text-warning mb-1">⚠ Lifestyle context altered — scene, setting, or props were changed</p>
+                )}
+                {selectedAttempt.verification.componentScores?.layoutPreservation !== undefined && 
+                 selectedAttempt.verification.componentScores.layoutPreservation < 70 && (
+                  <p className="text-xs text-warning mb-1">⚠ Infographic layout/text changed — informational content was modified</p>
+                )}
+                {selectedAttempt.verification.componentScores?.labelFidelity !== undefined && 
+                 selectedAttempt.verification.componentScores.labelFidelity < 70 && (
+                  <p className="text-xs text-warning mb-1">⚠ Packaging label drift — printed text was altered or hallucinated</p>
+                )}
                 {selectedAttempt.verification.failedChecks?.length > 0 && (
                   <div className="space-y-1">
                     {selectedAttempt.verification.failedChecks.map((check, i) => (
