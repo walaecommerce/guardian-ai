@@ -96,7 +96,7 @@ export default function Pricing() {
                     ? 'border-primary/30 bg-primary/[0.03] shadow-[0_0_40px_-12px_hsl(var(--primary)/0.15)]'
                     : isCurrentPlan
                       ? 'border-success/30 bg-success/[0.03]'
-                      : 'border-white/5 bg-white/[0.02]'
+                      : 'border-border bg-card'
                 }`}
               >
                 {tier.badge && (
@@ -116,7 +116,7 @@ export default function Pricing() {
 
                 <div className="space-y-4 mb-6">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    tier.highlight ? 'bg-primary/15 text-primary' : 'bg-white/5 text-muted-foreground'
+                    tier.highlight ? 'bg-primary/15 text-primary' : 'bg-muted/50 text-muted-foreground'
                   }`}>
                     <Icon className="w-5 h-5" />
                   </div>
@@ -131,12 +131,12 @@ export default function Pricing() {
                 </div>
 
                 {/* Credit summary */}
-                <div className="grid grid-cols-3 gap-1 mb-5 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="grid grid-cols-3 gap-1 mb-5 p-3 rounded-xl bg-card border border-border">
                   <div className="text-center">
                     <div className="text-xs font-bold text-foreground">{formatCredit(tier.credits.scrape)}</div>
                     <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Scrapes</div>
                   </div>
-                  <div className="text-center border-x border-white/5">
+                  <div className="text-center border-x border-border">
                     <div className="text-xs font-bold text-foreground">{formatCredit(tier.credits.analyze)}</div>
                     <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Analyses</div>
                   </div>

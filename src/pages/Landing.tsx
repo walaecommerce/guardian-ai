@@ -81,7 +81,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden scroll-smooth">
       {/* Nav */}
-      <nav className="fixed top-0 inset-x-0 z-50 border-b border-white/5 bg-background/80 backdrop-blur-xl">
+      <nav className="fixed top-0 inset-x-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 h-16">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -135,7 +135,7 @@ export default function Landing() {
       </section>
 
       {/* Stats */}
-      <section className="border-y border-white/5 bg-card/50">
+      <section className="border-y border-border bg-card/50">
         <div className="max-w-5xl mx-auto grid grid-cols-3 divide-x divide-white/5">
           {stats.map((s, i) => (
             <Reveal key={s.label} delay={i * 100}>
@@ -160,7 +160,7 @@ export default function Landing() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((f, i) => (
               <Reveal key={f.title} delay={i * 80}>
-                <Card className="bg-white/[0.03] border-white/5 backdrop-blur-2xl hover:border-primary/20 hover:scale-[1.02] transition-all duration-300">
+                <Card className="bg-muted/30 border-border backdrop-blur-2xl hover:border-primary/20 hover:scale-[1.02] transition-all duration-300">
                   <CardContent className="p-6 space-y-3">
                     <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
                       <f.icon className="w-5 h-5 text-primary" />
@@ -209,7 +209,7 @@ export default function Landing() {
           <div className="grid md:grid-cols-3 gap-6">
             {testimonials.map((t, i) => (
               <Reveal key={i} delay={i * 120}>
-                <Card className="bg-white/[0.03] border-white/5 backdrop-blur-2xl hover:border-primary/10 transition-colors duration-300">
+                <Card className="bg-muted/30 border-border backdrop-blur-2xl hover:border-primary/10 transition-colors duration-300">
                   <CardContent className="p-6 space-y-4">
                     <div className="flex gap-1">{[...Array(5)].map((_, j) => <Star key={j} className="w-4 h-4 fill-primary text-primary" />)}</div>
                     <p className="text-sm text-muted-foreground leading-relaxed italic">"{t.quote}"</p>
@@ -237,7 +237,7 @@ export default function Landing() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {TIERS.map((tier, i) => (
               <Reveal key={tier.slug} delay={i * 100}>
-                <Card className={`bg-white/[0.03] backdrop-blur-2xl transition-all duration-300 hover:scale-[1.02] ${tier.highlight ? 'border-primary/40 ring-1 ring-primary/20' : 'border-white/5'}`}>
+                <Card className={`bg-muted/30 backdrop-blur-2xl transition-all duration-300 hover:scale-[1.02] ${tier.highlight ? 'border-primary/40 ring-1 ring-primary/20' : 'border-border'}`}>
                   <CardContent className="p-6 space-y-4">
                     {tier.badge && (
                       <span className="inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{tier.badge}</span>
@@ -280,7 +280,7 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-8 px-6">
+      <footer className="border-t border-border py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-primary" />

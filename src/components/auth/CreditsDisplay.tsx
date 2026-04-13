@@ -28,7 +28,7 @@ export function CreditsDisplay() {
             className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold transition-colors ${
               isLow
                 ? 'bg-destructive/15 text-destructive border border-destructive/20'
-                : 'bg-white/5 text-muted-foreground border border-white/10'
+                : 'bg-muted/50 text-muted-foreground border border-border'
             }`}
             title={`${remaining}/${total} ${type} credits`}
           >

@@ -51,7 +51,7 @@ export function CheckoutSuccessModal({ open, onClose, plan }: SuccessModalProps)
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md bg-card border-white/10 text-center p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-md bg-card border-border text-center p-0 overflow-hidden">
         {/* Top accent bar */}
         <div className="h-1.5 w-full bg-gradient-to-r from-primary via-[hsl(var(--success))] to-primary" />
 
@@ -76,7 +76,7 @@ export function CheckoutSuccessModal({ open, onClose, plan }: SuccessModalProps)
             {creditItems.map(({ icon: Icon, label, value }) => (
               <div
                 key={label}
-                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5"
+                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted/30 border border-border"
               >
                 <Icon className="w-5 h-5 text-primary" />
                 <span className="text-2xl font-bold text-foreground">
