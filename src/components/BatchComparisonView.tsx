@@ -48,7 +48,10 @@ export function BatchComparisonView({ assets, onViewDetails, onDownload, isBatch
   });
 
   const fixedCount = analyzedAssets.filter(a => a.fixedImage).length;
-  const failedCount = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL').length;
+  const failedOrWarnCount = analyzedAssets.filter(a => a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING').length;
+  // Display denominator is the larger of failed/warn count and fixed count
+  // to avoid confusing "8/6 Fixed" when enhancements push fixed beyond failed
+  const displayDenominator = Math.max(failedOrWarnCount, fixedCount);
 
   if (analyzedAssets.length === 0) {
     return (
@@ -74,7 +77,7 @@ export function BatchComparisonView({ assets, onViewDetails, onDownload, isBatch
             <CardTitle className="text-base">Before / After Comparison</CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs">
-                {fixedCount}/{failedCount} Fixed
+                {fixedCount}/{displayDenominator} Fixed
               </Badge>
             </div>
           </div>
