@@ -295,6 +295,9 @@ export interface ScrapedProduct {
   title: string;
   images: ScrapedImage[];
   bullets?: string[];
+  description?: string;
+  brand?: string;
+  html?: string; // raw HTML for listing context extraction
 }
 
 // Activity Log Types
