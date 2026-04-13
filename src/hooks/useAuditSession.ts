@@ -73,6 +73,7 @@ export function useAuditSession() {
   const [aiCreditsExhausted, setAiCreditsExhausted] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importMetadata, setImportMetadata] = useState<ImportMetadata | null>(null);
+  const [listingContext, setListingContext] = useState<ListingContext | null>(null);
 
   // Stepper state
   const [currentStep, setCurrentStep] = useState<AuditStep>('import');
