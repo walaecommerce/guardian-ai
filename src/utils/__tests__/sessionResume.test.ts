@@ -59,6 +59,31 @@ describe('inferCurrentStep', () => {
       total_images: 5, passed_count: 2, failed_count: 3, fixed_count: 0, skipped_count: 1, status: 'in_progress',
     })).toBe('fix');
   });
+
+  it('returns review for completed session with unresolved items', () => {
+    expect(inferCurrentStep({
+      total_images: 5, passed_count: 2, failed_count: 3, fixed_count: 1, skipped_count: 2, status: 'completed',
+    })).toBe('review');
+  });
+
+  it('falls back gracefully when skipped_count is missing (backward compat)', () => {
+    // No skipped_count → treated as 0, so 3 failed - 1 fixed = 2 fixable → fix
+    expect(inferCurrentStep({
+      total_images: 5, passed_count: 2, failed_count: 3, fixed_count: 1, status: 'in_progress',
+    })).toBe('fix');
+  });
+
+  it('returns review when fixed + skipped exactly covers failed', () => {
+    expect(inferCurrentStep({
+      total_images: 6, passed_count: 2, failed_count: 4, fixed_count: 2, skipped_count: 2, status: 'in_progress',
+    })).toBe('review');
+  });
+
+  it('returns fix when fixed + skipped do not fully cover failed', () => {
+    expect(inferCurrentStep({
+      total_images: 6, passed_count: 2, failed_count: 4, fixed_count: 1, skipped_count: 2, status: 'in_progress',
+    })).toBe('fix');
+  });
 });
 
 describe('formatContentType', () => {
