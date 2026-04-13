@@ -8,9 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-
-// ── Image helpers ────────────────────────────────────────────────
-
 const guessImageMimeType = (b64: string): string => {
   const d = (b64 || '').trim();
   if (d.startsWith('/9j/')) return 'image/jpeg';
@@ -47,19 +44,18 @@ serve(async (req) => {
   }
 
   try {
-    // Auth guard
     const authResult = await requireAuth(req, corsHeaders);
     if (isAuthError(authResult)) return authResult;
 
     const { imageBase64, mainImageBase64, imageCategory, listingTitle, productAsin, imageType, productCategory } = await req.json();
 
-    // Guard: MAIN images should not be analyzed for enhancement
+    // Guard: MAIN images are never eligible for enhancement
     if (imageType === 'MAIN' || imageCategory === 'MAIN') {
       console.log('[Enhancement] Skipping MAIN/hero image — not eligible for enhancement');
       return new Response(JSON.stringify({
         imageCategory: 'MAIN',
         enhancementOpportunities: [],
-        analysisNotes: 'MAIN/hero images are not eligible for marketing enhancement to preserve white-background compliance.'
+        analysisNotes: 'MAIN/hero images are not eligible for enhancement to preserve white-background compliance.'
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -71,106 +67,71 @@ serve(async (req) => {
     }
 
     console.log(`[enhance-analyze-image] using model: ${MODELS.analysis} via Google Gemini API`);
-    console.log(`[Enhancement] Deep analyzing ${imageCategory} image...`);
+    console.log(`[Enhancement] Analyzing ${imageCategory} image for quality polish opportunities...`);
 
-    const systemPrompt = `You are an expert Amazon product image analyst specializing in enhancement recommendations. Your job is to:
-1. Analyze the uploaded secondary image for quality and effectiveness
-2. Compare it against the main product image for consistency
-3. Identify specific enhancement opportunities based on Amazon best practices
-4. Provide actionable recommendations for improvement
+    // ── Compliance-preserving analysis prompt ──────────────────────
+    // Enhancement = quality polish only. Never suggest adding elements,
+    // changing layout, converting content type, or redesigning the image.
+    const systemPrompt = `You are an Amazon product image quality analyst. Your ONLY job is to identify conservative quality-polish opportunities that improve the image WITHOUT changing its content, layout, structure, or category.
 
-## IMAGE CATEGORY CONTEXT
-You are analyzing a "${imageCategory}" image. Apply category-specific analysis:
+## ABSOLUTE RULES — NEVER SUGGEST:
+- Adding text, callout graphics, annotations, labels, or infographic elements
+- Adding product cutouts, overlays, or comparison labels
+- Converting the image to a different category (e.g. lifestyle → infographic)
+- Redesigning layout or composition
+- Adding promotional badges, banners, or marketing elements
+- Adding props, backgrounds, or context elements that don't already exist
+- Any change that would alter what the image fundamentally IS
 
-${imageCategory === 'LIFESTYLE' ? `
-LIFESTYLE IMAGE ANALYSIS:
-- Product Visibility: Is the product clearly visible and recognizable? (minimum 30-40% of frame)
-- Context Appropriateness: Does the lifestyle setting resonate with target customers?
-- Product Hero Status: Is the product the "hero" of the scene or just a prop?
-- Lighting Quality: Is the product well-lit within the scene?
-- Authenticity: Does the scene feel natural and aspirational?
-` : ''}
+## ALLOWED ENHANCEMENT TYPES (quality polish only):
+- "lighting_improvement" — fix uneven lighting, add subtle fill light on product
+- "color_correction" — improve white balance, color accuracy, saturation balance
+- "sharpness_improvement" — improve clarity and detail sharpness
+- "contrast_improvement" — improve tonal contrast and depth
+- "noise_reduction" — reduce grain or compression artifacts
+- "product_focus" — subtle depth-of-field to draw eye to product (no cropping)
+- "quality_enhancement" — general resolution/quality improvements
 
-${imageCategory === 'INFOGRAPHIC' ? `
-INFOGRAPHIC IMAGE ANALYSIS:
-- Product Presence: Is there a clear product image/cutout present?
-- Text Readability: Are feature callouts easy to read?
-- Visual Hierarchy: Is there clear priority (product > features > details)?
-- Information Density: Is there too much or too little information?
-- Professional Quality: Do the graphics look professional?
-` : ''}
-
-${imageCategory === 'PRODUCT_IN_USE' ? `
-PRODUCT IN USE ANALYSIS:
-- Product Visibility During Action: Is the product visible while being used?
-- Benefit Clarity: Is the benefit/result of usage clear?
-- Action Authenticity: Does the usage look natural and realistic?
-- Result Demonstration: Are the outcomes of using the product visible?
-` : ''}
-
-${imageCategory === 'COMPARISON' ? `
-COMPARISON IMAGE ANALYSIS:
-- State Distinction: Is the before/after clearly distinguishable?
-- Product Prominence: Is the product clearly featured in comparison?
-- Fairness: Is the comparison fair and not misleading?
-- Visual Impact: Is the improvement visually compelling?
-` : ''}
-
-## MAIN PRODUCT REFERENCE
-I will provide the MAIN product image. Use this to:
-- Verify the product in the secondary image matches the main product
-- Check for consistency in product appearance (color, shape, labels)
-- Identify if any key product elements are missing
+## IMAGE CATEGORY: "${imageCategory}"
+The image's current category must be PRESERVED. Enhancement must not change what type of image this is.
 
 ## OUTPUT FORMAT
 Return ONLY valid JSON:
 {
   "imageCategory": "${imageCategory}",
-  "productVisibility": {
-    "score": <0-100>,
-    "isProductClearlyVisible": boolean,
-    "productBounds": { "top": %, "left": %, "width": %, "height": % } or null,
-    "issues": ["list of visibility issues"]
-  },
-  "comparisonWithMain": {
-    "sameProductDetected": boolean,
-    "productMatchScore": <0-100>,
-    "missingElements": ["elements in main image not visible here"]
-  },
   "contentQuality": {
-    "lifestyleContextAppropriate": boolean,
-    "infographicTextReadable": boolean,
-    "featureHighlightsPresent": boolean,
-    "callToActionStrength": <0-100>,
-    "overallQuality": <0-100>
+    "overallQuality": <0-100>,
+    "lightingScore": <0-100>,
+    "sharpnessScore": <0-100>,
+    "colorAccuracyScore": <0-100>
   },
   "enhancementOpportunities": [
     {
       "id": "unique_id",
-      "type": "add_product|improve_visibility|enhance_graphics|add_infographic|improve_context|add_annotations|color_correction|background_upgrade|composition_fix|quality_enhancement",
+      "type": "lighting_improvement|color_correction|sharpness_improvement|contrast_improvement|noise_reduction|product_focus|quality_enhancement",
       "priority": "high|medium|low",
-      "description": "What should be improved",
-      "expectedImprovement": "What result this will achieve"
+      "description": "What specific quality aspect should be improved",
+      "expectedImprovement": "What visual quality improvement this will achieve"
     }
   ],
-  "recommendedPresets": ["preset_ids that would help this image"],
-  "analysisNotes": "Brief summary of overall assessment"
-}`;
+  "analysisNotes": "Brief quality assessment summary"
+}
 
-    const userPrompt = `Analyze this ${imageCategory} image for enhancement opportunities.
+If the image is already high quality (overallQuality >= 85), return an empty enhancementOpportunities array.
+Only return opportunities where there is genuine, visible quality improvement to be made.`;
+
+    const userPrompt = `Analyze this ${imageCategory} image for quality-polish opportunities only.
 ${listingTitle ? `Product: "${listingTitle}"` : ''}
-${productAsin ? `ASIN: ${productAsin}` : ''}
+Do NOT suggest adding new elements, text, graphics, or changing the image's category or layout.
+Only suggest lighting, color, sharpness, contrast, and clarity improvements.`;
 
-Compare against the main product image provided and identify all opportunities to improve this image's effectiveness.`;
-
-    // Build content parts
     const contentParts: any[] = [
       { type: "text", text: userPrompt },
       { type: "image_url", image_url: { url: toDataUrl(imageBase64) } },
     ];
 
     if (mainImageBase64) {
-      contentParts.push({ type: "text", text: "Main product reference image:" });
+      contentParts.push({ type: "text", text: "Main product reference (for color/identity consistency check only):" });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(mainImageBase64) } });
     }
 
@@ -188,7 +149,7 @@ Compare against the main product image provided and identify all opportunities t
       });
     }
     if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
+      return new Response(JSON.stringify({ error: "AI credits exhausted.", errorType: "payment_required" }), {
         status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -212,7 +173,18 @@ Compare against the main product image provided and identify all opportunities t
 
     const analysis = JSON.parse(jsonMatch[0]);
 
-    console.log(`[Enhancement] Analysis complete. Quality: ${analysis.contentQuality?.overallQuality}%, Opportunities: ${analysis.enhancementOpportunities?.length || 0}`);
+    // Server-side guard: strip any opportunity types that aren't in the safe allow-list
+    const SAFE_TYPES = new Set([
+      'lighting_improvement', 'color_correction', 'sharpness_improvement',
+      'contrast_improvement', 'noise_reduction', 'product_focus', 'quality_enhancement',
+    ]);
+    if (Array.isArray(analysis.enhancementOpportunities)) {
+      analysis.enhancementOpportunities = analysis.enhancementOpportunities.filter(
+        (o: any) => SAFE_TYPES.has(o?.type)
+      );
+    }
+
+    console.log(`[Enhancement] Analysis complete. Quality: ${analysis.contentQuality?.overallQuality}%, Safe opportunities: ${analysis.enhancementOpportunities?.length || 0}`);
 
     return new Response(JSON.stringify(analysis), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
