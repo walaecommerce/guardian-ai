@@ -50,8 +50,8 @@ describe('exportReport unresolved states', () => {
     expect(data.passed).toBe(1);
     expect(data.fixed).toBe(1);
     expect(data.unresolved).toBe(2);
-    // Unresolved items should NOT count as "failed" since they're in the unresolved bucket
-    expect(data.failed).toBe(1); // only id:4 which was fixed still counts as failed in raw analysis
+    // Fixed items should NOT count as "failed" — they are resolved
+    expect(data.failed).toBe(0);
     expect(data.overall_status).toBe('FAIL'); // has unresolved
 
     // Unresolved summary
