@@ -119,6 +119,45 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_ledger: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string
+          credit_type: Database["public"]["Enums"]["credit_type"]
+          description: string | null
+          event_type: string
+          id: string
+          idempotency_key: string | null
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          created_at?: string
+          credit_type: Database["public"]["Enums"]["credit_type"]
+          description?: string | null
+          event_type: string
+          id?: string
+          idempotency_key?: string | null
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string
+          credit_type?: Database["public"]["Enums"]["credit_type"]
+          description?: string | null
+          event_type?: string
+          id?: string
+          idempotency_key?: string | null
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       credit_usage_log: {
         Row: {
           consumed_at: string
@@ -301,6 +340,87 @@ export type Database = {
           verified?: boolean
         }
         Relationships: []
+      }
+      promo_codes: {
+        Row: {
+          active: boolean
+          affiliate_tag: string | null
+          code: string
+          created_at: string
+          credit_amount: number
+          credit_type: Database["public"]["Enums"]["credit_type"]
+          current_redemptions: number
+          expires_at: string | null
+          id: string
+          max_redemptions: number | null
+          metadata: Json | null
+        }
+        Insert: {
+          active?: boolean
+          affiliate_tag?: string | null
+          code: string
+          created_at?: string
+          credit_amount: number
+          credit_type: Database["public"]["Enums"]["credit_type"]
+          current_redemptions?: number
+          expires_at?: string | null
+          id?: string
+          max_redemptions?: number | null
+          metadata?: Json | null
+        }
+        Update: {
+          active?: boolean
+          affiliate_tag?: string | null
+          code?: string
+          created_at?: string
+          credit_amount?: number
+          credit_type?: Database["public"]["Enums"]["credit_type"]
+          current_redemptions?: number
+          expires_at?: string | null
+          id?: string
+          max_redemptions?: number | null
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
+      promo_redemptions: {
+        Row: {
+          created_at: string
+          id: string
+          ledger_entry_id: string | null
+          promo_code_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ledger_entry_id?: string | null
+          promo_code_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ledger_entry_id?: string | null
+          promo_code_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_redemptions_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: false
+            referencedRelation: "credit_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_redemptions_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       session_images: {
         Row: {
@@ -581,6 +701,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      debit_credit: {
+        Args: {
+          p_credit_type: Database["public"]["Enums"]["credit_type"]
+          p_description?: string
+          p_idempotency_key: string
+          p_user_id: string
+        }
+        Returns: number
+      }
+      get_credit_balance: {
+        Args: {
+          p_credit_type: Database["public"]["Enums"]["credit_type"]
+          p_user_id: string
+        }
+        Returns: number
+      }
+      grant_credit: {
+        Args: {
+          p_amount: number
+          p_credit_type: Database["public"]["Enums"]["credit_type"]
+          p_description?: string
+          p_event_type?: string
+          p_idempotency_key?: string
+          p_user_id: string
+        }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
