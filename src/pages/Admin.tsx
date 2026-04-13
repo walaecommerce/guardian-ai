@@ -800,6 +800,11 @@ export default function Admin() {
           </div>
         </TabsContent>
 
+        {/* Promos Tab */}
+        <TabsContent value="promos">
+          <PromoCodesPanel />
+        </TabsContent>
+
         {/* AI Status Tab */}
         <TabsContent value="ai-status">
           <AIProviderStatusPanel />
