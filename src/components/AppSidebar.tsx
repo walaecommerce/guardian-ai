@@ -1,6 +1,7 @@
 import {
   Shield, BarChart3, Sparkles, Activity, CreditCard, LogOut, Settings, User, Search, ChevronUp, History, Image, ShieldCheck, Home,
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -146,7 +147,8 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* User footer */}
-      <SidebarFooter className="p-3">
+      <SidebarFooter className="p-3 space-y-1">
+        <ThemeToggle collapsed={collapsed} />
         {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
