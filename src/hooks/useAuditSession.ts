@@ -1250,6 +1250,19 @@ export function useAuditSession() {
           }).eq('id', sessionImageId).then(() => {});
         }
       }
+      // Persist aggregate unresolved counts to session
+      if (currentSessionId) {
+        const updatedAssets = assets.map(a => {
+          const skipEntry = skipped.find(s => s.asset.id === a.id);
+          if (skipEntry) {
+            const c = classifyAssetFixability(a);
+            return { ...a, unresolvedState: (c.tier === 'warn_only' ? 'warn_only' : 'manual_review') as ImageAsset['unresolvedState'], batchFixStatus: 'skipped' as const };
+          }
+          return a;
+        });
+        const counts = computeUnresolvedCounts(updatedAssets);
+        supabase.from('enhancement_sessions').update(counts).eq('id', currentSessionId).then(() => {});
+      }
     }
 
     if (failedAssets.length === 0) {
