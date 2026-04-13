@@ -9,6 +9,7 @@ export interface UserProfile {
   avatar_url: string | null;
   amazon_store_url: string | null;
   onboarding_complete: boolean;
+  disabled: boolean;
 }
 
 interface AuthContextType {
@@ -16,6 +17,7 @@ interface AuthContextType {
   session: Session | null;
   profile: UserProfile | null;
   isAdmin: boolean;
+  isDisabled: boolean;
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
