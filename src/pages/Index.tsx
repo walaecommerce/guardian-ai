@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { AICreditsExhaustedBanner } from '@/components/AICreditsExhaustedBanner';
+import { ListingContextPanel } from '@/components/ListingContextPanel';
 
 function InlineActivityLog({ logs, onClear }: { logs: LogEntry[]; onClear: () => void }) {
   const [open, setOpen] = useState(false);
@@ -182,6 +183,13 @@ const Index = () => {
           </div>
         )}
       </div>
+
+      {/* Listing context panel — compact, above step content */}
+      {session.listingContext && session.assets.length > 0 && (
+        <div className="px-6 pb-2">
+          <ListingContextPanel context={session.listingContext} />
+        </div>
+      )}
 
       <AICreditsExhaustedBanner
         visible={session.aiCreditsExhausted}

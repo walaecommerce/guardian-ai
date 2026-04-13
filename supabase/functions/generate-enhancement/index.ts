@@ -142,7 +142,8 @@ serve(async (req) => {
       targetImprovements,
       preserveElements,
       customPrompt,
-      sessionImageId
+      sessionImageId,
+      listingContext,
     } = await req.json();
 
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
@@ -153,11 +154,29 @@ serve(async (req) => {
     console.log(`[generate-enhancement] model: ${MODELS.imageGen}, category: ${imageCategory}, type: ${enhancementType}`);
 
     // Never use customPrompt for enhancement — always use the safe builder
-    const prompt = buildEnhancementPrompt(
+    let prompt = buildEnhancementPrompt(
       imageCategory,
       targetImprovements || [],
       preserveElements || []
     );
+
+    // Inject listing context guardrails if available
+    if (listingContext && typeof listingContext === 'object') {
+      const parts: string[] = [];
+      if (listingContext.brand) parts.push(`Brand: ${listingContext.brand}`);
+      if (listingContext.title) parts.push(`Product: ${listingContext.title}`);
+      if (Array.isArray(listingContext.claims) && listingContext.claims.length > 0) {
+        parts.push(`Valid claims: ${listingContext.claims.slice(0, 6).join(', ')}`);
+      }
+      if (parts.length > 0) {
+        prompt += `\n\nPRODUCT CONTEXT:
+${parts.join('\n')}
+- Preserve the product's intended positioning and valid claims
+- Do NOT add, remove, or change any text/claims on the product
+- Do NOT create visual elements implying unsupported claims
+- Enhancement is polish only — not redesign`;
+      }
+    }
 
     const contentParts: any[] = [
       { type: "text", text: prompt },
