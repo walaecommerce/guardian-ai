@@ -560,14 +560,14 @@ describe('runFixOrchestration', () => {
         .mockResolvedValueOnce({ data: null, error: { message: 'timeout' } });
 
       const cb = makeCallbacks();
-      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      let caught: any;
+      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb)
+        .catch(e => { caught = e; });
       await vi.advanceTimersByTimeAsync(30000);
+      await promise;
 
-      await expect(promise).rejects.toThrow();
-      // Should NOT have isPayment
-      try { await promise; } catch (e: any) {
-        expect(e.isPayment).toBeUndefined();
-      }
+      expect(caught).toBeDefined();
+      expect(caught.isPayment).toBeUndefined();
     });
 
     it('does not mislabel non-payment error as payment', async () => {
@@ -581,10 +581,15 @@ describe('runFixOrchestration', () => {
         .mockResolvedValueOnce({ data: null, error: nonPaymentError });
 
       const cb = makeCallbacks();
-      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb);
+      let caught: any;
+      const promise = runFixOrchestration({ asset: makeAsset(), originalBase64: 'x' }, cb)
+        .catch(e => { caught = e; });
       await vi.advanceTimersByTimeAsync(30000);
+      await promise;
 
-      await expect(promise).rejects.toThrow('Internal error');
+      expect(caught).toBeDefined();
+      expect(caught.message).toBe('Internal error');
+      expect(caught.isPayment).toBeUndefined();
     });
   });
 });
