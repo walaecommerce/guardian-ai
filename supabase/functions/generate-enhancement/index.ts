@@ -2,13 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { MODELS } from "../_shared/models.ts";
 import { fetchGemini } from "../_shared/gemini.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-
-// ── Image helpers ────────────────────────────────────────────────
 
 const guessImageMimeType = (b64: string): string => {
   const d = (b64 || '').trim();
@@ -40,146 +38,72 @@ const toDataUrl = (dataUrl: string): string => {
   return `data:${guessImageMimeType(dataUrl)};base64,${dataUrl}`;
 };
 
-// Category-specific enhancement prompts
-const getCategoryEnhancementPrompt = (
-  category: string,
-  enhancementType: string,
+/**
+ * Build a compliance-preserving quality-polish prompt.
+ * Enhancement = improve lighting, color, sharpness, contrast.
+ * NEVER add elements, change layout, convert content type, or redesign.
+ */
+const buildEnhancementPrompt = (
+  imageCategory: string,
   targetImprovements: string[],
   preserveElements: string[]
 ): string => {
   const preserveSection = preserveElements.length > 0
-    ? `\n\nCRITICAL - PRESERVE EXACTLY:\n${preserveElements.map(e => `- ${e}`).join('\n')}`
+    ? `\nPRESERVE EXACTLY:\n${preserveElements.map(e => `- ${e}`).join('\n')}`
     : '';
 
   const improvementsSection = targetImprovements.length > 0
-    ? `\n\nTARGET IMPROVEMENTS:\n${targetImprovements.map(e => `- ${e}`).join('\n')}`
+    ? `\nTARGETED QUALITY IMPROVEMENTS:\n${targetImprovements.map(e => `- ${e}`).join('\n')}`
     : '';
 
-  const categoryPrompts: Record<string, string> = {
-    'LIFESTYLE': `Enhance this LIFESTYLE product image:
-
-GOAL: Make the product more prominent and appealing within the lifestyle context.
-
-ENHANCEMENT FOCUS:
-1. Increase product visibility - product should be the clear hero
-2. Improve lighting specifically on the product
-3. Add subtle depth of field to focus attention on product
-4. Maintain authentic, aspirational lifestyle feeling
-5. Ensure product occupies at least 35-40% of frame
-
-MAIN PRODUCT REFERENCE: Use the attached main image to ensure product consistency.
-The product in the enhanced image MUST match the main product exactly.
-${improvementsSection}${preserveSection}
-
-OUTPUT: Enhanced lifestyle image with product as the clear focal point.`,
-
-    'INFOGRAPHIC': `Enhance this INFOGRAPHIC product image:
-
-GOAL: Improve the informational value and visual appeal of this infographic.
-
-ENHANCEMENT FOCUS:
-1. If product image is missing or weak: Add a clean product cutout
-2. Improve feature callout graphics (add connector lines, icons)
-3. Enhance text readability and visual hierarchy
-4. Add professional styling to all graphic elements
-5. Ensure clear product-to-feature connections
-
-MAIN PRODUCT REFERENCE: Use for product cutout if adding/improving product image.
-${improvementsSection}${preserveSection}
-
-OUTPUT: Professional infographic with clear product and compelling feature presentation.`,
-
-    'PRODUCT_IN_USE': `Enhance this PRODUCT IN USE demonstration image:
-
-GOAL: Make the product usage and benefits clearer and more impactful.
-
-ENHANCEMENT FOCUS:
-1. Improve product visibility during the action/demonstration
-2. Enhance the clarity of the benefit being shown
-3. Add subtle result/benefit indicators if appropriate
-4. Improve lighting to highlight the product
-5. Maintain natural, authentic usage feeling
-
-MAIN PRODUCT REFERENCE: Ensure product matches exactly.
-${improvementsSection}${preserveSection}
-
-OUTPUT: Clear demonstration image with visible product and obvious benefit.`,
-
-    'COMPARISON': `Enhance this COMPARISON image:
-
-GOAL: Make the before/after or comparison states clearly distinguishable.
-
-ENHANCEMENT FOCUS:
-1. Add clear "Before" and "After" labels if not present
-2. Improve visual distinction between states
-3. Enhance the positive outcome side
-4. Add subtle result indicators
-5. Ensure product is prominently featured
-
-MAIN PRODUCT REFERENCE: Product must be consistent throughout.
-${improvementsSection}${preserveSection}
-
-OUTPUT: Clear comparison with obvious improvement/benefit visualization.`,
-
-    'SIZE_CHART': `Enhance this SIZE/DIMENSION image:
-
-GOAL: Make dimensions and sizing information crystal clear.
-
-ENHANCEMENT FOCUS:
-1. Add or improve dimension lines with clear measurements
-2. Include product image reference if missing
-3. Use consistent measurement units throughout
-4. Add comparison objects for scale if helpful
-5. Ensure all labels are readable
-
-MAIN PRODUCT REFERENCE: Use for reference sizing.
-${improvementsSection}${preserveSection}
-
-OUTPUT: Professional size chart with clear, accurate measurements.`,
-  };
-
-  // Guard: MAIN/hero images should never be destructively enhanced
-  if (category === 'MAIN' || category === 'HERO') {
-    return `This is a MAIN/HERO product image. Do NOT add graphics, text overlays, infographic elements, or lifestyle context.
-
-GOAL: Minor quality polish ONLY — subtle lighting, sharpness, color balance improvements.
+  // MAIN/hero: minimal polish only
+  if (imageCategory === 'MAIN' || imageCategory === 'HERO') {
+    return `This is a MAIN/HERO product image. Apply minimal quality polish ONLY.
 
 CRITICAL RULES:
 - MUST keep pure white background (RGB 255,255,255)
-- MUST NOT add any text, callouts, badges, or graphics
+- MUST NOT add any text, callouts, badges, graphics, or overlays
 - MUST NOT change product appearance, color, shape, or positioning
-- MUST NOT add lifestyle context or props
+- MUST NOT add lifestyle context, props, or scene elements
 - Product must remain the sole subject on white background
+- Only allowed: subtle lighting balance, sharpness, color accuracy
 ${improvementsSection}${preserveSection}
 
-OUTPUT: Minimally polished hero product image on pure white background.`;
+OUTPUT: Minimally polished hero product image on pure white background. Nearly identical to the input.`;
   }
 
-  return `Enhance this product image with conservative quality improvements:
+  // All secondary images: conservative quality polish
+  return `Apply conservative quality polish to this ${imageCategory} product image.
 
-GOAL: Improve image quality without changing content structure or adding new elements.
+ABSOLUTE RULES — DO NOT:
+- Add text, callout graphics, annotations, labels, or infographic elements
+- Add product cutouts, overlays, comparison labels, or badges
+- Convert the image to a different type (e.g. lifestyle → infographic)
+- Redesign, restructure, or change the composition/layout
+- Add promotional badges, banners, marketing text, or watermarks
+- Add props, backgrounds, or context elements not already in the image
+- Change what the image fundamentally IS — preserve its category and role
 
-ENHANCEMENT TYPE: ${enhancementType}
+ALLOWED QUALITY IMPROVEMENTS ONLY:
+- Improve lighting: even out shadows, subtle fill light on product
+- Improve color: better white balance, accurate color representation
+- Improve sharpness: enhance detail clarity and edge definition
+- Improve contrast: better tonal depth and visual pop
+- Reduce noise: minimize grain or compression artifacts
+- Subtle focus: gentle depth-of-field to draw attention to product
 
-CRITICAL RULES:
-- Do NOT add infographic elements, text overlays, or callout graphics
-- Do NOT change the image's fundamental composition or content type
-- Focus on: lighting, color accuracy, sharpness, contrast, product visibility
-- Preserve the existing style and layout
+The enhanced image must look like a better-lit, better-color-balanced, sharper version of the SAME image — not a different image.
 ${improvementsSection}${preserveSection}
 
-MAIN PRODUCT REFERENCE: Ensure product consistency.
-
-OUTPUT: Quality-polished version of the original image, same style and composition.`;
+OUTPUT: Quality-polished version preserving the exact same composition, layout, content type, and visual identity.`;
 };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-  
+
   try {
-    // Auth validation
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -206,24 +130,22 @@ serve(async (req) => {
       throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    console.log(`[generate-enhancement] using model: ${MODELS.imageGen} via Gemini API`);
-    console.log(`[Enhancement Gen] Generating ${enhancementType} enhancement for ${imageCategory} image...`);
+    console.log(`[generate-enhancement] model: ${MODELS.imageGen}, category: ${imageCategory}, type: ${enhancementType}`);
 
-    const prompt = customPrompt || getCategoryEnhancementPrompt(
+    // Never use customPrompt for enhancement — always use the safe builder
+    const prompt = buildEnhancementPrompt(
       imageCategory,
-      enhancementType,
       targetImprovements || [],
       preserveElements || []
     );
 
-    // Build content parts
     const contentParts: any[] = [
       { type: "text", text: prompt },
       { type: "image_url", image_url: { url: toDataUrl(originalImage) } },
     ];
 
     if (mainProductImage) {
-      contentParts.push({ type: "text", text: "Main product reference image (use for product consistency):" });
+      contentParts.push({ type: "text", text: "Main product reference (for color/identity consistency only — do not copy its layout):" });
       contentParts.push({ type: "image_url", image_url: { url: toDataUrl(mainProductImage) } });
     }
 
@@ -239,7 +161,7 @@ serve(async (req) => {
       });
     }
     if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings → Workspace → Usage.", errorType: "payment_required" }), {
+      return new Response(JSON.stringify({ error: "AI credits exhausted.", errorType: "payment_required" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -253,8 +175,6 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-
-    // Extract image from gateway response
     const imageResult = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!imageResult) {
@@ -270,10 +190,9 @@ serve(async (req) => {
         });
       }
 
-      console.error(`[Enhancement Gen] No image in gateway response. Text: ${textContent.slice(0, 200)}`);
-
+      console.error(`[Enhancement Gen] No image in response. Text: ${textContent.slice(0, 200)}`);
       return new Response(JSON.stringify({
-        error: "No enhanced image was generated. Please try again or use a different enhancement preset.",
+        error: "No enhanced image was generated. Please try again.",
         errorType: "no_image_returned",
         modelTextSnippet: textContent.slice(0, 240) || null,
       }), {
@@ -281,7 +200,7 @@ serve(async (req) => {
       });
     }
 
-    console.log("[Enhancement Gen] ✅ Enhanced image generated successfully via Google Gemini API");
+    console.log("[Enhancement Gen] ✅ Quality-polished image generated successfully");
 
     return new Response(JSON.stringify({
       enhancedImage: imageResult,
