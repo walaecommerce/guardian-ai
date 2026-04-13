@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/EmptyState';
 import { ImageAsset } from '@/types';
-import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, Search, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Wand2, Loader2, ArrowRight, CheckCircle, Sparkles, Search, AlertTriangle } from 'lucide-react';
 
 interface FixStepProps {
   assets: ImageAsset[];
