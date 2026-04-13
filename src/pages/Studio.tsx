@@ -469,9 +469,11 @@ const Studio = () => {
         variant: 'destructive',
       });
     } finally {
-      setAddingToSession(null);
+    setAddingToSession(null);
     }
   };
+
+  const getScoreBadgeClass = (score: number) => {
     if (score >= 85) return 'bg-green-500/15 text-green-600 border-green-500/30';
     if (score >= 70) return 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30';
     return 'bg-destructive/15 text-destructive border-destructive/30';
@@ -759,7 +761,7 @@ const Studio = () => {
                         </Badge>
                       )}
                       {img.status === 'analyzed' && img.score !== null && (
-                        <Badge className={scoreColor(img.score)}>
+                        <Badge className={getScoreBadgeClass(img.score)}>
                           {img.score}%
                         </Badge>
                       )}
