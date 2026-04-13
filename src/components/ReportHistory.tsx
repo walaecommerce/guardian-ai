@@ -197,11 +197,11 @@ export const ReportHistory = ({ onLoadReport }: ReportHistoryProps) => {
                     <p className="text-xs text-muted-foreground">Total</p>
                   </Card>
                   <Card className="p-3 text-center">
-                    <p className="text-2xl font-bold text-green-600">{selectedReport.passed_count}</p>
+                    <p className="text-2xl font-bold text-success">{selectedReport.passed_count}</p>
                     <p className="text-xs text-muted-foreground">Passed</p>
                   </Card>
                   <Card className="p-3 text-center">
-                    <p className="text-2xl font-bold text-red-600">{selectedReport.failed_count}</p>
+                    <p className="text-2xl font-bold text-destructive">{selectedReport.failed_count}</p>
                     <p className="text-xs text-muted-foreground">Failed</p>
                   </Card>
                 </div>

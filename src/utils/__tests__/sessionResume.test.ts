@@ -45,6 +45,20 @@ describe('inferCurrentStep', () => {
       product_identity: { lastStep: 'bogus' },
     })).toBe('review');
   });
+
+  it('returns review when remaining failures are all skipped/unresolved', () => {
+    // 3 failed, 1 fixed, 2 skipped → no fixable remaining → review
+    expect(inferCurrentStep({
+      total_images: 5, passed_count: 2, failed_count: 3, fixed_count: 1, skipped_count: 2, status: 'in_progress',
+    })).toBe('review');
+  });
+
+  it('returns fix when fixable items remain after skipped', () => {
+    // 3 failed, 0 fixed, 1 skipped → 2 fixable remaining → fix
+    expect(inferCurrentStep({
+      total_images: 5, passed_count: 2, failed_count: 3, fixed_count: 0, skipped_count: 1, status: 'in_progress',
+    })).toBe('fix');
+  });
 });
 
 describe('formatContentType', () => {
