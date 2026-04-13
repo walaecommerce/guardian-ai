@@ -761,7 +761,7 @@ const Studio = () => {
                         </Badge>
                       )}
                       {img.status === 'analyzed' && img.score !== null && (
-                        <Badge className={scoreColor(img.score)}>
+                        <Badge className={getScoreBadgeClass(img.score)}>
                           {img.score}%
                         </Badge>
                       )}
