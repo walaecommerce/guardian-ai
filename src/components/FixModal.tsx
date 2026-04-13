@@ -302,6 +302,15 @@ export function FixModal({ asset, isOpen, onClose, onRetryFix, onDownload, fixPr
 
         <ScrollArea className="max-h-[calc(95vh-120px)]">
           <div className="space-y-4 pr-4">
+            {/* Product knowledge preservation note */}
+            {productKnowledge && productKnowledge.isActionable && (
+              <div className="flex items-start gap-1.5 px-2 py-1.5 rounded-md bg-primary/5 border border-primary/20 text-[11px] text-muted-foreground">
+                <span className="shrink-0 mt-0.5">🛡️</span>
+                <span>
+                  Preserving {productKnowledge.brand ? `brand "${productKnowledge.brand}", ` : ''}{productKnowledge.supportedClaims.length > 0 ? `${productKnowledge.supportedClaims.length} valid claims, ` : ''}product identity via listing context.
+                </span>
+              </div>
+            )}
             {/* Review Mode Banner */}
             {isReviewMode && (
               <div className="p-3 rounded-lg border bg-muted/30 border-muted flex items-center gap-2">
