@@ -233,6 +233,11 @@ export function AuditStep({
         <ProductIdentityPanel identity={productIdentity} profile={identityProfile} />
       )}
 
+      {/* Campaign Image Strategy */}
+      {hasResults && campaignStrategy && (
+        <CampaignStrategyPanel strategy={campaignStrategy} />
+      )}
+
       {/* Full-width results */}
       <AnalysisResults
         assets={assets}
