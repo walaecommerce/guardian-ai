@@ -382,13 +382,27 @@ export function ClientReportGenerator({
         health_score: healthScore,
         status,
         total_images: analyzedAssets.length,
-        passed, failed,
+        passed, failed, fixed: fixedCount,
+        unresolved: unresolvedAssets.length,
+        unresolved_summary: unresolvedAssets.length > 0 ? {
+          manual_review: unresolvedAssets.filter(a => a.unresolvedState === 'manual_review').length || undefined,
+          warn_only: unresolvedAssets.filter(a => a.unresolvedState === 'warn_only').length || undefined,
+          retry_stopped: unresolvedAssets.filter(a => a.unresolvedState === 'retry_stopped').length || undefined,
+          auto_fix_failed: unresolvedAssets.filter(a => a.unresolvedState === 'auto_fix_failed').length || undefined,
+          skipped: unresolvedAssets.filter(a => a.unresolvedState === 'skipped').length || undefined,
+        } : undefined,
         scorecard: scorecardData || null,
         assets: analyzedAssets.map(a => ({
           name: a.name, type: a.type,
           score: a.analysisResult!.overallScore,
           status: a.analysisResult!.status,
           violations: a.analysisResult!.violations,
+          ...(a.unresolvedState ? {
+            unresolved_state: unresolvedLabel(a.unresolvedState),
+            unresolved_reason: a.batchSkipReason || a.fixStopReason || undefined,
+            fix_attempts_count: a.fixAttempts?.length || undefined,
+            last_fix_strategy: a.lastFixStrategy || undefined,
+          } : {}),
         })),
       }, null, 2);
 
