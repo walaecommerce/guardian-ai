@@ -22,6 +22,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { AnalysisResult } from '@/types';
 import { uploadImage, getImageUrl } from '@/services/imageStorage';
 import { logEvent } from '@/services/eventLog';
+import { useCreditGate } from '@/hooks/useCreditGate';
+
+type SessionAttachStep = 'idle' | 'uploading' | 'attaching' | 'analyzing' | 'done' | 'done_no_credits' | 'error';
 
 // ── Template definitions ────────────────────────────────────
 
