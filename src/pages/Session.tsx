@@ -9,6 +9,7 @@ import { ComplianceReportCard } from '@/components/ComplianceReportCard';
 import { BatchComparisonView } from '@/components/BatchComparisonView';
 import { FixModal } from '@/components/FixModal';
 import { ActivityLog } from '@/components/ActivityLog';
+import { ManualReviewLane, isManualReviewAsset } from '@/components/ManualReviewLane';
 import { ImageAsset, LogEntry, AnalysisResult, FixAttempt, FixProgressState, ProductIdentityCard } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -278,6 +279,39 @@ const Session = () => {
   const handleRequestFix = async (assetId: string, previousGeneratedImage?: string, customPrompt?: string) => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
+
+    // Fixability check — mirror the main audit workspace logic
+    const { classifyAssetFixability } = await import('@/utils/fixability');
+    const fixability = classifyAssetFixability(asset);
+    if (fixability.tier === 'manual_review' || fixability.tier === 'warn_only') {
+      addLog('warning', `⏭️ ${asset.name}: ${fixability.reason}`);
+      const unresolvedState = fixability.tier === 'manual_review' ? 'manual_review' as const : 'warn_only' as const;
+      setAssets(prev => prev.map(a => a.id === assetId ? {
+        ...a,
+        fixabilityTier: fixability.tier,
+        unresolvedState,
+        batchFixStatus: 'skipped' as const,
+        batchSkipReason: fixability.reason,
+      } : a));
+
+      // Persist to DB
+      const sessionImageId = assetSessionMap.get(assetId);
+      if (sessionImageId && currentSessionId) {
+        supabase.from('session_images').update({
+          status: 'skipped',
+          fix_attempts: { skipped: true, skipReason: fixability.reason, fixabilityTier: fixability.tier, unresolvedState } as any,
+        }).eq('id', sessionImageId).then(() => {});
+      }
+
+      toast({
+        title: fixability.tier === 'manual_review' ? 'Manual Review Required' : 'Cannot Auto-Fix',
+        description: fixability.reason,
+        variant: 'destructive',
+        duration: 6000,
+      });
+      return;
+    }
+
     if (!creditGate('fix')) return;
 
     try {
@@ -493,7 +527,11 @@ const Session = () => {
   };
 
   const handleBatchFix = async () => {
-    const failedAssets = assets.filter(a => (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage);
+    // Exclude manual-review/skipped assets from batch fix — consistent with main audit workspace
+    const failedAssets = assets.filter(a => 
+      (a.analysisResult?.status === 'FAIL' || a.analysisResult?.status === 'WARNING') && !a.fixedImage
+      && !isManualReviewAsset(a)
+    );
     if (failedAssets.length === 0) return;
     
     setIsBatchFixing(true);
@@ -604,7 +642,8 @@ const Session = () => {
   };
 
   const passedCount = assets.filter(a => a.analysisResult?.status === 'PASS').length;
-  const failedCount = assets.filter(a => a.analysisResult?.status === 'FAIL').length;
+  const manualReviewAssets = assets.filter(isManualReviewAsset);
+  const failedCount = assets.filter(a => a.analysisResult?.status === 'FAIL' && !manualReviewAssets.some(m => m.id === a.id)).length;
   const fixedCount = assets.filter(a => a.fixedImage).length;
 
   // Loading state
@@ -716,17 +755,23 @@ const Session = () => {
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-3 text-sm">
                     <span className="flex items-center gap-1">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       {passedCount} passed
                     </span>
                     <span className="flex items-center gap-1">
-                      <XCircle className="h-4 w-4 text-red-500" />
+                      <XCircle className="h-4 w-4 text-destructive" />
                       {failedCount} failed
                     </span>
                     {fixedCount > 0 && (
                       <span className="flex items-center gap-1">
-                        <Wrench className="h-4 w-4 text-blue-500" />
+                        <Wrench className="h-4 w-4 text-primary" />
                         {fixedCount} fixed
+                      </span>
+                    )}
+                    {manualReviewAssets.length > 0 && (
+                      <span className="flex items-center gap-1 text-warning">
+                        <AlertCircle className="h-4 w-4" />
+                        {manualReviewAssets.length} review
                       </span>
                     )}
                   </div>
@@ -862,17 +907,22 @@ const Session = () => {
                     </CardContent>
                   </Card>
                 ) : (
-                  <AnalysisResults
-                    assets={assets}
-                    listingTitle={listingTitle}
-                    onRequestFix={(id) => handleRequestFix(id)}
-                    onViewDetails={handleViewDetails}
-                    onReverify={handleReverify}
-                    onBatchFix={handleBatchFix}
-                    onRetryAudit={handleRunAudit}
-                    isBatchFixing={isBatchFixing}
-                    productAsin={productAsin || undefined}
-                  />
+                  <div className="space-y-6">
+                    {/* Manual Review lane — consistent with /audit workspace */}
+                    <ManualReviewLane assets={manualReviewAssets} onViewDetails={handleViewDetails} />
+
+                    <AnalysisResults
+                      assets={assets}
+                      listingTitle={listingTitle}
+                      onRequestFix={(id) => handleRequestFix(id)}
+                      onViewDetails={handleViewDetails}
+                      onReverify={handleReverify}
+                      onBatchFix={handleBatchFix}
+                      onRetryAudit={handleRunAudit}
+                      isBatchFixing={isBatchFixing}
+                      productAsin={productAsin || undefined}
+                    />
+                  </div>
                 )}
               </TabsContent>
               <TabsContent value="comparison">
