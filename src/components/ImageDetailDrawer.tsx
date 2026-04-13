@@ -222,6 +222,15 @@ export function ImageDetailDrawer({
                                     {getSourceTierLabel(ev.sourceTier)}
                                   </span>
                                 )}
+                                {(() => {
+                                  const ktCfg = getKnowledgeTagConfig(ev.knowledgeTag);
+                                  return ktCfg ? (
+                                    <span className={`inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-medium border ${ktCfg.className}`}>
+                                      <Brain className="w-2 h-2" />
+                                      {ktCfg.label}
+                                    </span>
+                                  ) : null;
+                                })()}
                                 {ev.surfaces && ev.surfaces.length > 0 && (
                                   <span className="text-[9px] text-muted-foreground/70">
                                     {getSurfaceLabels(ev.surfaces).join(' · ')}
